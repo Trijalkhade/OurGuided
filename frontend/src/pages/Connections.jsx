@@ -10,6 +10,16 @@ const Connections = () => {
   const [activeTab, setActiveTab] = useState('connections');
   const [loading, setLoading] = useState(true);
 
+  // 🚀 SEO CONTENT FOR GOOGLE
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Connect with Learners</h1>
+        <p>Build connections with people learning and sharing real-world skills.</p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     fetchConnections();
 

@@ -18,7 +18,7 @@ const Login = () => {
       toast.success('Welcome back!');
       navigate('/feed');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      toast.error((err.response && err.response.data && err.response.data.message) || 'Login failed');
     } finally { setLoading(false); }
   };
 

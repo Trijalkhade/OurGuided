@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import PostCard from '../components/PostCard.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -20,7 +21,7 @@ const CreatePost = ({ onPostCreated }) => {
   const [showExtra, setShowExtra]   = useState(false);
   const [loading,   setLoading]     = useState(false);
 
-  const initials = (user?.username || '?')[0]?.toUpperCase();
+  const initials = (user && user.username ? user.username[0] : '?') && (user.username[0] || '?').toUpperCase();
 
   const handleSubmit = async () => {
     if (!content.trim() && imageFiles.length === 0 && !videoUrl.trim())
@@ -41,8 +42,8 @@ const CreatePost = ({ onPostCreated }) => {
       setContent(''); setTags(''); setImageFiles([]);
       setVideoUrl(''); setCategory(''); setIsAnon(false); setShowExtra(false);
       toast.success('Post created!');
-      onPostCreated?.();
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to create post'); }
+      onPostCreated && onPostCreated();
+    } catch (err) { toast.error((err.response && err.response.data && err.response.data.message) || 'Failed to create post'); }
     finally { setLoading(false); }
   };
 
@@ -50,7 +51,7 @@ const CreatePost = ({ onPostCreated }) => {
     <div className="create-post">
       <div className="create-post-top">
         <div className="avatar" style={{ flexShrink: 0 }}>
-          {user?.photo ? <img src={user.photo} alt={user.username}/> : initials}
+          {user && user.photo ? <img src={user.photo} alt={user.username}/> : initials}
         </div>
         <textarea className="post-input"
           placeholder="Share your knowledge, a skill, or a learning insight…"
@@ -99,15 +100,33 @@ const CreatePost = ({ onPostCreated }) => {
 };
 
 const Feed = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [posts,     setPosts]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
   const [page,      setPage]      = useState(1);
   const [catFilter, setCatFilter] = useState('');
   const [hasMore,   setHasMore]   = useState(true);
   const [useRec,    setUseRec]    = useState(true); // toggle recommended vs chronological
 
+  useEffect(() => {
+    if (!loading && !user && !isPrerender) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  // 🚀 SEO CONTENT FOR GOOGLE
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Learn Real World Skills from Real People</h1>
+        <p>Explore practical knowledge, experiences, and career insights shared by real users.</p>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   const fetchPosts = async (p = 1, cat = catFilter, rec = useRec) => {
-    setLoading(true);
     try {
       let data;
       if (rec && !cat) {
@@ -126,7 +145,6 @@ const Feed = () => {
         setPosts(prev => p === 1 ? data : [...prev, ...data]);
       }
     } catch { toast.error('Failed to load feed'); }
-    finally  { setLoading(false); }
   };
 
   useEffect(() => { setPage(1); fetchPosts(1, catFilter, useRec); }, [catFilter, useRec]); // eslint-disable-line
@@ -182,9 +200,8 @@ const Feed = () => {
           ))}
           {hasMore && (
             <button className="btn btn-secondary" style={{ width: '100%', marginTop: '1rem' }}
-              disabled={loading}
               onClick={() => { const next = page + 1; setPage(next); fetchPosts(next, catFilter, useRec); }}>
-              {loading ? 'Loading…' : 'Load more'}
+              Load more
             </button>
           )}
         </>

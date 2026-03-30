@@ -14,6 +14,16 @@ const Leaderboard = () => {
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 🚀 SEO CONTENT FOR GOOGLE
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Top Learners Leaderboard</h1>
+        <p>See the most active learners and contributors on OurGuided.</p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     const load = async () => {
       try {

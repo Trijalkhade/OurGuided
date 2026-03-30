@@ -47,7 +47,7 @@ const Register = () => {
       navigate('/feed');
     } catch (err) {
       setStep(1);
-      toast.error(err.response?.data?.message || 'Registration failed');
+      toast.error((err.response && err.response.data && err.response.data.message) || 'Registration failed');
     } finally { setLoading(false); }
   };
 

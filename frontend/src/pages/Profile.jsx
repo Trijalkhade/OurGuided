@@ -34,6 +34,16 @@ const Profile = () => {
 
   const isOwn = user?.user_id === Number(id);
 
+  // 🚀 SEO CONTENT FOR GOOGLE
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>User Profiles and Skills</h1>
+        <p>Explore profiles of users sharing real-world experiences and knowledge.</p>
+      </div>
+    );
+  }
+
   const fetchProfile = async () => {
     setLoading(true);
     try {

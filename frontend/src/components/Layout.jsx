@@ -82,7 +82,7 @@ const Layout = () => {
 
   const clearSearch = () => { setSearchQuery(''); setShowResults(false); };
   const hasResults  = searchResults.users.length || searchResults.posts.length || searchResults.quizzes.length;
-  const initials    = user?.username?.[0]?.toUpperCase() || '?';
+  const initials    = user && user.username && user.username[0] ? user.username[0].toUpperCase() : '?';
 
   const navClass = ({ isActive }) => `nav-item${isActive ? ' active' : ''}`;
 
@@ -106,7 +106,7 @@ const Layout = () => {
           <NavLink to="/connections" className={navClass}><FiUsers size={16} /> Connections</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>You</div>
-          <NavLink to={`/profile/${user?.user_id}`} className={navClass}><FiUser size={16} /> Profile</NavLink>
+          <NavLink to={`/profile/${user && user.user_id}`} className={navClass}><FiUser size={16} /> Profile</NavLink>
           <NavLink to="/watchlist"   className={navClass}><FiBookmark size={16} /> Watchlist</NavLink>
           <NavLink to="/playlists"   className={navClass}><FiList size={16} /> Playlists</NavLink>
           <NavLink to="/study"       className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
@@ -127,14 +127,14 @@ const Layout = () => {
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.82rem' }}>
-              {user?.photo
+              {user && user.photo
                 ? <img src={user.photo} alt="" />
                 : initials
               }
             </div>
             <div className="sidebar-user-info">
-              <strong>{user?.username}</strong>
-              <span>@{user?.username}</span>
+              <strong>{user && user.username}</strong>
+              <span>@{user && user.username}</span>
             </div>
             <button
               className="logout-btn"
@@ -179,7 +179,7 @@ const Layout = () => {
                       <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.78rem' }}>
                         {u.photo
                           ? <img src={u.photo} alt="" />
-                          : (u.first_name || u.username || '?')[0]?.toUpperCase()
+                          : ((u.first_name || u.username || '?')[0] || '?').toUpperCase()
                         }
                       </div>
                       <div>
@@ -199,7 +199,7 @@ const Layout = () => {
                       onClick={() => { navigate(`/post/${p.post_id}`); clearSearch(); }}>
                       <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.75rem', background: 'var(--bg3)', color: 'var(--text2)' }}>📝</div>
                       <div>
-                        <div className="name" style={{ fontSize: '0.85rem' }}>{p.content?.slice(0, 55)}{p.content?.length > 55 ? '…' : ''}</div>
+                        <div className="name" style={{ fontSize: '0.85rem' }}>{p.content && p.content.slice ? p.content.slice(0, 55) : ''}{p.content && p.content.length > 55 ? '…' : ''}</div>
                         <div className="handle">{p.category || 'Post'} · by {p.username}</div>
                       </div>
                     </div>
@@ -237,7 +237,7 @@ const Layout = () => {
           <NavLink to="/explore"     className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiCompass size={22} />Explore</NavLink>
           <NavLink to="/quizzes"     className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><RiQuestionLine size={22} />Quizzes</NavLink>
           <NavLink to="/connections" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUsers size={22} />Connect</NavLink>
-          <NavLink to={`/profile/${user?.user_id}`} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUser size={22} />Profile</NavLink>
+          <NavLink to={`/profile/${user && user.user_id}`} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUser size={22} />Profile</NavLink>
           <button className="mobile-nav-item" onClick={handleLogout} aria-label="Logout"><FiLogOut size={22} />Logout</button>
         </div>
       </nav>

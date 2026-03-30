@@ -1,0 +1,15 @@
+# Force HTTPS and WWW
+RewriteEngine On
+
+# Redirect HTTP to HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://www.ourguided.tech/$1 [R=301,L]
+
+# Redirect non-WWW to WWW
+RewriteCond %{HTTP_HOST} ^ourguided\.tech [NC]
+RewriteRule ^(.*)$ https://www.ourguided.tech/$1 [R=301,L]
+
+# Handle trailing slashes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !(.*)/$
+RewriteRule ^(.*)$ https://www.ourguided.tech/$1/ [R=301,L]

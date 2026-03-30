@@ -14,6 +14,16 @@ const Explore = () => {
   const [savingInterests, setSavingInterests] = useState(false);
   const [activeTab, setActiveTab]         = useState('recommended');
 
+  // 🚀 SEO CONTENT FOR GOOGLE
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Explore Skills and Knowledge</h1>
+        <p>Discover real-world skills shared by professionals and students.</p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -123,7 +133,7 @@ const Explore = () => {
         </button>
         {selected && (
           <button className={`tab ${activeTab === 'category' ? 'active' : ''}`}>
-            {categories.find(c => c.name === selected)?.icon} {selected}
+            {(categories.find(c => c.name === selected) || {}).icon} {selected}
           </button>
         )}
       </div>
