@@ -316,7 +316,7 @@ SkillShare/
 * Do not use development servers (`npm run dev`) in production
 * Always serve frontend using Nginx
 * Use a process manager (PM2) for backend reliability
-* Configure SSL for secure communication
+* Configure SSL for secure communication.
 
 ---
 ## 👨‍💻 Author
