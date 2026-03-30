@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiZap, FiCalendar, FiStar } from 'react-icons/fi';
 
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
+
 const medals = ['🥇', '🥈', '🥉'];
 
 const Leaderboard = () => {

@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 /*
  * Profile Page
  * ─────────────

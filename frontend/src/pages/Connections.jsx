@@ -3,7 +3,7 @@ import { API } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import '../styles/Connections.css';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Connections = () => {
   const [connections, setConnections] = useState([]);
   const [requests, setRequests] = useState([]);

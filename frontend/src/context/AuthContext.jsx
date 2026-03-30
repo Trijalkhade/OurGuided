@@ -3,9 +3,13 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
+// ✅ Detect prerender (VERY IMPORTANT)
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
+
 const API = axios.create({ baseURL: '/api' });
 
 API.interceptors.request.use(config => {
+  if (isPrerender) return config; // 🚀 skip auth in prerender
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -18,6 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   /* Auto-start usage session once after login/restore */
   const startUsageSession = async () => {
+    if (isPrerender) return; // 🚀 skip during prerender
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
     try { await API.post('/study/start'); }
@@ -26,34 +31,49 @@ export const AuthProvider = ({ children }) => {
 
   /* Stop usage session before clearing auth */
   const stopUsageSession = async () => {
-    try { await API.post('/study/stop'); } catch { /* no active session – ignore */ }
+    if (isPrerender) return;
+    try { await API.post('/study/stop'); } catch {}
     sessionStartedRef.current = false;
   };
 
-  /* Flush session on tab/window close using sendBeacon */
+  /* Flush session on tab/window close */
   useEffect(() => {
+    if (isPrerender) return;
+
     const handleUnload = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
       navigator.sendBeacon('http://localhost:5000/api/study/stop', blob);
     };
+
     window.addEventListener('beforeunload', handleUnload);
     return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
 
-  /* Validate token on mount and start tracking */
+  /* Validate token on mount */
   useEffect(() => {
+    if (isPrerender) {
+      // 🚀 Skip auth completely during prerender
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
+
     const validate = async () => {
       const token = localStorage.getItem('token');
-      if (!token) { setLoading(false); return; }
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const { data } = await API.get('/auth/me');
         if (!cancelled) {
           setUser(data);
           localStorage.setItem('user', JSON.stringify(data));
-          startUsageSession(); // real timestamp starts here
+          startUsageSession();
         }
       } catch {
         localStorage.removeItem('token');
@@ -63,9 +83,9 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) setLoading(false);
       }
     };
+
     validate();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email, password) => {
@@ -73,7 +93,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
-    sessionStartedRef.current = false; // allow a fresh start
+    sessionStartedRef.current = false;
     await startUsageSession();
     return data;
   };
@@ -89,7 +109,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await stopUsageSession(); // record time before clearing token
+    await stopUsageSession();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

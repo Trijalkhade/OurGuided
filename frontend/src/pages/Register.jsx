@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { RiRocketLine } from 'react-icons/ri';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
   { id: 1, name: 'Engineering',       icon: '⚙️' },
   { id: 2, name: 'Business',          icon: '💼' },

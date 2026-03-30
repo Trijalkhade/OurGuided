@@ -3,7 +3,7 @@ import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import toast from 'react-hot-toast';
 import { FiBookmark } from 'react-icons/fi';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Watchlist = () => {
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(true);

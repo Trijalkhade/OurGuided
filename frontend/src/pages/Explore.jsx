@@ -3,7 +3,7 @@ import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Explore = () => {
   const [categories, setCategories]       = useState([]);
   const [selected, setSelected]           = useState(null);

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiTrash2, FiPlus, FiPhone } from 'react-icons/fi';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const EditProfile = () => {
   const { user }          = useAuth();
   const navigate          = useNavigate();

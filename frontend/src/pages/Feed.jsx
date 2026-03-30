@@ -3,7 +3,7 @@ import { useAuth, API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
   'Engineering', 'Business', 'Life Skills', 'Psychology',
   'Teaching Skills', 'Health & Nutrition', 'Physical Fitness', 'Agriculture',

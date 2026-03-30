@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { FiCheck, FiX, FiShield } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 
+const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
+
 const Moderation = () => {
   const { user }          = useAuth();
   const [posts, setPosts] = useState([]);
