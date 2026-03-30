@@ -326,3 +326,16 @@ GitHub: https://github.com/Trijalkhade
 
 SkillShare Platform
 Designed with full-stack engineering and production deployment practices.
+
+---
+
+## 📄 License
+
+This project is licensed under a custom proprietary license.
+
+- Free for personal and educational use  
+- Modification allowed with proper credit  
+- Commercial use requires permission and royalty  
+
+**Attribution required:**  
+"Original project by Trijal Khade"
