@@ -43,7 +43,7 @@ This project demonstrates a production-ready architecture using modern web techn
 
 ```bash
 git clone <repository-url>
-cd SkillShare
+cd OurGuided
 ```
 
 ---
@@ -319,8 +319,10 @@ SkillShare/
 * Configure SSL for secure communication
 
 ---
+## 👨‍💻 Author
 
-# 👨‍💻 Author
+**Trijal Khade**
+GitHub: https://github.com/Trijalkhade
 
 SkillShare Platform
 Designed with full-stack engineering and production deployment practices.
