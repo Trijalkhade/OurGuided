@@ -285,6 +285,8 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
 };
 
 /* ── Main Quizzes Page ───────────────────────────────────────────────────── */
+import { SkelQuizzes } from '../components/Skeleton.jsx';
+
 const Quizzes = () => {
   const { user } = useAuth();
   const [quizzes, setQuizzes]       = useState([]);
@@ -327,7 +329,7 @@ const Quizzes = () => {
   const myQuizzes = quizzes.filter(q => q.creator === user.username);
   const allQuizzes = activeTab === 'my' ? myQuizzes : quizzes;
 
-  if (loading) return <div className="feed-container"><div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div></div>;
+  if (loading) return <SkelQuizzes />;
 
   return (
     <div className="feed-container">

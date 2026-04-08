@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 /* ── GET /   — list published quizzes ── */
 router.get('/', auth, async (req, res) => {
@@ -117,6 +118,23 @@ router.post('/', auth, async (req, res) => {
       }
     }
     await conn.commit();
+    conn.release();
+
+    // Notify ALL interested users in background
+    (async () => {
+      try {
+        const [users] = await db.execute('SELECT user_id FROM user_profile WHERE notify_quizzes=TRUE');
+        for (const u of users) {
+          // Skip the creator
+          if (u.user_id === userId) continue;
+          await createNotification(
+            u.user_id, 'quiz', 'New Quiz Published!',
+            `A new quiz "${title}" has been published in ${category || 'General'}. Test your knowledge now!`
+          );
+        }
+      } catch (e) { console.error('Quiz notification broadcast failed:', e); }
+    })();
+
     res.status(201).json({ quiz_id: quizId, message: 'Quiz created!' });
   } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }

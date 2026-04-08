@@ -141,6 +141,28 @@ img {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SKELETON LOADING UI
+═══════════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg3) 25%,
+    var(--border) 50%,
+    var(--bg3) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    FORMS
 ═══════════════════════════════════════════════════════════════ */
 .form-group {
@@ -1584,7 +1606,9 @@ img {
 }
 
 .tab {
-  padding: .48rem 1.08rem;
+  padding: .5rem 1.25rem;
+  min-width: 90px;
+  text-align: center;
   border-radius: var(--r-sm);
   background: var(--bg2);
   border: 1.5px solid var(--border);
@@ -1593,12 +1617,17 @@ img {
   cursor: pointer;
   transition: all var(--t);
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .tab.active {
   background: var(--accentbg);
-  color: var(--accent2);
-  border-color: rgba(59, 91, 250, .3);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accentbg);
 }
 
 .tab:hover:not(.active) {
@@ -3097,43 +3126,44 @@ img {
 /* ═══════════════════════════════════════════════════════════════
    NOTIFICATION TOGGLES
 ═══════════════════════════════════════════════════════════════ */
-.toggle {
-  width: 44px;
-  height: 24px;
-  border-radius: 12px;
-  border: none;
+/* ═══════════════════════════════════════════════════════════════
+   MODERN SWITCH
+ ═══════════════════════════════════════════════════════════════ */
+.switch {
+  width: 48px;
+  height: 26px;
+  background: var(--border2);
+  border-radius: 100px;
   cursor: pointer;
   position: relative;
-  transition: background .2s;
+  transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  border: 2px solid transparent;
 }
 
-.toggle.on {
+.switch.on {
   background: var(--accent);
 }
 
-.toggle.off {
-  background: var(--border2);
-}
-
-.toggle::after {
-  content: '';
+.switch-dot {
   position: absolute;
   top: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   background: #fff;
-  transition: left .2s;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .18);
+  border-radius: 50%;
+  transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
 }
 
-.toggle.on::after {
-  left: 22px;
+.switch.on .switch-dot {
+  left: calc(100% - 21px);
+  transform: scale(1.05);
 }
 
-.toggle.off::after {
-  left: 2px;
+.switch:active .switch-dot {
+  width: 22px;
 }
 
 .settings-rows {

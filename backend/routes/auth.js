@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { sendEmail } = require('../utils/notifier');
+const { createNotification } = require('./notifications');
 
 // Register
 router.post('/register', async (req, res) => {
@@ -37,6 +39,26 @@ router.post('/register', async (req, res) => {
     );
 
     await conn.commit();
+
+    // Send Welcome Email
+    const firstName = first_name || username;
+    const welcomeBody = `Hi ${firstName},
+
+Welcome to OurGuided! We're thrilled to have you join our community of learners and experts.
+
+OurGuided is designed to help you track your study hours, master new skills, and connect with peers who share your interests.
+
+Here are a few things you can do to get started:
+1. Complete your profile and add your interests.
+2. Start your first study session in the Study Tracker.
+3. Explore the feed to find quality learning content.
+
+Happy Learning!
+The OurGuided Team`;
+
+    // Fire and forget so we don't slow down the response
+    sendEmail(email, 'Welcome to OurGuided!', welcomeBody).catch(e => console.error('Welcome email failed:', e));
+    createNotification(userId, 'system', 'Welcome!', 'Welcome to OurGuided! Start your learning journey today.').catch(e => console.error('Welcome notif failed:', e));
 
     const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '7d' });
     res.status(201).json({ token, user_id: userId, username, email });

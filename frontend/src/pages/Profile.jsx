@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
+import { SkelProfile } from '../components/Skeleton.jsx';
 import {
   FiEdit, FiAward, FiBook, FiCode,
   FiUserPlus, FiUserCheck, FiUserX
@@ -112,11 +113,7 @@ const Profile = () => {
     finally { setConnectionLoading(false); }
   };
 
-  if (loading) return (
-    <div className="profile-container">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div>
-    </div>
-  );
+  if (loading) return <SkelProfile />;
 
   if (!profile) return (
     <div className="profile-container"><p style={{ padding: '2rem', color: 'var(--text3)' }}>Profile not found</p></div>

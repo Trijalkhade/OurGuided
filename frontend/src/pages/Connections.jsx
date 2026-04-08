@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { SkelConnections } from '../components/Skeleton.jsx';
 import '../styles/Connections.css';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Connections = () => {
@@ -100,15 +101,7 @@ const Connections = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="feed-container">
-        <div className="loading-screen" style={{ height: '50vh' }}>
-          <div className="spinner"></div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SkelConnections />;
 
   return (
     <div className="feed-container">

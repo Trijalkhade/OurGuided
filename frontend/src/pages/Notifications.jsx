@@ -4,9 +4,12 @@ import { FiBell, FiMail, FiMessageSquare, FiShield, FiStar, FiZap, FiBook, FiTra
 import toast from 'react-hot-toast';
 
 const Toggle = ({ checked, onChange }) => (
-  <button className={`toggle ${checked ? 'on' : 'off'}`} onClick={() => onChange(!checked)}
-    role="switch" aria-checked={checked} />
+  <div className={`switch ${checked ? 'on' : 'off'}`} onClick={() => onChange(!checked)}>
+    <div className="switch-dot" />
+  </div>
 );
+
+import { SkelNotifications } from '../components/Skeleton.jsx';
 
 const Notifications = () => {
   const [settings, setSettings]         = useState(null);
@@ -73,7 +76,16 @@ const Notifications = () => {
 
   const set = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
 
-  if (loading) return <div className="feed-container"><div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div></div>;
+  const sendTest = async () => {
+    try {
+      const { data } = await API.post('/notifications/test');
+      toast.success(data.message);
+      // Refresh inbox after a short delay
+      setTimeout(() => fetchNotifications(1), 1000);
+    } catch { toast.error('Failed to send test'); }
+  };
+
+  if (loading) return <SkelNotifications />;
 
   const unread = notifications.filter(n => !n.is_read).length;
 
@@ -113,7 +125,7 @@ const Notifications = () => {
                   </div>
                   <Toggle checked={!!settings.notify_whatsapp} onChange={v => set('notify_whatsapp', v)} />
                 </div>
-                {settings.notify_whatsapp && (
+                {!!settings.notify_whatsapp && (
                   <div className="form-group" style={{ marginBottom: 0, width: '100%', paddingLeft: '1.75rem' }}>
                     <label>WhatsApp Number (with country code)</label>
                     <input
@@ -162,20 +174,25 @@ const Notifications = () => {
             </div>
           </div>
 
-          <button className="btn btn-primary" onClick={saveSettings} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Settings'}
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={saveSettings} disabled={saving} style={{ width: 'auto', paddingLeft: '2.5rem', paddingRight: '2.5rem' }}>
+              {saving ? 'Saving…' : 'Save Settings'}
+            </button>
+            <button className="btn btn-secondary" onClick={sendTest} style={{ width: 'auto' }}>
+              Send Test Notification
+            </button>
+          </div>
         </>
       )}
 
       {activeTab === 'inbox' && (
         <div>
-          {notifications.length > 0 && (
+          {notifications.length > 0 ? (
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text3)', alignSelf: 'center', fontFamily: 'Space Mono, monospace' }}>{total} total</span>
               <button className="btn btn-secondary btn-sm" onClick={markAllRead}>Mark all read</button>
             </div>
-          )}
+          ) : null}
           {notifications.length === 0 ? (
             <div className="empty-state">
               <FiBell size={36} style={{ opacity: 0.25, marginBottom: '1rem' }} />

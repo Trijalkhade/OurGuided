@@ -41,22 +41,35 @@ const KnowledgeLineChart = ({ data, year }) => {
   const monthly = data.monthly;
   const W = 620, H = 240, PL = 52, PR = 20, PT = 18, PB = 42;
   const innerW = W - PL - PR, innerH = H - PT - PB;
+  
   const maxK = Math.max(...monthly.map(m => m.cumulative), 1);
-  const xPos = (i) => PL + (i / 11) * innerW;
-  const yPos = (v) => PT + innerH - (v / maxK) * innerH;
-  const pathD = monthly.reduce((acc, m, i) => acc + (i === 0 ? `M${xPos(i)},${yPos(m.cumulative)}` : ` L${xPos(i)},${yPos(m.cumulative)}`), '');
-  const areaD = `${pathD} L${xPos(11)},${PT + innerH} L${xPos(0)},${PT + innerH} Z`;
+  
+  // Scale x from 0 to 12. 0 is start of Jan, 12 is end of Dec.
+  const getX = (m, dFrac = 1) => PL + ((m + dFrac) / 12) * innerW;
+  const getY = (v) => PT + innerH - (v / maxK) * innerH;
+
+  // Monthly nodes represent the END of each month
+  const pathData = monthly.reduce((acc, m, i) => {
+    const x = getX(i);
+    const y = getY(m.cumulative);
+    return acc + (i === 0 ? `M${getX(-0.2)},${innerH + PT} L${getX(0,0)},${innerH + PT} L${x},${y}` : ` L${x},${y}`);
+  }, "");
+
+  const areaD = `${pathData} L${getX(11)},${PT + innerH} L${getX(0,0)},${PT + innerH} Z`;
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => ({ val: maxK * p, y: PT + innerH - p * innerH }));
   const curMonthIdx = new Date().getMonth();
 
   const dailyDots = (data.daily || []).map(d => {
     const date = new Date(d.date);
-    const month = date.getMonth();
-    const dayFrac = date.getDate() / new Date(year, month + 1, 0).getDate();
-    const x = PL + ((month + dayFrac) / 12) * innerW;
-    const prev = month > 0 ? monthly[month - 1].cumulative : 0;
-    const approxCum = prev + (monthly[month].cumulative - prev) * dayFrac;
-    return { x, y: yPos(approxCum), knowledge: parseFloat(d.knowledge), date: d.date };
+    const m = date.getMonth();
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    const dFrac = date.getDate() / daysInMonth;
+    
+    // Find approximate cumulative at this day to place dot on the line
+    const prev = m > 0 ? monthly[m - 1].cumulative : 0;
+    const approxCum = prev + (monthly[m].knowledge * dFrac);
+    
+    return { x: getX(m, dFrac), y: getY(approxCum), knowledge: parseFloat(d.knowledge), date: d.date };
   });
 
   return (
@@ -74,10 +87,10 @@ const KnowledgeLineChart = ({ data, year }) => {
             <text x={PL - 5} y={t.y + 4} textAnchor="end" fontSize="9" fill="#8892b5" fontFamily="monospace">{fmtK(t.val)}</text>
           </g>
         ))}
-        <line x1={xPos(curMonthIdx)} y1={PT} x2={xPos(curMonthIdx)} y2={PT + innerH}
+        <line x1={getX(curMonthIdx)} y1={PT} x2={getX(curMonthIdx)} y2={PT + innerH}
           stroke="#3b5bfa" strokeWidth="1" strokeDasharray="4 3" opacity="0.5"/>
         <path d={areaD} fill="url(#kGrad)"/>
-        <path d={pathD} fill="none" stroke="#3b5bfa" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+        <path d={pathData} fill="none" stroke="#3b5bfa" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
         {dailyDots.map((d, i) => (
           <circle key={i} cx={d.x} cy={d.y} r="3" fill="#06b6d4" opacity="0.7">
             <title>{d.date}: +{fmt(d.knowledge)} pts</title>
@@ -85,14 +98,14 @@ const KnowledgeLineChart = ({ data, year }) => {
         ))}
         {monthly.map((m, i) => (
           <g key={i}>
-            <circle cx={xPos(i)} cy={yPos(m.cumulative)} r="5"
+            <circle cx={getX(i)} cy={getY(m.cumulative)} r="5"
               fill="white" stroke="#3b5bfa" strokeWidth="2.5">
               <title>{m.label} {year}: {fmt(m.cumulative)} cum pts</title>
             </circle>
           </g>
         ))}
         {monthly.map((m, i) => (
-          <text key={i} x={xPos(i)} y={H - 8} textAnchor="middle" fontSize="9" fill="#8892b5" fontFamily="monospace">{m.label}</text>
+          <text key={i} x={getX(i - 0.5)} y={H - 8} textAnchor="middle" fontSize="9" fill="#8892b5" fontFamily="monospace">{m.label}</text>
         ))}
         <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke="#dde2ef" strokeWidth="1.5"/>
         <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke="#dde2ef" strokeWidth="1.5"/>
@@ -100,6 +113,8 @@ const KnowledgeLineChart = ({ data, year }) => {
     </div>
   );
 };
+
+import { SkelStudy } from '../components/Skeleton.jsx';
 
 const UsageTracker = () => {
   const [status,    setStatus]    = useState(null);
@@ -157,11 +172,7 @@ const UsageTracker = () => {
     finally { setActLoad(false); }
   };
 
-  if (loading) return (
-    <div className="usage-page">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner"/></div>
-    </div>
-  );
+  if (loading) return <SkelStudy />;
 
   const { stats, today } = status || {};
   const isActive = !!status?.active_session;
@@ -208,7 +219,11 @@ const UsageTracker = () => {
 
           <div className="usage-stat-grid">
             {[
-              { icon: '⏱️', val: `${fmt(today?.hours)}h`,         label: 'Today' },
+              { 
+                icon: '⏱️', 
+                val: `${fmt((today?.hours || 0) + (isActive ? elapsed / 3600 : 0))}h`, 
+                label: 'Today' 
+              },
               { icon: '🧠', val: fmtK(today?.knowledge),          label: "Today's Pts" },
               { icon: '📅', val: stats?.streak_days ?? 0,         label: 'Day Streak' },
               { icon: '⚡', val: fmtK(stats?.total_knowledge),    label: 'Total Pts' },

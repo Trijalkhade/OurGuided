@@ -43,8 +43,18 @@ export const AuthProvider = ({ children }) => {
     const handleUnload = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
-      navigator.sendBeacon('http://localhost:5000/api/study/stop', blob);
+      
+      // Use fetch with keepalive: true for reliable "last-breath" requests
+      // This allows us to send the Authorization header correctly
+      fetch('/api/study/stop', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token }), // redundancy for safety
+        keepalive: true,
+      });
     };
 
     window.addEventListener('beforeunload', handleUnload);

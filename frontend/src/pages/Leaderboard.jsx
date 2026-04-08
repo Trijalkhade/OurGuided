@@ -9,6 +9,8 @@ const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === 
 
 const medals = ['🥇', '🥈', '🥉'];
 
+import { SkelLeaderboard } from '../components/Skeleton.jsx';
+
 const Leaderboard = () => {
   const { user }          = useAuth();
   const [leaders, setLeaders] = useState([]);
@@ -35,11 +37,7 @@ const Leaderboard = () => {
     load();
   }, []);
 
-  if (loading) return (
-    <div className="feed-container">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div>
-    </div>
-  );
+  if (loading) return <SkelLeaderboard />;
 
   return (
     <div className="feed-container">

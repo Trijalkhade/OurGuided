@@ -3,6 +3,7 @@ import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import toast from 'react-hot-toast';
 import { FiBookmark } from 'react-icons/fi';
+import { SkelWatchlist } from '../components/Skeleton.jsx';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Watchlist = () => {
   const [posts, setPosts]     = useState([]);
@@ -21,11 +22,7 @@ const Watchlist = () => {
 
   const handleRemove = (postId) => setPosts(prev => prev.filter(p => p.post_id !== postId));
 
-  if (loading) return (
-    <div className="feed-container">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div>
-    </div>
-  );
+  if (loading) return <SkelWatchlist />;
 
   return (
     <div className="feed-container">

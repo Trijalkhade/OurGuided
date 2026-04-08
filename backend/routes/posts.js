@@ -3,6 +3,7 @@ const router  = express.Router();
 const db      = require('../db');
 const upload  = require('../middleware/upload');
 const auth    = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 /* ── helper ── */
 function convertImage(post) {
@@ -240,6 +241,33 @@ router.post('/', auth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'i
       }
     }
     await conn.commit();
+    conn.release();
+
+    // Get followers who enabled notifications
+    const [followers] = await db.execute(
+      `SELECT f.follower_id
+      FROM follows f
+      JOIN user_profile u ON f.follower_id = u.user_id
+      WHERE f.following_id=? AND u.notify_new_skills=TRUE`,
+      [req.user.user_id]
+    );
+
+    // Send notifications (batched)
+    const chunkSize = 50;
+    for (let i = 0; i < followers.length; i += chunkSize) {
+      const chunk = followers.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(f =>
+          createNotification(
+            f.follower_id,
+            'new_skill',
+            'New Post Available',
+            'Someone you follow posted new content'
+          )
+        )
+      );
+    }
+
     res.status(201).json({ post_id: postId });
   } catch (err) { await conn?.rollback(); console.error('CREATE POST:', err.message); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
@@ -298,6 +326,21 @@ router.post('/:id/like', auth, async (req, res) => {
       return res.json({ liked: false });
     }
     await conn.execute('INSERT INTO likes (user_id,post_id) VALUES (?,?)', [req.user.user_id, req.params.id]);
+    
+    // Notify Post Author
+    (async () => {
+      try {
+        const [[post]] = await conn.execute('SELECT user_id, text FROM posts WHERE post_id=?', [req.params.id]);
+        if (post.user_id !== req.user.user_id) {
+          const snippet = (post.text || '').substring(0, 30) + '...';
+          await createNotification(
+            post.user_id, 'connection', 'New Like!',
+            `Someone liked your post: "${snippet}"`
+          );
+        }
+      } catch (e) { console.error('Like notification failed:', e); }
+    })();
+
     res.json({ liked: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
@@ -331,6 +374,20 @@ router.post('/:id/comment', auth, async (req, res) => {
     conn = await db.getConnection();
     const [r] = await conn.execute('INSERT INTO comments (user_id,post_id,content) VALUES (?,?,?)',
       [req.user.user_id, req.params.id, content]);
+    
+    // Notify Post Author
+    (async () => {
+      try {
+        const [[post]] = await conn.execute('SELECT user_id FROM posts WHERE post_id=?', [req.params.id]);
+        if (post.user_id !== req.user.user_id) {
+          await createNotification(
+            post.user_id, 'connection', 'New Comment',
+            `Someone commented on your post: "${content.substring(0, 40)}${content.length > 40 ? '...' : ''}"`
+          );
+        }
+      } catch (e) { console.error('Comment notification failed:', e); }
+    })();
+
     res.status(201).json({ comment_id: r.insertId });
   } catch (err) { res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }

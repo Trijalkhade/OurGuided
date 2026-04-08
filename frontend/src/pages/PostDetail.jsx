@@ -19,6 +19,8 @@ function getEmbedUrl(url) {
   return url;
 }
 
+import { SkelPostDetail } from '../components/Skeleton.jsx';
+
 const PostDetail = () => {
   const { id }    = useParams();
   const { user }  = useAuth();
@@ -85,11 +87,7 @@ const PostDetail = () => {
     finally { setSubmitting(false); }
   };
 
-  if (loading) return (
-    <div className="feed-container">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div>
-    </div>
-  );
+  if (loading) return <SkelPostDetail />;
 
   if (!post) return (
     <div className="feed-container"><p style={{ padding: '2rem', color: 'var(--text3)' }}>Post not found</p></div>

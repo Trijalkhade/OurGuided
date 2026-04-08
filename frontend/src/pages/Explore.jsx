@@ -3,6 +3,8 @@ import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { SkelExplore, SkelFeed } from '../components/Skeleton.jsx';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Explore = () => {
   const [categories, setCategories]       = useState([]);
@@ -80,6 +82,8 @@ const Explore = () => {
     finally { setSavingInterests(false); }
   };
 
+  if (loadingCats) return <SkelExplore />;
+
   return (
     <div className="explore-page">
       <div className="page-header">
@@ -140,7 +144,9 @@ const Explore = () => {
 
       {/* Posts */}
       {loadingPosts ? (
-        <div className="loading-screen" style={{ height: '40vh' }}><div className="spinner" /></div>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          <SkelFeed />
+        </div>
       ) : posts.length === 0 ? (
         <div className="empty-state">
           <h3>No posts yet in this category</h3>

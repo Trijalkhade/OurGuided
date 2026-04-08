@@ -100,6 +100,8 @@ const PlaylistDetail = ({ playlist, onBack, onUpdated }) => {
 };
 
 /* ── Main Playlists Page ── */
+import { SkelPlaylists } from '../components/Skeleton.jsx';
+
 const Playlists = () => {
   const [playlists, setPlaylists]   = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -132,11 +134,7 @@ const Playlists = () => {
     } catch { toast.error('Failed to delete'); }
   };
 
-  if (loading) return (
-    <div className="feed-container">
-      <div className="loading-screen" style={{ height: '50vh' }}><div className="spinner" /></div>
-    </div>
-  );
+  if (loading) return <SkelPlaylists />;
 
   if (active) return (
     <div className="feed-container">
