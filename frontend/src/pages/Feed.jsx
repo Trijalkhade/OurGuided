@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PostCard from '../components/PostCard.jsx';
+import useFeedback from '../hooks/useFeedback';
 import { SkelFeed } from '../components/Skeleton.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -13,6 +14,7 @@ const CATEGORIES = [
 
 const CreatePost = ({ onPostCreated }) => {
   const { user } = useAuth();
+  const { onTap, onSuccess, onError, onCreateSuccess } = useFeedback();
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [imageFiles, setImageFiles] = useState([]);
@@ -27,6 +29,7 @@ const CreatePost = ({ onPostCreated }) => {
   const handleSubmit = async () => {
     if (!content.trim() && imageFiles.length === 0 && !videoUrl.trim())
       return toast.error('Add some content to post');
+    onTap();
     setLoading(true);
     try {
       const fd = new FormData();
@@ -42,9 +45,13 @@ const CreatePost = ({ onPostCreated }) => {
       await API.post('/posts', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setContent(''); setTags(''); setImageFiles([]);
       setVideoUrl(''); setCategory(''); setIsAnon(false); setShowExtra(false);
+      onCreateSuccess(); // Beep + chime on post created
       toast.success('Post created!');
       onPostCreated && onPostCreated();
-    } catch (err) { toast.error((err.response && err.response.data && err.response.data.message) || 'Failed to create post'); }
+    } catch (err) { 
+      onError();
+      toast.error((err.response && err.response.data && err.response.data.message) || 'Failed to create post'); 
+    }
     finally { setLoading(false); }
   };
 

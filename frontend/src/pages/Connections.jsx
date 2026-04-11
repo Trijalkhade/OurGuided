@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import useFeedback from '../hooks/useFeedback';
 import { SkelConnections } from '../components/Skeleton.jsx';
 import '../styles/Connections.css';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
@@ -10,6 +11,7 @@ const Connections = () => {
   const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('connections');
   const [loading, setLoading] = useState(true);
+  const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
   // 🚀 SEO CONTENT FOR GOOGLE
   if (isPrerender) {
@@ -45,8 +47,10 @@ const Connections = () => {
   };
 
   const handleAccept = async (connectionId) => {
+    onTap();
     try {
       const res = await API.post(`/connections/accept/${connectionId}`);
+      onAcceptConnection(); // Beep + chime on accept
       toast.success('Connection accepted');
 
       // If backend returned the new connection and user info, update UI immediately
@@ -73,29 +77,36 @@ const Connections = () => {
       fetchConnections();
       window.dispatchEvent(new Event('connectionsUpdated'));
     } catch (err) {
+      onError();
       toast.error('Failed to accept request');
     }
   };
 
   const handleReject = async (connectionId) => {
+    onTap();
     try {
       await API.delete(`/connections/reject/${connectionId}`);
+      onDeleteSuccess(); // Scrape sound for reject
       toast.success('Request rejected');
       fetchConnections();
       window.dispatchEvent(new Event('connectionsUpdated'));
     } catch (err) {
+      onError();
       toast.error('Failed to reject request');
     }
   };
 
   const handleRemove = async (userId) => {
     if (window.confirm('Remove this connection?')) {
+      onTap();
       try {
         await API.delete(`/connections/remove/${userId}`);
+        onDeleteSuccess(); // Scrape sound for remove
         toast.success('Connection removed');
         fetchConnections();
         window.dispatchEvent(new Event('connectionsUpdated'));
       } catch (err) {
+        onError();
         toast.error('Failed to remove connection');
       }
     }

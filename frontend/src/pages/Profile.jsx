@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
+import useFeedback from '../hooks/useFeedback';
 import { SkelProfile } from '../components/Skeleton.jsx';
 import {
   FiEdit, FiAward, FiBook, FiCode,
@@ -23,6 +24,7 @@ const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === 
 const Profile = () => {
   const { id }    = useParams();
   const { user }  = useAuth();
+  const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
   const [profile, setProfile]         = useState(null);
   const [posts, setPosts]             = useState([]);
@@ -75,41 +77,62 @@ const Profile = () => {
   /* Skills */
   const addSkill = async () => {
     if (!newSkill.trim()) return;
+    onTap();
     try {
       const { data } = await API.post('/users/skills', { skill_name: newSkill });
       setProfile(prev => ({ ...prev, skills: [...(prev.skills || []), data] }));
       setNewSkill('');
       setShowSkillInput(false);
+      onSuccess();
       toast.success('Skill added!');
-    } catch { toast.error('Failed to add skill'); }
+    } catch { 
+      onError();
+      toast.error('Failed to add skill'); 
+    }
   };
 
   const removeSkill = async (skillId) => {
+    onTap();
     try {
       await API.delete(`/users/skills/${skillId}`);
       setProfile(prev => ({ ...prev, skills: prev.skills.filter(s => s.skill_id !== skillId) }));
-    } catch { toast.error('Failed to remove skill'); }
+      onDeleteSuccess(); // delete_sound.mp4 only (no haptic)
+      toast.success('Skill removed');
+    } catch { 
+      onError();
+      toast.error('Failed to remove skill'); 
+    }
   };
 
   /* Connections */
   const handleSendRequest = async () => {
+    onTap();
     setConnectionLoading(true);
     try {
       await API.post(`/connections/request/${id}`);
       setConnectionStatus('pending_sent');
+      onAcceptConnection(); // Beep + chime on request sent
       toast.success('Connection request sent!');
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send request'); }
+    } catch (err) { 
+      onError();
+      toast.error(err.response?.data?.message || 'Failed to send request'); 
+    }
     finally { setConnectionLoading(false); }
   };
 
   const handleRemoveConnection = async () => {
     if (!window.confirm('Remove this connection?')) return;
+    onTap();
     setConnectionLoading(true);
     try {
       await API.delete(`/connections/remove/${id}`);
       setConnectionStatus('none');
+      onDeleteSuccess(); // Scrape sound for remove
       toast.success('Connection removed');
-    } catch { toast.error('Failed to remove connection'); }
+    } catch { 
+      onError();
+      toast.error('Failed to remove connection'); 
+    }
     finally { setConnectionLoading(false); }
   };
 

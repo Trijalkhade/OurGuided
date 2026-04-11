@@ -4,6 +4,7 @@ import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiLis
 import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
+import useFeedback from '../hooks/useFeedback';
 import ImageModal from './ImageModal';
 import toast from 'react-hot-toast';
 
@@ -90,6 +91,7 @@ const PlaylistModal = ({ postId, onClose }) => {
 const PostCard = ({ post, onDelete, onUnsave }) => {
   const { user }  = useAuth();
   const navigate  = useNavigate();
+  const { onTap, onSuccess, onLikeSuccess, onDeleteSuccess } = useFeedback();
 
   const [liked,      setLiked]      = useState(Number(post.user_liked) > 0);
   const [likeCount,  setLikeCount]  = useState(Number(post.like_count));
@@ -105,17 +107,23 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   ];
 
   const handleLike = async () => {
+    onTap(); // Haptic feedback immediately
     try {
       const { data } = await API.post(`/posts/${post.post_id}/like`);
       setLiked(data.liked);
       setLikeCount(prev => data.liked ? prev + 1 : prev - 1);
-    } catch { toast.error('Failed to like'); }
+      if (data.liked) onLikeSuccess(); // Beep + chime on successful like
+    } catch { 
+      toast.error('Failed to like'); 
+    }
   };
 
   const handleSave = async () => {
+    onTap(); // Haptic feedback immediately
     try {
       const { data } = await API.post(`/posts/${post.post_id}/watchlist`);
       setSaved(data.saved);
+      if (data.saved) onSuccess(); // Feedback on success
       toast.success(data.saved ? 'Saved to watchlist' : 'Removed from watchlist');
       if (!data.saved && onUnsave) onUnsave(post.post_id);
     } catch { toast.error('Failed to save'); }
@@ -123,8 +131,10 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this post?')) return;
+    onTap();
     try {
       await API.delete(`/posts/${post.post_id}`);
+      onDeleteSuccess(); // Scrape sound for delete
       toast.success('Post deleted');
       if (onDelete) onDelete(post.post_id);
     } catch { toast.error('Failed to delete'); }

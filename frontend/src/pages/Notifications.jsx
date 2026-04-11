@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { FiBell, FiMail, FiMessageSquare, FiShield, FiStar, FiZap, FiBook, FiTrash2, FiChevronDown } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import useFeedback from '../hooks/useFeedback';
 
-const Toggle = ({ checked, onChange }) => (
-  <div className={`switch ${checked ? 'on' : 'off'}`} onClick={() => onChange(!checked)}>
+const Toggle = ({ checked, onChange, onToggle }) => (
+  <div className={`switch ${checked ? 'on' : 'off'}`} onClick={() => {
+    onToggle?.();
+    onChange(!checked);
+  }}>
     <div className="switch-dot" />
   </div>
 );
@@ -12,6 +16,7 @@ const Toggle = ({ checked, onChange }) => (
 import { SkelNotifications } from '../components/Skeleton.jsx';
 
 const Notifications = () => {
+  const { onTap, onSuccess } = useFeedback();
   const [settings, setSettings]         = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [total, setTotal]               = useState(0);
@@ -51,6 +56,7 @@ const Notifications = () => {
 
   const markAllRead = async () => {
     try {
+      onTap(); // Soft tap vibration + click sound
       await API.post('/notifications/mark-read');
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       toast.success('All marked as read');
@@ -69,12 +75,16 @@ const Notifications = () => {
     setSaving(true);
     try {
       await API.put('/notifications/settings', settings);
+      onSuccess(); // Chime sound + success vibration
       toast.success('Settings saved!');
     } catch { toast.error('Failed to save'); }
     finally { setSaving(false); }
   };
 
-  const set = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
+  const set = (key, val) => {
+    onTap(); // Soft tap for toggle
+    setSettings(prev => ({ ...prev, [key]: val }));
+  };
 
   const sendTest = async () => {
     try {

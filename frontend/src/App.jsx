@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import Login         from './pages/Login';
 import Register      from './pages/Register';
 import Feed          from './pages/Feed';
@@ -66,11 +67,13 @@ const AppContent = () => (
 
 const App = () => (
   <AuthProvider>
-    <BrowserRouter>
-      <Suspense fallback={<LoadingScreen />}>
-        <AppContent />
-      </Suspense>
-    </BrowserRouter>
+    <FeedbackProvider>
+      <BrowserRouter>
+        <Suspense fallback={<LoadingScreen />}>
+          <AppContent />
+        </Suspense>
+      </BrowserRouter>
+    </FeedbackProvider>
   </AuthProvider>
 );
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
+import useFeedback from '../hooks/useFeedback';
 import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,
   FiUsers, FiBell, FiCompass, FiList, FiClock
@@ -16,6 +17,7 @@ import { RiQuestionLine } from 'react-icons/ri';
  */
 const Layout = () => {
   const { user, logout }  = useAuth();
+  const { onTap }         = useFeedback();
   const navigate          = useNavigate();
   const location          = useLocation();
   const [searchQuery, setSearchQuery]   = useState('');
@@ -99,21 +101,21 @@ const Layout = () => {
           </div>
 
           <div className="nav-group-label">Main</div>
-          <NavLink to="/feed"        className={navClass}><FiHome size={16} /> Feed</NavLink>
-          <NavLink to="/explore"     className={navClass}><FiCompass size={16} /> Explore</NavLink>
-          <NavLink to="/quizzes"     className={navClass}><RiQuestionLine size={16} /> Quizzes</NavLink>
-          <NavLink to="/connections" className={navClass}><FiUsers size={16} /> Connections</NavLink>
+          <NavLink to="/feed"        onClick={() => onTap()} className={navClass}><FiHome size={16} /> Feed</NavLink>
+          <NavLink to="/explore"     onClick={() => onTap()} className={navClass}><FiCompass size={16} /> Explore</NavLink>
+          <NavLink to="/quizzes"     onClick={() => onTap()} className={navClass}><RiQuestionLine size={16} /> Quizzes</NavLink>
+          <NavLink to="/connections" onClick={() => onTap()} className={navClass}><FiUsers size={16} /> Connections</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>You</div>
-          <NavLink to={`/profile/${user && user.user_id}`} className={navClass}><FiUser size={16} /> Profile</NavLink>
-          <NavLink to="/watchlist"   className={navClass}><FiBookmark size={16} /> Watchlist</NavLink>
-          <NavLink to="/playlists"   className={navClass}><FiList size={16} /> Playlists</NavLink>
-          <NavLink to="/study"       className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
+          <NavLink to={`/profile/${user && user.user_id}`} onClick={() => onTap()} className={navClass}><FiUser size={16} /> Profile</NavLink>
+          <NavLink to="/watchlist"   onClick={() => onTap()} className={navClass}><FiBookmark size={16} /> Watchlist</NavLink>
+          <NavLink to="/playlists"   onClick={() => onTap()} className={navClass}><FiList size={16} /> Playlists</NavLink>
+          <NavLink to="/study"       onClick={() => onTap()} className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>Community</div>
-          <NavLink to="/leaderboard" className={navClass}>🏆 Leaderboard</NavLink>
-          <NavLink to="/moderation"  className={navClass}>🛡️ Moderation</NavLink>
-          <NavLink to="/notifications" className={navClass}>
+          <NavLink to="/leaderboard" onClick={() => onTap()} className={navClass}>🏆 Leaderboard</NavLink>
+          <NavLink to="/moderation"  onClick={() => onTap()} className={navClass}>🛡️ Moderation</NavLink>
+          <NavLink to="/notifications" onClick={() => onTap()} className={navClass}>
             <span style={{ position: 'relative', display: 'inline-flex' }}>
               <FiBell size={16} />
               {unreadCount > 0 && <span className="nav-badge">{unreadCount}</span>}
@@ -232,11 +234,11 @@ const Layout = () => {
       {/* ── MOBILE BOTTOM NAV ────────────────────────────────────────── */}
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <div className="mobile-nav-inner">
-          <NavLink to="/feed"        className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiHome size={22} />Feed</NavLink>
-          <NavLink to="/explore"     className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiCompass size={22} />Explore</NavLink>
-          <NavLink to="/quizzes"     className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><RiQuestionLine size={22} />Quizzes</NavLink>
-          <NavLink to="/connections" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUsers size={22} />Connect</NavLink>
-          <NavLink to={`/profile/${user && user.user_id}`} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUser size={22} />Profile</NavLink>
+          <NavLink to="/feed"        onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiHome size={22} />Feed</NavLink>
+          <NavLink to="/explore"     onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiCompass size={22} />Explore</NavLink>
+          <NavLink to="/quizzes"     onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><RiQuestionLine size={22} />Quizzes</NavLink>
+          <NavLink to="/connections" onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUsers size={22} />Connect</NavLink>
+          <NavLink to={`/profile/${user && user.user_id}`} onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUser size={22} />Profile</NavLink>
           <button className="mobile-nav-item" onClick={handleLogout} aria-label="Logout"><FiLogOut size={22} />Logout</button>
         </div>
       </nav>

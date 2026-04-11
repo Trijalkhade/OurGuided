@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiPlus, FiTrash2, FiX, FiLock, FiGlobe } from 'react-icons/fi';
+import useFeedback from '../hooks/useFeedback';
 import PostCard from '../components/PostCard.jsx';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 /* ── Create Playlist Modal ── */
 const CreateModal = ({ onClose, onCreated }) => {
+  const { onCreateSuccess } = useFeedback();
   const [form, setForm] = useState({ title: '', description: '', is_public: true });
   const [loading, setLoading] = useState(false);
 
@@ -15,6 +17,7 @@ const CreateModal = ({ onClose, onCreated }) => {
     setLoading(true);
     try {
       await API.post('/playlists', form);
+      onCreateSuccess(); // Chime sound + success vibration
       toast.success('Playlist created!');
       onCreated();
       onClose();
@@ -103,6 +106,7 @@ const PlaylistDetail = ({ playlist, onBack, onUpdated }) => {
 import { SkelPlaylists } from '../components/Skeleton.jsx';
 
 const Playlists = () => {
+  const { onDeleteSuccess } = useFeedback();
   const [playlists, setPlaylists]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -129,6 +133,7 @@ const Playlists = () => {
     if (!window.confirm('Delete this playlist?')) return;
     try {
       await API.delete(`/playlists/${id}`);
+      onDeleteSuccess(); // Delete sound
       setPlaylists(prev => prev.filter(p => p.playlist_id !== id));
       toast.success('Playlist deleted');
     } catch { toast.error('Failed to delete'); }

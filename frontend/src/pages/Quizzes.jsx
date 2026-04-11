@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
+import useFeedback from '../hooks/useFeedback';
 import toast from 'react-hot-toast';
 import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight } from 'react-icons/fi';
 
 /* ── Create Quiz Modal ─────────────────────────────────────────────────── */
 const CreateQuizModal = ({ onClose, onCreated }) => {
+  const { onTap, onSuccess, onError, onCreateSuccess } = useFeedback();
   const [form, setForm] = useState({ title: '', description: '', category: '', difficulty: 'Beginner' });
   const [questions, setQuestions] = useState([{ question_text: '', points: 1, options: [
     { option_text: '', is_correct: true },
@@ -37,13 +39,18 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
       return toast.error('Fill in all questions and options');
     if (questions.some(q => !q.options.some(o => o.is_correct)))
       return toast.error('Each question needs at least one correct answer');
+    onTap();
     setLoading(true);
     try {
       await API.post('/quizzes', { ...form, questions });
+      onCreateSuccess(); // Beep + chime on quiz published
       toast.success('Quiz created and published!');
       onCreated();
       onClose();
-    } catch(err) { toast.error(err.response?.data?.message || 'Failed to create quiz'); }
+    } catch(err) { 
+      onError();
+      toast.error(err.response?.data?.message || 'Failed to create quiz'); 
+    }
     finally { setLoading(false); }
   };
 
@@ -127,6 +134,7 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
 
 /* ── Take Quiz Modal ─────────────────────────────────────────────────────── */
 const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
+  const { onTap, onSuccess, onError, onCelebration } = useFeedback();
   const [answers, setAnswers]       = useState({});
   const [results, setResults]       = useState(null);
   const [loading, setLoading]       = useState(false);
@@ -134,17 +142,22 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [showLB, setShowLB]         = useState(false);
 
-  const selectAnswer = (qId, optId) => setAnswers(prev => ({ ...prev, [qId]: optId }));
+  const selectAnswer = (qId, optId) => {
+    onTap(); // Haptic feedback on selection
+    setAnswers(prev => ({ ...prev, [qId]: optId }));
+  };
 
   const handleSubmit = async () => {
     const answered = Object.keys(answers).length;
     if (answered < quiz.questions.length)
       return toast.error(`Please answer all ${quiz.questions.length} questions`);
+    onTap();
     setLoading(true);
     try {
       const payload = Object.entries(answers).map(([question_id, option_id]) => ({ question_id, option_id }));
       const { data } = await API.post(`/quizzes/${quiz.quiz_id}/submit`, { answers: payload });
       setResults(data);
+      onCelebration(); // Celebration feedback on quiz completion
       toast.success(`Quiz completed! You scored ${data.percentage}%`);
       onCompleted?.(data);
       // fetch leaderboard in background
@@ -152,7 +165,10 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
         const { data: lb } = await API.get(`/quizzes/${quiz.quiz_id}/leaderboard`);
         setLeaderboard(lb);
       } catch {}
-    } catch(err) { toast.error(err.response?.data?.message || 'Failed to submit'); }
+    } catch(err) { 
+      onError();
+      toast.error(err.response?.data?.message || 'Failed to submit'); 
+    }
     finally { setLoading(false); }
   };
 
