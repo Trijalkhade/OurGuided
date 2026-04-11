@@ -332,10 +332,10 @@ router.post('/:id/like', auth, async (req, res) => {
       try {
         const [[post]] = await conn.execute('SELECT user_id, text FROM posts WHERE post_id=?', [req.params.id]);
         if (post.user_id !== req.user.user_id) {
-          const snippet = (post.text || '').substring(0, 30) + '...';
+          const snippet = (post.text || '').substring(0, 50) + (post.text.length > 50 ? '...' : '');
           await createNotification(
             post.user_id, 'connection', 'New Like!',
-            `Someone liked your post: "${snippet}"`
+            `<strong>${req.user.name || 'Someone'}</strong> liked your post:<br><em>"${snippet}"</em>`
           );
         }
       } catch (e) { console.error('Like notification failed:', e); }
@@ -380,9 +380,10 @@ router.post('/:id/comment', auth, async (req, res) => {
       try {
         const [[post]] = await conn.execute('SELECT user_id FROM posts WHERE post_id=?', [req.params.id]);
         if (post.user_id !== req.user.user_id) {
+          const commentSnippet = content.substring(0, 60) + (content.length > 60 ? '...' : '');
           await createNotification(
             post.user_id, 'connection', 'New Comment',
-            `Someone commented on your post: "${content.substring(0, 40)}${content.length > 40 ? '...' : ''}"`
+            `<strong>${req.user.name || 'Someone'}</strong> commented on your post:<br><em>"${commentSnippet}"</em>`
           );
         }
       } catch (e) { console.error('Comment notification failed:', e); }

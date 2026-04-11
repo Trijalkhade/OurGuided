@@ -5,7 +5,7 @@ import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,
   FiUsers, FiBell, FiCompass, FiList, FiClock
 } from 'react-icons/fi';
-import { RiRocketLine, RiQuestionLine } from 'react-icons/ri';
+import { RiQuestionLine } from 'react-icons/ri';
 
 /*
  * Layout
@@ -95,8 +95,7 @@ const Layout = () => {
         {/* scrollable nav area */}
         <div className="sidebar-scroll">
           <div className="sidebar-logo">
-            <RiRocketLine style={{ display: 'inline', marginRight: 6 }} />
-            SkillShare
+            <span style={{ fontWeight: 'bold', fontSize: '1.3rem', color: '#0d0c0c' }}>OurGuided</span>
           </div>
 
           <div className="nav-group-label">Main</div>
