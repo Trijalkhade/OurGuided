@@ -46,14 +46,14 @@ router.post('/register', async (req, res) => {
 
 Welcome to OurGuided! We're thrilled to have you join our community of learners and experts.
 
-OurGuided is designed to help you track your study hours, master new skills, and connect with peers who share your interests.
+OurGuided is designed to help you track your progress, master new skills, and connect with peers who share your interests.
 
 Here are a few things you can do to get started:
 1. Complete your profile and add your interests.
-2. Start your first study session in the Study Tracker.
+2. Share an interesting post on useful survival skills.
 3. Explore the feed to find quality learning content.
 
-Happy Learning!
+Learn. Guide. Grow.
 The OurGuided Team`;
 
     // Fire and forget so we don't slow down the response

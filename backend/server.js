@@ -6,6 +6,10 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Initialize Birthday Scheduler
+const { initBirthdayScheduler } = require('./utils/birthdayScheduler');
+initBirthdayScheduler();
+
 process.on('uncaughtException',   (err)           => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));
 process.on('unhandledRejection',  (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
 
