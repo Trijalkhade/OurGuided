@@ -83,7 +83,7 @@ class HapticEngine {
   // ═══════════════════════════════════════
 
   tap() {
-    this.vibrate(20, 0.7);
+    this.vibrate(20, 0.1);
   }
 
   buttonPress() {

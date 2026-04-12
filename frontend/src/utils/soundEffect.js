@@ -70,7 +70,7 @@ class SoundEffect {
 
       osc.type = type;
       osc.frequency.value = frequency;
-      gainNode.gain.setValueAtTime(this.volume * 0.2, ctx.currentTime);
+      gainNode.gain.setValueAtTime(this.volume * 0.1, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, endTime);
 
       osc.connect(gainNode);

@@ -43,7 +43,7 @@ const Register = () => {
       if (interests.length > 0) {
         try { await API.post('/categories/interests', { category_ids: interests }); } catch {}
       }
-      toast.success('Welcome to SkillShare! 🎉');
+      toast.success('Welcome to OurGuided! 🎉');
       navigate('/feed');
     } catch (err) {
       setStep(1);
