@@ -42,6 +42,17 @@ const KnowledgeLineChart = ({ data, year }) => {
   const W = 620, H = 240, PL = 52, PR = 20, PT = 18, PB = 42;
   const innerW = W - PL - PR, innerH = H - PT - PB;
   
+  // Get CSS variables from the document
+  const getCSSVar = (name) => {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || '#3b5bfa';
+  };
+  
+  const chartPrimary = getCSSVar('--chart-primary');
+  const chartSecondary = getCSSVar('--chart-secondary');
+  const chartGrid = getCSSVar('--chart-grid');
+  const chartText = getCSSVar('--chart-text');
+  
   const maxK = Math.max(...monthly.map(m => m.cumulative), 1);
   
   // Scale x from 0 to 12. 0 is start of Jan, 12 is end of Dec.
@@ -77,38 +88,38 @@ const KnowledgeLineChart = ({ data, year }) => {
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 300, display: 'block' }}>
         <defs>
           <linearGradient id="kGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b5bfa" stopOpacity="0.6"/>
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0"/>
+            <stop offset="0%" stopColor={chartPrimary} stopOpacity="0.6"/>
+            <stop offset="100%" stopColor={chartSecondary} stopOpacity="0"/>
           </linearGradient>
         </defs>
         {yTicks.map((t, i) => (
           <g key={i}>
-            <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke="#dde2ef" strokeWidth="1" strokeDasharray="4 3"/>
-            <text x={PL - 5} y={t.y + 4} textAnchor="end" fontSize="9" fill="#8892b5" fontFamily="monospace">{fmtK(t.val)}</text>
+            <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke={chartGrid} strokeWidth="1" strokeDasharray="4 3"/>
+            <text x={PL - 5} y={t.y + 4} textAnchor="end" fontSize="9" fill={chartText} fontFamily="monospace">{fmtK(t.val)}</text>
           </g>
         ))}
         <line x1={getX(curMonthIdx)} y1={PT} x2={getX(curMonthIdx)} y2={PT + innerH}
-          stroke="#3b5bfa" strokeWidth="1" strokeDasharray="4 3" opacity="0.5"/>
+          stroke={chartPrimary} strokeWidth="1" strokeDasharray="4 3" opacity="0.5"/>
         <path d={areaD} fill="url(#kGrad)"/>
-        <path d={pathData} fill="none" stroke="#3b5bfa" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+        <path d={pathData} fill="none" stroke={chartPrimary} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
         {dailyDots.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r="3" fill="#06b6d4" opacity="0.7">
+          <circle key={i} cx={d.x} cy={d.y} r="3" fill={chartSecondary} opacity="0.7">
             <title>{d.date}: +{fmt(d.knowledge)} pts</title>
           </circle>
         ))}
         {monthly.map((m, i) => (
           <g key={i}>
             <circle cx={getX(i)} cy={getY(m.cumulative)} r="5"
-              fill="white" stroke="#3b5bfa" strokeWidth="2.5">
+              fill="var(--bg2)" stroke={chartPrimary} strokeWidth="2.5">
               <title>{m.label} {year}: {fmt(m.cumulative)} cum pts</title>
             </circle>
           </g>
         ))}
         {monthly.map((m, i) => (
-          <text key={i} x={getX(i - 0.5)} y={H - 8} textAnchor="middle" fontSize="9" fill="#8892b5" fontFamily="monospace">{m.label}</text>
+          <text key={i} x={getX(i - 0.5)} y={H - 8} textAnchor="middle" fontSize="9" fill={chartText} fontFamily="monospace">{m.label}</text>
         ))}
-        <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke="#dde2ef" strokeWidth="1.5"/>
-        <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke="#dde2ef" strokeWidth="1.5"/>
+        <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
+        <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
       </svg>
     </div>
   );

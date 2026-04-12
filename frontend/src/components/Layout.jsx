@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import useFeedback from '../hooks/useFeedback';
 import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,
-  FiUsers, FiBell, FiCompass, FiList, FiClock
+  FiUsers, FiBell, FiCompass, FiList, FiClock, FiMoon, FiSun
 } from 'react-icons/fi';
 import { RiQuestionLine } from 'react-icons/ri';
 
@@ -17,6 +18,7 @@ import { RiQuestionLine } from 'react-icons/ri';
  */
 const Layout = () => {
   const { user, logout }  = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { onTap }         = useFeedback();
   const navigate          = useNavigate();
   const location          = useLocation();
@@ -97,7 +99,7 @@ const Layout = () => {
         {/* scrollable nav area */}
         <div className="sidebar-scroll">
           <div className="sidebar-logo">
-            <span style={{ fontWeight: 'bold', fontSize: '1.3rem', color: '#0d0c0c' }}>OurGuided</span>
+            <span style={{ fontWeight: 'bold', fontSize: '1.3rem', color: 'var(--text)' }}>OurGuided</span>
           </div>
 
           <div className="nav-group-label">Main</div>
@@ -137,6 +139,15 @@ const Layout = () => {
               <strong>{user && user.username}</strong>
               <span>@{user && user.username}</span>
             </div>
+            <button
+              className="logout-btn"
+              onClick={() => { onTap(); toggleTheme(); }}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label="Toggle theme"
+              style={{ marginRight: '0.5rem' }}
+            >
+              {theme === 'dark' ? <FiSun size={17} /> : <FiMoon size={17} />}
+            </button>
             <button
               className="logout-btn"
               onClick={handleLogout}

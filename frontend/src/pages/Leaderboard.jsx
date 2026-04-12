@@ -77,7 +77,7 @@ const Leaderboard = () => {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       {displayName}
-                      {u.is_expert && <span style={{ fontSize: '0.7rem', color: '#b45309' }}>⭐ Expert</span>}
+                      {u.is_expert && <span style={{ fontSize: '0.7rem', color: 'var(--medal-bronze)' }}>⭐ Expert</span>}
                       {isMe && <span style={{ fontSize: '0.7rem', color: 'var(--accent2)', fontFamily: 'Space Mono, monospace' }}>(you)</span>}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text3)', fontFamily: 'Space Mono, monospace' }}>@{u.username}</div>

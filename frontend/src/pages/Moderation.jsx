@@ -122,7 +122,7 @@ const Moderation = () => {
                 <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
                   <button
                     className="btn btn-sm"
-                    style={{ flex: 1, background: 'rgba(5,150,105,0.1)', color: 'var(--success)', border: '1px solid rgba(5,150,105,0.3)' }}
+                    style={{ flex: 1, background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success-border)' }}
                     onClick={() => approve(post.post_id)}
                   >
                     <FiCheck size={14} /> Approve & Publish

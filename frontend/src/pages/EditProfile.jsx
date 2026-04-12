@@ -154,14 +154,14 @@ const EditProfile = () => {
         <div className="info-card">
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.75rem' }}>
             <label style={{ position: 'relative', cursor: 'pointer', display: 'block' }}>
-              <div style={{ width: 100, height: 100, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--border)', background: 'linear-gradient(135deg, var(--accent), var(--accent3))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '2rem', fontWeight: 800 }}>
+              <div style={{ width: 100, height: 100, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--border)', background: 'linear-gradient(135deg, var(--accent), var(--accent3))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bg2)', fontSize: '2rem', fontWeight: 800 }}>
                 {photoPreview ? (
                   <img src={photoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}/>
                 ) : (
                   (profile.first_name || user?.username || '?')[0]?.toUpperCase()
                 )}
               </div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: '.7rem', textAlign: 'center', padding: '4px', borderBottomLeftRadius: '50%', borderBottomRightRadius: '50%' }}>
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,.55)', color: 'var(--bg2)', fontSize: '.7rem', textAlign: 'center', padding: '4px', borderBottomLeftRadius: '50%', borderBottomRightRadius: '50%' }}>
                 Change
               </div>
               <input type="file" accept="image/*" style={{ display: 'none' }}

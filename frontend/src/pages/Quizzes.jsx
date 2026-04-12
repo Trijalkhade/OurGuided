@@ -278,7 +278,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 240, overflowY: 'auto' }}>
                     {leaderboard.map((entry, idx) => (
                       <div key={entry.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--bg2)', borderRadius: 8, fontSize: '0.85rem' }}>
-                        <span style={{ fontFamily: 'Space Mono, monospace', fontWeight: 700, color: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : idx === 2 ? '#b45309' : 'var(--text3)', minWidth: 20 }}>
+                        <span style={{ fontFamily: 'Space Mono, monospace', fontWeight: 700, color: idx === 0 ? 'var(--medal-gold)' : idx === 1 ? 'var(--medal-silver)' : idx === 2 ? 'var(--medal-bronze)' : 'var(--text3)', minWidth: 20 }}>
                           #{idx + 1}
                         </span>
                         <span style={{ flex: 1, fontWeight: 600 }}>{entry.first_name || entry.username}</span>

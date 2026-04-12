@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Login         from './pages/Login';
 import Register      from './pages/Register';
 import Feed          from './pages/Feed';
@@ -23,7 +24,7 @@ import './App.css';
 
 const LoadingScreen = () => (
   <div className="loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-    <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #ddd', borderTop: '4px solid #3b5bfa', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+    <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--border)', borderTop: '4px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
   </div>
 );
 
@@ -39,9 +40,21 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/feed" replace />;
 };
 
-const AppContent = () => (
-  <>
-    <Toaster position="top-right" toastOptions={{ style: { background: '#1a1a2e', color: '#e8e8ff', border: '1px solid #2563eb' } }} />
+const AppContent = () => {
+  const { theme } = useTheme();
+
+  return (
+    <>
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          style: {
+            background: theme === 'dark' ? '#1a1f2e' : '#ffffff',
+            color: theme === 'dark' ? '#e8e8ff' : '#0d1a38',
+            border: theme === 'dark' ? '1px solid #2d3748' : '1px solid #dde2ef',
+          }
+        }} 
+      />
     <Routes>
       <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
@@ -62,19 +75,22 @@ const AppContent = () => (
         <Route path="post/:id"      element={<PostDetail />} />
       </Route>
     </Routes>
-  </>
-);
+    </>
+  );
+};
 
 const App = () => (
-  <AuthProvider>
-    <FeedbackProvider>
-      <BrowserRouter>
-        <Suspense fallback={<LoadingScreen />}>
-          <AppContent />
-        </Suspense>
-      </BrowserRouter>
-    </FeedbackProvider>
-  </AuthProvider>
+  <ThemeProvider>
+    <AuthProvider>
+      <FeedbackProvider>
+        <BrowserRouter>
+          <Suspense fallback={<LoadingScreen />}>
+            <AppContent />
+          </Suspense>
+        </BrowserRouter>
+      </FeedbackProvider>
+    </AuthProvider>
+  </ThemeProvider>
 );
 
 export default App;
