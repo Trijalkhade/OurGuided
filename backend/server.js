@@ -10,6 +10,10 @@ const PORT = process.env.PORT || 5000;
 const { initBirthdayScheduler } = require('./utils/birthdayScheduler');
 initBirthdayScheduler();
 
+// Initialize Moderation Service
+const moderationService = require('./services/moderationService');
+moderationService.startBackgroundModeration();
+
 process.on('uncaughtException',   (err)           => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));
 process.on('unhandledRejection',  (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
 

@@ -8,8 +8,8 @@ router.get('/', auth, async (req, res) => {
   try {
     const [cats] = await db.execute(
       `SELECT c.category_id, c.name, c.icon, c.description,
-              (SELECT COUNT(*) FROM posts p WHERE p.category=c.name AND p.is_pending=FALSE) AS post_count,
-              (SELECT COUNT(*) FROM quizzes q WHERE q.category=c.name AND q.is_published=TRUE) AS quiz_count
+              (SELECT COUNT(*) FROM posts p WHERE p.category=c.name AND p.is_pending=FALSE AND p.is_deleted=FALSE) AS post_count,
+              (SELECT COUNT(*) FROM quizzes q WHERE q.category=c.name AND q.is_published=TRUE AND q.is_deleted=FALSE) AS quiz_count
        FROM categories c ORDER BY c.category_id`);
     res.json(cats);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -72,7 +72,7 @@ router.get('/recommended', auth, async (req, res) => {
          INNER JOIN users u    ON p.user_id=u.user_id
          LEFT  JOIN user_info ui ON p.user_id=ui.user_id
          LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
-         WHERE p.category IN (${placeholders}) AND p.is_pending=FALSE
+         WHERE p.category IN (${placeholders}) AND p.is_pending=FALSE AND p.is_deleted=FALSE
          GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
         [userId, userId, ...names]);
     } else {
@@ -90,7 +90,7 @@ router.get('/recommended', auth, async (req, res) => {
          INNER JOIN users u      ON p.user_id=u.user_id
          LEFT  JOIN user_info ui ON p.user_id=ui.user_id
          LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
-         WHERE p.is_pending=FALSE
+         WHERE p.is_pending=FALSE AND p.is_deleted=FALSE
          GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
         [userId, userId]);
     }

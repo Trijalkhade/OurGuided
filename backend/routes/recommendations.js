@@ -35,14 +35,15 @@ async function buildUserVector(conn, userId) {
   const [likedTags] = await conn.execute(
     `SELECT pt.tag, COUNT(*) AS cnt FROM likes l
      JOIN post_tags pt ON l.post_id=pt.post_id
-     WHERE l.user_id=? GROUP BY pt.tag`,
+     JOIN posts p ON l.post_id=p.post_id
+     WHERE l.user_id=? AND p.is_deleted=FALSE GROUP BY pt.tag`,
     [userId]
   );
   // Tags from own posts
   const [ownTags] = await conn.execute(
     `SELECT pt.tag, COUNT(*) AS cnt FROM posts p
      JOIN post_tags pt ON p.post_id=pt.post_id
-     WHERE p.user_id=? GROUP BY pt.tag`,
+     WHERE p.user_id=? AND p.is_deleted=FALSE GROUP BY pt.tag`,
     [userId]
   );
   // Certifications
@@ -286,7 +287,7 @@ router.get('/feed', auth, async (req, res) => {
        INNER JOIN users u ON p.user_id=u.user_id
        LEFT  JOIN user_info ui ON p.user_id=ui.user_id
        LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
-       WHERE p.is_pending=FALSE
+       WHERE p.is_pending=FALSE AND p.is_deleted=FALSE
        GROUP BY p.post_id
        ORDER BY p.post_date DESC
        LIMIT 500`,

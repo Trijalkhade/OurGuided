@@ -72,7 +72,7 @@ router.get('/:id', auth, async (req, res) => {
        FROM user_education ue JOIN education_type et ON ue.type_id=et.type_id
        WHERE ue.user_id=?`, [userId]);
     const [[{ count: post_count }]] = await db.execute(
-      'SELECT COUNT(*) AS count FROM posts WHERE user_id=? AND is_pending=FALSE', [userId]);
+      'SELECT COUNT(*) AS count FROM posts WHERE user_id=? AND is_pending=FALSE AND is_deleted=FALSE', [userId]);
     const [interests] = await db.execute(
       `SELECT c.category_id, c.name, c.icon FROM user_interests ui
        JOIN categories c ON ui.category_id=c.category_id WHERE ui.user_id=?`, [userId]);

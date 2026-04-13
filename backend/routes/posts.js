@@ -4,6 +4,7 @@ const db      = require('../db');
 const upload  = require('../middleware/upload');
 const auth    = require('../middleware/auth');
 const { createNotification } = require('./notifications');
+const moderationService = require('../services/moderationService');
 
 /* ── helper ── */
 function convertImage(post) {
@@ -60,7 +61,7 @@ router.get('/feed', auth, async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    let where = 'WHERE p.is_pending = FALSE';
+    let where = 'WHERE p.is_deleted = FALSE AND p.is_pending = FALSE';
     const params = [];
     if (cat) { where += ' AND p.category = ?'; params.push(cat); }
 
@@ -81,7 +82,8 @@ router.get('/user/:id', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const [posts] = await conn.query(
-      `${POST_SELECT} WHERE p.user_id = ? AND p.is_pending = FALSE
+      `${POST_SELECT} 
+       WHERE p.user_id = ? AND p.is_deleted = FALSE AND p.is_pending = FALSE
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 50`, [profileId]);
     for (const p of posts) await enrichPost(conn, p, userId);
     res.json(posts);
@@ -98,6 +100,7 @@ router.get('/watchlist', auth, async (req, res) => {
     const [posts] = await conn.query(
       `${POST_SELECT}
        INNER JOIN user_watch uw ON uw.post_id = p.post_id AND uw.user_id = ?
+       WHERE p.is_deleted = FALSE
        GROUP BY p.post_id ORDER BY uw.watch_date DESC LIMIT 50`, [userId]);
     for (const p of posts) await enrichPost(conn, p, userId);
     res.json(posts);
@@ -116,7 +119,7 @@ router.get('/pending', auth, async (req, res) => {
     if (!expert?.is_expert)
       return res.status(403).json({ message: 'Expert access required' });
     const [posts] = await conn.query(
-      `${POST_SELECT} WHERE p.is_pending = TRUE
+      `${POST_SELECT} WHERE p.is_deleted = FALSE AND p.is_pending = TRUE
        GROUP BY p.post_id ORDER BY p.post_date DESC`);
     for (const p of posts) await enrichPost(conn, p, userId);
     res.json(posts);
@@ -145,7 +148,7 @@ router.get('/tag/:tag', auth, async (req, res) => {
        INNER JOIN users u       ON p.user_id  = u.user_id
        LEFT  JOIN user_info ui  ON p.user_id  = ui.user_id
        LEFT  JOIN post_tags pt2 ON p.post_id  = pt2.post_id
-       WHERE p.is_pending = FALSE
+       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT ${limit} OFFSET ${offset}`,
       [tag]);
     for (const p of posts) await enrichPost(conn, p, userId);
@@ -173,7 +176,7 @@ router.get('/search', auth, async (req, res) => {
        INNER JOIN users u      ON p.user_id = u.user_id
        LEFT  JOIN user_info ui ON p.user_id = ui.user_id
        LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
-       WHERE p.is_pending = FALSE
+       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE
          AND (p.text LIKE ? OR pt.tag LIKE ? OR p.category LIKE ?)
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
       [like, like, like]);
@@ -190,7 +193,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const [posts] = await conn.query(
-      `${POST_SELECT} WHERE p.post_id=? GROUP BY p.post_id`, [req.params.id]);
+      `${POST_SELECT} WHERE p.post_id=? AND p.is_deleted = FALSE GROUP BY p.post_id`, [req.params.id]);
     if (!posts.length) return res.status(404).json({ message: 'Post not found' });
     const post = await enrichPost(conn, posts[0], userId);
     const [comments] = await conn.execute(
@@ -201,7 +204,7 @@ router.get('/:id', auth, async (req, res) => {
        FROM comments c
        INNER JOIN users u      ON c.user_id=u.user_id
        LEFT  JOIN user_info ui ON c.user_id=ui.user_id
-       WHERE c.post_id=? ORDER BY c.dated ASC`, [req.params.id]);
+       WHERE c.post_id=? AND c.is_deleted = FALSE ORDER BY c.dated ASC`, [req.params.id]);
     post.comments = comments;
     res.json(post);
   } catch (err) { console.error('POST DETAIL:', err.message); res.status(500).json({ message: err.message }); }
@@ -216,6 +219,9 @@ router.post('/', auth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'i
 
   if (!content && !mainImage && !video)
     return res.status(400).json({ message: 'Post must contain text or media' });
+
+  // Background hate speech detection will be processed after post creation
+  // No blocking detection to ensure instant user experience
 
   let conn;
   try {
@@ -266,6 +272,16 @@ router.post('/', auth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'i
           )
         )
       );
+    }
+
+    // Background hate speech detection
+    if (content) {
+      await moderationService.queueForDetection({
+        type: 'post',
+        id: postId,
+        userId: req.user.user_id,
+        content: content
+      });
     }
 
     res.status(201).json({ post_id: postId });
@@ -369,12 +385,25 @@ router.post('/:id/watchlist', auth, async (req, res) => {
 router.post('/:id/comment', auth, async (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ message: 'Comment required' });
+
+  // Background hate speech detection will be processed after comment creation
+  // No blocking detection to ensure instant user experience
+
   let conn;
   try {
     conn = await db.getConnection();
     const [r] = await conn.execute('INSERT INTO comments (user_id,post_id,content) VALUES (?,?,?)',
       [req.user.user_id, req.params.id, content]);
+      
+    // Background hate speech detection
+    await moderationService.queueForDetection({
+      type: 'comment',
+      id: r.insertId,
+      userId: req.user.user_id,
+      content: content
+    });
     
+
     // Notify Post Author
     (async () => {
       try {

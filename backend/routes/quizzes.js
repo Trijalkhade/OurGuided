@@ -3,11 +3,12 @@ const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
 const { createNotification } = require('./notifications');
+const moderationService = require('../services/moderationService');
 
 /* ── GET /   — list published quizzes ── */
 router.get('/', auth, async (req, res) => {
   const { category, difficulty } = req.query;
-  let where = 'WHERE q.is_published = TRUE';
+  let where = 'WHERE q.is_published = TRUE AND q.is_deleted = FALSE';
   const params = [];
   if (category)   { where += ' AND q.category = ?';   params.push(category); }
   if (difficulty) { where += ' AND q.difficulty = ?'; params.push(difficulty); }
@@ -40,7 +41,7 @@ router.get('/my', auth, async (req, res) => {
       `SELECT q.*,
               (SELECT COUNT(*) FROM quiz_questions WHERE quiz_id=q.quiz_id) AS question_count,
               (SELECT COUNT(*) FROM quiz_attempts  WHERE quiz_id=q.quiz_id) AS attempt_count
-       FROM quizzes q WHERE q.creator_id=? ORDER BY q.created_at DESC`, [req.user.user_id]);
+       FROM quizzes q WHERE q.creator_id=? AND q.is_deleted = FALSE ORDER BY q.created_at DESC`, [req.user.user_id]);
     res.json(quizzes);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -56,7 +57,7 @@ router.get('/:id', auth, async (req, res) => {
        INNER JOIN users u       ON q.creator_id=u.user_id
        LEFT  JOIN user_info ui  ON q.creator_id=ui.user_id
        LEFT  JOIN user_profile up ON q.creator_id=up.user_id
-       WHERE q.quiz_id=?`, [req.params.id]);
+       WHERE q.quiz_id=? AND q.is_deleted = FALSE`, [req.params.id]);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
 
     const [questions] = await db.execute(
@@ -120,9 +121,27 @@ router.post('/', auth, async (req, res) => {
     await conn.commit();
     conn.release();
 
-    // Notify ALL interested users in background
+    // Background hate speech detection and user notifications
     (async () => {
       try {
+        // Combine all quiz content (Title + Desc + Questions + All Options) for deep scan
+        const quizContent = `
+          TITLE: ${title}
+          DESCRIPTION: ${description || ''}
+          QUESTIONS: ${questions.map(q => `
+            Q: ${q.question_text}
+            OPTIONS: ${(q.options || []).map(opt => opt.option_text).join(' | ')}
+          `).join('\n')}
+        `;
+        
+        await moderationService.queueForDetection({
+          type: 'quiz',
+          id: quizId,
+          userId: userId,
+          content: quizContent
+        });
+
+        // Notify ALL interested users
         const [users] = await db.execute('SELECT user_id FROM user_profile WHERE notify_quizzes=TRUE');
         for (const u of users) {
           // Skip the creator
@@ -132,7 +151,9 @@ router.post('/', auth, async (req, res) => {
             `A new quiz "${title}" has been published in ${category || 'General'}. Test your knowledge now!`
           );
         }
-      } catch (e) { console.error('Quiz notification broadcast failed:', e); }
+      } catch (e) { 
+        console.error('Quiz background processing failed:', e); 
+      }
     })();
 
     res.status(201).json({ quiz_id: quizId, message: 'Quiz created!' });

@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS posts (
     category   VARCHAR(50),
     is_anonymous BOOLEAN DEFAULT FALSE,
     is_pending   BOOLEAN DEFAULT FALSE,
+    is_deleted   BOOLEAN DEFAULT FALSE,
+    deleted_at   TIMESTAMP NULL,
     post_date  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_posts_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -170,6 +172,8 @@ CREATE TABLE IF NOT EXISTS comments (
     user_id    INT NOT NULL,
     post_id    INT NOT NULL,
     content    TEXT NOT NULL,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP NULL,
     dated      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_comment_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_comment_post FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -220,6 +224,8 @@ CREATE TABLE IF NOT EXISTS quizzes (
     category    VARCHAR(50),
     difficulty  ENUM('Beginner','Intermediate','Advanced') DEFAULT 'Beginner',
     is_published BOOLEAN DEFAULT FALSE,
+    is_deleted  BOOLEAN DEFAULT FALSE,
+    deleted_at  TIMESTAMP NULL,
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (creator_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -334,4 +340,48 @@ CREATE TABLE IF NOT EXISTS playlist_items (
   FOREIGN KEY (playlist_id) REFERENCES playlists(playlist_id) ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (post_id)     REFERENCES posts(post_id)         ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+-- ── Moderation System ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS moderation_queue (
+  queue_id INT AUTO_INCREMENT PRIMARY KEY,
+  content_type ENUM('post', 'comment', 'quiz') NOT NULL,
+  content_id INT NOT NULL,
+  user_id INT NOT NULL,
+  content TEXT NOT NULL,
+  status ENUM('pending', 'processing', 'deleted', 'moderated') DEFAULT 'pending',
+  detection_confidence DECIMAL(3,2),
+  detection_details JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  processed_at TIMESTAMP NULL,
+  INDEX idx_status (status),
+  INDEX idx_content_type (content_type),
+  INDEX idx_created_at (created_at)
+);
+
+CREATE TABLE IF NOT EXISTS moderation_reviews (
+  review_id INT AUTO_INCREMENT PRIMARY KEY,
+  queue_id INT NOT NULL,
+  moderator_id INT,
+  decision ENUM('approve', 'reject', 'escalate') NOT NULL,
+  notes TEXT,
+  reviewed_at TIMESTAMP NULL,
+  UNIQUE(queue_id),
+  FOREIGN KEY (queue_id) REFERENCES moderation_queue(queue_id) ON DELETE CASCADE,
+  FOREIGN KEY (moderator_id) REFERENCES users(user_id) ON DELETE SET NULL,
+  INDEX idx_reviewed_at (reviewed_at)
+);
+
+CREATE TABLE IF NOT EXISTS content_deletions (
+  deletion_id INT AUTO_INCREMENT PRIMARY KEY,
+  content_type ENUM('post', 'comment', 'quiz') NOT NULL,
+  content_id INT NOT NULL,
+  user_id INT NOT NULL,
+  reason TEXT,
+  confidence DECIMAL(3,2),
+  detection_details JSON,
+  deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  INDEX idx_deleted_at (deleted_at)
+);
+
  
