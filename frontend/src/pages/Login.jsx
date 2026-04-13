@@ -26,7 +26,7 @@ const Login = () => {
     <div className="auth-page">
       <div className="auth-box">
         <div className="auth-logo">
-          <h1><RiRocketLine style={{ display: 'inline', marginRight: '8px' }} />OurGuided</h1>
+          <h1>OurGuided</h1>
           <p>Connect. Learn. Grow.</p>
         </div>
         <form onSubmit={handleSubmit}>

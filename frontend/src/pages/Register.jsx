@@ -55,7 +55,7 @@ const Register = () => {
     <div className="auth-page">
       <div className="auth-box" style={{ maxWidth: step === 2 ? 540 : 460 }}>
         <div className="auth-logo">
-          <h1><RiRocketLine style={{ display: 'inline', marginRight: '8px' }} />SkillShare</h1>
+          <h1>OurGuided</h1>
           <p>{step === 1 ? 'Start your learning journey today' : 'What do you want to learn?'}</p>
         </div>
 
