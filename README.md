@@ -1,6 +1,6 @@
-# 🚀 SkillShare — Full Stack Learning Platform
+# 🚀 OurGuided — Full Stack Learning Platform
 
-SkillShare is a scalable, full-stack web application designed to enable peer-driven learning through content sharing, quizzes, and structured study tracking. It integrates social interaction with knowledge growth to create a collaborative learning ecosystem.
+OurGuided is a scalable, full-stack web application designed to enable peer-driven learning through content sharing, quizzes, and structured study tracking. It integrates social interaction with knowledge growth to create a collaborative learning ecosystem.
 
 ---
 
@@ -303,7 +303,7 @@ Database (MySQL)
 # 📦 Project Structure
 
 ```
-SkillShare/
+OurGuided/
 ├── frontend/
 ├── backend/
 ├── README.md
@@ -324,7 +324,7 @@ SkillShare/
 **Trijal Khade**
 GitHub: https://github.com/Trijalkhade
 
-SkillShare Platform
+OurGuided Platform
 Designed with full-stack engineering and production deployment practices.
 
 ---
