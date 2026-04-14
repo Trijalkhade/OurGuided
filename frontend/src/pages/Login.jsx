@@ -5,10 +5,10 @@ import toast from 'react-hot-toast';
 import { RiRocketLine } from 'react-icons/ri';
 
 const Login = () => {
-  const [form, setForm]     = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const { login }           = useAuth();
-  const navigate            = useNavigate();
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();

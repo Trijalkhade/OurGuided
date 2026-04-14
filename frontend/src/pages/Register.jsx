@@ -5,23 +5,24 @@ import toast from 'react-hot-toast';
 import { RiRocketLine } from 'react-icons/ri';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
-  { id: 1, name: 'Engineering',       icon: '⚙️' },
-  { id: 2, name: 'Business',          icon: '💼' },
-  { id: 3, name: 'Life Skills',       icon: '🌱' },
-  { id: 4, name: 'Psychology',        icon: '🧠' },
-  { id: 5, name: 'Teaching Skills',   icon: '🎓' },
-  { id: 6, name: 'Health & Nutrition',icon: '🥗' },
-  { id: 7, name: 'Physical Fitness',  icon: '🏋️' },
-  { id: 8, name: 'Agriculture',       icon: '🌾' },
+  { id: 1, name: 'Engineering', icon: '⚙️' },
+  { id: 2, name: 'Business', icon: '💼' },
+  { id: 3, name: 'Life Skills', icon: '🌱' },
+  { id: 4, name: 'Psychology', icon: '🧠' },
+  { id: 5, name: 'Teaching Skills', icon: '🎓' },
+  { id: 6, name: 'Health & Nutrition', icon: '🥗' },
+  { id: 7, name: 'Physical Fitness', icon: '🏋️' },
+  { id: 8, name: 'Agriculture', icon: '🌾' },
 ];
 
 const Register = () => {
-  const [step, setStep]       = useState(1);
-  const [form, setForm]       = useState({ username: '', email: '', password: '', first_name: '', last_name: '', dob: '' });
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ username: '', email: '', password: '', first_name: '', last_name: '', dob: '' });
   const [interests, setInterests] = useState([]);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register }          = useAuth();
-  const navigate              = useNavigate();
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -32,6 +33,8 @@ const Register = () => {
     e.preventDefault();
     if (!form.username || !form.email || !form.password)
       return toast.error('Fill in all required fields');
+    if (!privacyAccepted)
+      return toast.error('Please accept the terms and conditions');
     setStep(2);
   };
 
@@ -41,7 +44,7 @@ const Register = () => {
       await register(form);
       // Save interests
       if (interests.length > 0) {
-        try { await API.post('/categories/interests', { category_ids: interests }); } catch {}
+        try { await API.post('/categories/interests', { category_ids: interests }); } catch { }
       }
       toast.success('Welcome to OurGuided! 🎉');
       navigate('/feed');
@@ -96,7 +99,27 @@ const Register = () => {
               <input type="date" required min="1945-01-01" max="2012-12-31"
                 value={form.dob} onChange={set('dob')} />
             </div>
-            <button type="submit" className="btn btn-primary">Continue →</button>
+            <div className="form-group privacy-checkbox" style={{ marginTop: '1.25rem' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', fontWeight: 'normal', fontSize: '0.88rem', color: 'var(--text2)', lineHeight: 1.5 }}>
+                <input
+                  type="checkbox"
+                  required
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  style={{ 
+                    width: '18px', 
+                    height: '18px', 
+                    marginTop: '2px',
+                    accentColor: 'var(--accent)',
+                    cursor: 'pointer'
+                  }}
+                />
+                <span>
+                  I accept to be 13+ age and agree to the <Link to="/privacy-policy" target="_blank" style={{ color: 'var(--accent)', fontWeight: '600', textDecoration: 'none', borderBottom: '1.5px solid var(--accent)' }}>Privacy Policy and Terms</Link>
+                </span>
+              </label>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={!privacyAccepted}>Continue →</button>
           </form>
         )}
 

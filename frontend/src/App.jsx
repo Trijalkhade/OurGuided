@@ -4,22 +4,24 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import Login         from './pages/Login';
-import Register      from './pages/Register';
-import Feed          from './pages/Feed';
-import Profile       from './pages/Profile';
-import Watchlist     from './pages/Watchlist';
-import PostDetail    from './pages/PostDetail';
-import EditProfile   from './pages/EditProfile';
-import Study         from './pages/Study';
-import Connections   from './pages/Connections';
-import Explore       from './pages/Explore';
-import Quizzes       from './pages/Quizzes';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Feed from './pages/Feed';
+import Profile from './pages/Profile';
+import Watchlist from './pages/Watchlist';
+import PostDetail from './pages/PostDetail';
+import EditProfile from './pages/EditProfile';
+import Study from './pages/Study';
+import Connections from './pages/Connections';
+import Explore from './pages/Explore';
+import Quizzes from './pages/Quizzes';
 import Notifications from './pages/Notifications';
-import Leaderboard   from './pages/Leaderboard';
-import Playlists     from './pages/Playlists';
-import Moderation    from './pages/Moderation';
-import Layout        from './components/Layout';
+import Leaderboard from './pages/Leaderboard';
+import Playlists from './pages/Playlists';
+import Moderation from './pages/Moderation';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import CookiePolicy from './pages/CookiePolicy';
+import Layout from './components/Layout';
 import './App.css';
 
 const LoadingScreen = () => (
@@ -45,36 +47,38 @@ const AppContent = () => {
 
   return (
     <>
-      <Toaster 
-        position="top-right" 
+      <Toaster
+        position="top-right"
         toastOptions={{
           style: {
             background: theme === 'dark' ? '#1a1f2e' : '#ffffff',
             color: theme === 'dark' ? '#e8e8ff' : '#0d1a38',
             border: theme === 'dark' ? '1px solid #2d3748' : '1px solid #dde2ef',
           }
-        }} 
+        }}
       />
-    <Routes>
-      <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-      <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-        <Route index element={<Navigate to="/feed" />} />
-        <Route path="feed"          element={<Feed />} />
-        <Route path="explore"       element={<Explore />} />
-        <Route path="quizzes"       element={<Quizzes />} />
-        <Route path="connections"   element={<Connections />} />
-        <Route path="profile/edit"  element={<EditProfile />} />
-        <Route path="profile/:id"   element={<Profile />} />
-        <Route path="watchlist"     element={<Watchlist />} />
-        <Route path="playlists"     element={<Playlists />} />
-        <Route path="study"         element={<Study />} />
-        <Route path="leaderboard"   element={<Leaderboard />} />
-        <Route path="moderation"    element={<Moderation />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="post/:id"      element={<PostDetail />} />
-      </Route>
-    </Routes>
+      <Routes>
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/cookies" element={<CookiePolicy />} />
+        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route index element={<Navigate to="/feed" />} />
+          <Route path="feed" element={<Feed />} />
+          <Route path="explore" element={<Explore />} />
+          <Route path="quizzes" element={<Quizzes />} />
+          <Route path="connections" element={<Connections />} />
+          <Route path="profile/edit" element={<EditProfile />} />
+          <Route path="profile/:id" element={<Profile />} />
+          <Route path="watchlist" element={<Watchlist />} />
+          <Route path="playlists" element={<Playlists />} />
+          <Route path="study" element={<Study />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="moderation" element={<Moderation />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="post/:id" element={<PostDetail />} />
+        </Route>
+      </Routes>
     </>
   );
 };
