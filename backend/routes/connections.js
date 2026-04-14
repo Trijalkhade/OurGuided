@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { sendEmail } = require('../utils/notifier');
 
 // Check connection status with another user
 router.get('/status/:userId', auth, async (req, res) => {
@@ -120,10 +121,62 @@ router.post('/request/:userId', auth, async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
+    
+    // Check if request already exists
+    const [existing] = await conn.execute(
+      'SELECT * FROM follows WHERE follower_id = ? AND following_id = ?',
+      [fromUserId, toUserId]
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Request already sent' });
+    }
+
     await conn.execute(
       'INSERT IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)',
       [fromUserId, toUserId]
     );
+
+    // Send Email Notification
+    try {
+      // 1. Get Recipient Info & Preferences
+      const [recipients] = await conn.execute(
+        `SELECT u.email, ui.first_name, up.notify_email 
+         FROM users u
+         LEFT JOIN user_info ui ON u.user_id = ui.user_id
+         LEFT JOIN user_profile up ON u.user_id = up.user_id
+         WHERE u.user_id = ?`,
+        [toUserId]
+      );
+
+      // 2. Get Sender details (to name the email)
+      const [senders] = await conn.execute(
+        `SELECT u.username, ui.first_name 
+         FROM users u 
+         LEFT JOIN user_info ui ON u.user_id = ui.user_id 
+         WHERE u.user_id = ?`,
+        [fromUserId]
+      );
+
+      if (recipients.length > 0 && senders.length > 0) {
+        const recipient = recipients[0];
+        const sender = senders[0];
+        const senderName = sender.first_name || sender.username;
+
+        // Only send if they have email notifications turned on
+        if (recipient.notify_email !== 0) {
+          sendEmail(
+            recipient.email,
+            `OurGuided: ${senderName} sent you a connection request!`,
+            `${senderName} wants to connect with you on OurGuided. Head over to your connections to accept or view their profile.`
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send connection email:', notificationError.message);
+      // Don't fail the request if email fails
+    }
+
     res.status(201).json({ message: 'Connection request sent' });
   } catch (err) {
     console.error('REQUEST ERROR:', err.message);
