@@ -339,3 +339,5 @@ This project is licensed under a custom proprietary license.
 
 **Attribution required:**  
 "Original project by Trijal Khade"
+
+&copy; 2026 Trijal Khade. All rights reserved.

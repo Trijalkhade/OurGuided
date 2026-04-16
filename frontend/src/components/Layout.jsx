@@ -157,6 +157,9 @@ const Layout = () => {
               <FiLogOut size={17} />
             </button>
           </div>
+          <div className="sidebar-copyright">
+            &copy; {new Date().getFullYear()} Trijal Khade.<br />All rights reserved.
+          </div>
         </div>
       </div>
 
