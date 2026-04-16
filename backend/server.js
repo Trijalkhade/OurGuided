@@ -36,6 +36,7 @@ app.use('/api/categories',  require('./routes/categories'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/playlists',   require('./routes/playlists'));
 app.use('/api/recommendations', require('./routes/recommendations'));
+app.use('/api/feedback',    require('./routes/feedback'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
 

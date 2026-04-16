@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import useFeedback from '../hooks/useFeedback';
+import FeedbackWidget from './FeedbackWidget';
 import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,
   FiUsers, FiBell, FiCompass, FiList, FiClock, FiMoon, FiSun
@@ -17,15 +18,15 @@ import { RiQuestionLine } from 'react-icons/ri';
  * .sidebar-footer  → user info + logout (ALWAYS visible, never scrolls away)
  */
 const Layout = () => {
-  const { user, logout }  = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { onTap }         = useFeedback();
-  const navigate          = useNavigate();
-  const location          = useLocation();
-  const [searchQuery, setSearchQuery]   = useState('');
+  const { onTap } = useFeedback();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState({ users: [], posts: [], quizzes: [] });
-  const [showResults, setShowResults]   = useState(false);
-  const [unreadCount, setUnreadCount]   = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const searchRef = useRef(null);
 
   const handleLogout = async () => {
@@ -39,7 +40,7 @@ const Layout = () => {
       try {
         const { data } = await API.get('/notifications/unread-count');
         setUnreadCount(data.count || 0);
-      } catch {}
+      } catch { }
     };
     fetchCount();
     const iv = setInterval(fetchCount, 60_000);
@@ -60,12 +61,12 @@ const Layout = () => {
             })),
           ]);
           setSearchResults({
-            users:   uRes.data.slice(0, 4),
-            posts:   pRes.data.slice(0, 4),
+            users: uRes.data.slice(0, 4),
+            posts: pRes.data.slice(0, 4),
             quizzes: qRes.data.slice(0, 3),
           });
           setShowResults(true);
-        } catch {}
+        } catch { }
       } else {
         setShowResults(false);
         setSearchResults({ users: [], posts: [], quizzes: [] });
@@ -85,8 +86,8 @@ const Layout = () => {
   }, []);
 
   const clearSearch = () => { setSearchQuery(''); setShowResults(false); };
-  const hasResults  = searchResults.users.length || searchResults.posts.length || searchResults.quizzes.length;
-  const initials    = user && user.username && user.username[0] ? user.username[0].toUpperCase() : '?';
+  const hasResults = searchResults.users.length || searchResults.posts.length || searchResults.quizzes.length;
+  const initials = user && user.username && user.username[0] ? user.username[0].toUpperCase() : '?';
 
   const navClass = ({ isActive }) => `nav-item${isActive ? ' active' : ''}`;
 
@@ -103,20 +104,20 @@ const Layout = () => {
           </div>
 
           <div className="nav-group-label">Main</div>
-          <NavLink to="/feed"        onClick={() => onTap()} className={navClass}><FiHome size={16} /> Feed</NavLink>
-          <NavLink to="/explore"     onClick={() => onTap()} className={navClass}><FiCompass size={16} /> Explore</NavLink>
-          <NavLink to="/quizzes"     onClick={() => onTap()} className={navClass}><RiQuestionLine size={16} /> Quizzes</NavLink>
+          <NavLink to="/feed" onClick={() => onTap()} className={navClass}><FiHome size={16} /> Feed</NavLink>
+          <NavLink to="/explore" onClick={() => onTap()} className={navClass}><FiCompass size={16} /> Explore</NavLink>
+          <NavLink to="/quizzes" onClick={() => onTap()} className={navClass}><RiQuestionLine size={16} /> Quizzes</NavLink>
           <NavLink to="/connections" onClick={() => onTap()} className={navClass}><FiUsers size={16} /> Connections</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>You</div>
           <NavLink to={`/profile/${user && user.user_id}`} onClick={() => onTap()} className={navClass}><FiUser size={16} /> Profile</NavLink>
-          <NavLink to="/watchlist"   onClick={() => onTap()} className={navClass}><FiBookmark size={16} /> Watchlist</NavLink>
-          <NavLink to="/playlists"   onClick={() => onTap()} className={navClass}><FiList size={16} /> Playlists</NavLink>
-          <NavLink to="/study"       onClick={() => onTap()} className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
+          <NavLink to="/watchlist" onClick={() => onTap()} className={navClass}><FiBookmark size={16} /> Watchlist</NavLink>
+          <NavLink to="/playlists" onClick={() => onTap()} className={navClass}><FiList size={16} /> Playlists</NavLink>
+          <NavLink to="/study" onClick={() => onTap()} className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>Community</div>
           <NavLink to="/leaderboard" onClick={() => onTap()} className={navClass}>🏆 Leaderboard</NavLink>
-          <NavLink to="/moderation"  onClick={() => onTap()} className={navClass}>🛡️ Moderation</NavLink>
+          <NavLink to="/moderation" onClick={() => onTap()} className={navClass}>🛡️ Moderation</NavLink>
           <NavLink to="/notifications" onClick={() => onTap()} className={navClass}>
             <span style={{ position: 'relative', display: 'inline-flex' }}>
               <FiBell size={16} />
@@ -158,7 +159,7 @@ const Layout = () => {
             </button>
           </div>
           <div className="sidebar-copyright">
-            &copy; {new Date().getFullYear()} Trijal Khade.<br />All rights reserved.
+            &copy; {new Date().getFullYear()} OurGuided.<br />All rights reserved.
           </div>
         </div>
       </div>
@@ -248,14 +249,17 @@ const Layout = () => {
       {/* ── MOBILE BOTTOM NAV ────────────────────────────────────────── */}
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <div className="mobile-nav-inner">
-          <NavLink to="/feed"        onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiHome size={22} />Feed</NavLink>
-          <NavLink to="/explore"     onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiCompass size={22} />Explore</NavLink>
-          <NavLink to="/quizzes"     onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><RiQuestionLine size={22} />Quizzes</NavLink>
+          <NavLink to="/feed" onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiHome size={22} />Feed</NavLink>
+          <NavLink to="/explore" onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiCompass size={22} />Explore</NavLink>
+          <NavLink to="/quizzes" onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><RiQuestionLine size={22} />Quizzes</NavLink>
           <NavLink to="/connections" onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUsers size={22} />Connect</NavLink>
           <NavLink to={`/profile/${user && user.user_id}`} onClick={() => onTap()} className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}><FiUser size={22} />Profile</NavLink>
           <button className="mobile-nav-item" onClick={handleLogout} aria-label="Logout"><FiLogOut size={22} />Logout</button>
         </div>
       </nav>
+
+      {/* ── FEEDBACK WIDGET ──────────────────────────────────────────── */}
+      <FeedbackWidget />
 
     </div>
   );
