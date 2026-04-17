@@ -338,6 +338,6 @@ This project is licensed under a custom proprietary license.
 - Commercial use requires permission and royalty  
 
 **Attribution required:**  
-"Original project by Trijal Khade"
+"Original project by OurGuided"
 
-&copy; 2026 Trijal Khade. All rights reserved.
+&copy; 2026 OurGuided. All rights reserved.

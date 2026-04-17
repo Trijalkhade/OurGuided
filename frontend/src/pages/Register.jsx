@@ -154,7 +154,7 @@ const Register = () => {
           Already have an account? <Link to="/login">Sign in</Link>
         </div>
         <div className="auth-copyright" style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.75rem', color: 'var(--text3)', opacity: 0.7 }}>
-          &copy; {new Date().getFullYear()} Trijal Khade. All rights reserved.
+          &copy; {new Date().getFullYear()} OurGuided. All rights reserved.
         </div>
       </div>
     </div>
