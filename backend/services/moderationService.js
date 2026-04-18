@@ -9,41 +9,27 @@ class ModerationService {
     this.processingInterval = null;
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     this.geminiModelName = "gemini-flash-latest";
-    
-    // Safety Keywords
-    this.keywords = [
-      'fuck', 'shit', 'bitch', 'asshole', 'kill', 'die', 'suicide', 'bomb', 
-      'cult', 'shutup', 'bastard', 'piss', 'dick', 'pussy', 'slut'
-    ];
+
   }
 
   /* ── INTERNAL: Detection Engine ── */
-  
+
   async _detectHateSpeech(text) {
     if (!text || typeof text !== 'string') {
       return { isHateSpeech: false, confidence: 0, reasons: [] };
     }
 
-    // 1. Local Keyword Filter
-    const lowerText = text.toLowerCase();
-    const foundKeywords = this.keywords.filter(word => lowerText.includes(word));
-    if (foundKeywords.length > 0) {
-      return {
-        isHateSpeech: true,
-        confidence: 0.85,
-        reasons: [`Inappropriate language detected: ${foundKeywords.join(', ')}`],
-        strategy: 'local-filter'
-      };
-    }
 
     // 2. AI Prompt
     const prompt = `
-      Analyze for a social learning platform:
-      1. Hate speech, discrimination, or severe profanity.
-      2. Harassment or PURELY BERATING others.
-      3. No educational value (no teaching, hacks, facts) + used only to demean.
+      Analyze this content for a social learning platform:
+      - ONLY flag as hate speech/harmful if the post has a negative feeling towards another user (e.g., purely berating, insulting, harassing them).
+      - Do NOT flag or delete posts that discuss dark psychology, historical suicide, or murder incidents, as these are educational or storytelling.
+      - DO NOT or delete flag the posts which uses bad words for trying to tell something, DO flag and delete the posts where bad words dont make any sense in context(excluding insults and hate speech).
+      - DO flag and delete posts that make absolutely no sense (e.g., random gibberish or spam words).
+      - Do not repeat or output the prompt.
 
-      Return ONLY JSON:
+      Return ONLY JSON in this exact format:
       {
         "isHateSpeech": boolean,
         "confidence": number (0-1),
@@ -78,10 +64,10 @@ class ModerationService {
         return { ...content, model: 'gpt-4o-mini', strategy: 'openai' };
       } catch (e2) {
         // Quota safety
-        return { 
-          isHateSpeech: true, 
-          confidence: 0.5, 
-          reasons: ['Engines quota hit. Review required.'], 
+        return {
+          isHateSpeech: true,
+          confidence: 0.5,
+          reasons: ['Engines quota hit. Review required.'],
           strategy: 'fallback',
           details: { error: e2.message },
           language: 'unknown'
@@ -122,7 +108,7 @@ class ModerationService {
     try {
       await db.execute('UPDATE moderation_queue SET status = "processing", processed_at = NOW() WHERE queue_id = ?', [queueItem.queue_id]);
       const res = await this._detectHateSpeech(queueItem.content);
-      
+
       await moderationLogger.logDetection(queueItem.user_id, queueItem.content_id, queueItem.content, res, queueItem.content_type);
 
       if (res.isHateSpeech) {
@@ -136,7 +122,7 @@ class ModerationService {
         await db.execute('UPDATE moderation_queue SET status = "moderated", detection_confidence = ?, detection_details = ? WHERE queue_id = ?',
           [res.confidence || 0, JSON.stringify(res), queueItem.queue_id]);
       }
-    } catch (e) { 
+    } catch (e) {
       await db.execute('UPDATE moderation_queue SET status = "pending" WHERE queue_id = ?', [queueItem.queue_id]);
     }
   }
@@ -145,9 +131,9 @@ class ModerationService {
     try {
       const table = queueItem.content_type === 'post' ? 'posts' : queueItem.content_type === 'comment' ? 'comments' : 'quizzes';
       const idCol = queueItem.content_type === 'post' ? 'post_id' : queueItem.content_type === 'comment' ? 'comment_id' : 'quiz_id';
-      
+
       await db.execute(`UPDATE ${table} SET is_deleted = TRUE, deleted_at = NOW() WHERE ${idCol} = ?`, [queueItem.content_id]);
-      
+
       await db.execute(`INSERT INTO content_deletions (content_type, content_id, user_id, reason, confidence, detection_details) VALUES (?,?,?,?,?,?)`,
         [queueItem.content_type, queueItem.content_id, queueItem.user_id, res.reasons.join(', '), res.confidence, JSON.stringify(res)]);
 
