@@ -116,6 +116,7 @@ const Feed = () => {
   const [hasMore, setHasMore] = useState(true);
   const [useRec, setUseRec] = useState(true); // toggle recommended vs chronological
   const [fetching, setFetching] = useState(true);
+  const [error, setError]       = useState(false);
 
   useEffect(() => {
     if (!loading && !user && !isPrerender) {
@@ -137,6 +138,7 @@ const Feed = () => {
 
   const fetchPosts = async (p = 1, cat = catFilter, rec = useRec) => {
     setFetching(true);
+    setError(false);
     try {
       let data;
       if (rec && !cat) {
@@ -154,7 +156,11 @@ const Feed = () => {
         setHasMore(data.length === 10);
         setPosts(prev => p === 1 ? data : [...prev, ...data]);
       }
-    } catch { toast.error('Failed to load feed'); }
+    } catch (err) { 
+      console.error(err);
+      setError(true);
+      toast.error('Failed to load feed'); 
+    }
     finally { setFetching(false); }
   };
 
@@ -198,8 +204,20 @@ const Feed = () => {
 
       {fetching && posts.length === 0 ? (
         <SkelFeed />
+      ) : error && posts.length === 0 ? (
+        <div className="empty-state">
+          <FiZap size={24} style={{ color: 'var(--danger)', marginBottom: '0.5rem' }} />
+          <h3>Connection issues</h3>
+          <p>We couldn't reach the server. Please check your connection.</p>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchPosts(1, catFilter, useRec)} style={{ marginTop: '1rem' }}>
+            Try Again
+          </button>
+        </div>
       ) : posts.length === 0 ? (
-        <div className="empty-state"><h3>No posts yet</h3><p>Be the first to share something!</p></div>
+        <div className="empty-state">
+          <h3>No posts yet</h3>
+          <p>Be the first to share something!</p>
+        </div>
       ) : (
         <>
           {posts.map(post => (
@@ -207,8 +225,10 @@ const Feed = () => {
           ))}
           {hasMore && (
             <button className="btn btn-secondary" style={{ width: '100%', marginTop: '1rem' }}
-              onClick={() => { const next = page + 1; setPage(next); fetchPosts(next, catFilter, useRec); }}>
-              Load more
+              onClick={() => { const next = page + 1; setPage(next); fetchPosts(next, catFilter, useRec); }}
+              disabled={fetching}
+            >
+              {fetching ? 'Loading more…' : 'Load more'}
             </button>
           )}
         </>

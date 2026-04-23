@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { io as socketIO } from 'socket.io-client';
 
 const AuthContext = createContext(null);
 
-// ✅ Detect prerender (VERY IMPORTANT)
+// Detect prerender
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
 const API = axios.create({ baseURL: '/api' });
 
 API.interceptors.request.use(config => {
-  if (isPrerender) return config; // 🚀 skip auth in prerender
+  if (isPrerender) return config;
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -18,53 +19,30 @@ API.interceptors.request.use(config => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const sessionStartedRef     = useRef(false);
+  const [socket, setSocket]   = useState(null);
+  const socketRef             = useRef(null);
 
-  /* Auto-start usage session once after login/restore */
-  const startUsageSession = async () => {
-    if (isPrerender) return; // 🚀 skip during prerender
-    if (sessionStartedRef.current) return;
-    sessionStartedRef.current = true;
-    try { await API.post('/study/start'); }
-    catch { sessionStartedRef.current = false; }
+  /* Connect socket when we have a token */
+  const connectSocket = (token) => {
+    if (isPrerender || socketRef.current) return;
+    const s = socketIO('/', { auth: { token }, transports: ['websocket', 'polling'] });
+    s.on('connect', () => console.log('Socket connected'));
+    s.on('connect_error', (err) => console.warn('Socket auth error:', err.message));
+    socketRef.current = s;
+    setSocket(s);
   };
 
-  /* Stop usage session before clearing auth */
-  const stopUsageSession = async () => {
-    if (isPrerender) return;
-    try { await API.post('/study/stop'); } catch {}
-    sessionStartedRef.current = false;
+  const disconnectSocket = () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      setSocket(null);
+    }
   };
-
-  /* Flush session on tab/window close */
-  useEffect(() => {
-    if (isPrerender) return;
-
-    const handleUnload = () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      
-      // Use fetch with keepalive: true for reliable "last-breath" requests
-      // This allows us to send the Authorization header correctly
-      fetch('/api/study/stop', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token }), // redundancy for safety
-        keepalive: true,
-      });
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
-  }, []);
 
   /* Validate token on mount */
   useEffect(() => {
     if (isPrerender) {
-      // 🚀 Skip auth completely during prerender
       setLoading(false);
       return;
     }
@@ -83,7 +61,7 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) {
           setUser(data);
           localStorage.setItem('user', JSON.stringify(data));
-          startUsageSession();
+          connectSocket(token);
         }
       } catch {
         localStorage.removeItem('token');
@@ -98,13 +76,17 @@ export const AuthProvider = ({ children }) => {
     return () => { cancelled = true; };
   }, []);
 
+  /* Cleanup socket on unmount */
+  useEffect(() => {
+    return () => disconnectSocket();
+  }, []);
+
   const login = async (email, password) => {
     const { data } = await API.post('/auth/login', { email, password });
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
-    sessionStartedRef.current = false;
-    await startUsageSession();
+    connectSocket(data.token);
     return data;
   };
 
@@ -113,20 +95,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
-    sessionStartedRef.current = false;
-    await startUsageSession();
+    connectSocket(data.token);
     return data;
   };
 
   const logout = async () => {
-    await stopUsageSession();
+    disconnectSocket();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, socket }}>
       {children}
     </AuthContext.Provider>
   );

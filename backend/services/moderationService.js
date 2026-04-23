@@ -24,9 +24,11 @@ class ModerationService {
     const prompt = `
       Analyze this content for a social learning platform:
       - ONLY flag as hate speech/harmful if the post has a negative feeling towards another user (e.g., purely berating, insulting, harassing them).
+      - Do NOT flag informative content, educational posts, or technical discussions.
+      - Do NOT flag acronyms (e.g., DTIM, AI, STEM) or professional terminology even if they appear as standalone words.
       - Do NOT flag or delete posts that discuss dark psychology, historical suicide, or murder incidents, as these are educational or storytelling.
-      - DO NOT or delete flag the posts which uses bad words for trying to tell something, DO flag and delete the posts where bad words dont make any sense in context(excluding insults and hate speech).
-      - DO flag and delete posts that make absolutely no sense (e.g., random gibberish or spam words).
+      - DO NOT flag posts that use strong language or bad words if they are part of a story or "trying to tell something" (contextual usage).
+      - DO ONLY flag and delete posts that are pure gibberish (e.g., "asdfgh"), repetitive spam, or direct personal attacks.
       - Do not repeat or output the prompt.
 
       Return ONLY JSON in this exact format:
@@ -65,9 +67,9 @@ class ModerationService {
       } catch (e2) {
         // Quota safety
         return {
-          isHateSpeech: true,
-          confidence: 0.5,
-          reasons: ['Engines quota hit. Review required.'],
+          isHateSpeech: false, // Quota hit: Allow posts rather than deleting them blindly
+          confidence: 0,
+          reasons: ['AI Engine quota hit. Review required by experts.'],
           strategy: 'fallback',
           details: { error: e2.message },
           language: 'unknown'
@@ -115,7 +117,7 @@ class ModerationService {
         const confidence = res.confidence || 0;
         // All flagged content (>=0.4) is hidden until review
         await this.autoDeleteContent(queueItem, res);
-        const status = confidence > 0.7 ? "deleted" : "moderated";
+        const status = confidence > 0.8 ? "deleted" : "moderated";
         await db.execute('UPDATE moderation_queue SET status = ?, detection_confidence = ?, detection_details = ? WHERE queue_id = ?',
           [status, confidence, JSON.stringify(res), queueItem.queue_id]);
       } else {

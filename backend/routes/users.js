@@ -136,15 +136,20 @@ router.delete('/phones/:id', auth, async (req, res) => {
 /* ── POST /skills ── */
 router.post('/skills', auth, async (req, res) => {
   const { skill_name } = req.body;
+  let conn;
   try {
-    const [skill] = await db.execute(
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+    const [skill] = await conn.execute(
       `INSERT INTO skills (skill_name) VALUES (?) ON DUPLICATE KEY UPDATE skill_id=LAST_INSERT_ID(skill_id)`,
       [skill_name]);
     const skillId = skill.insertId;
-    await db.execute('INSERT IGNORE INTO user_skills (user_id,skill_id) VALUES (?,?)',
+    await conn.execute('INSERT IGNORE INTO user_skills (user_id,skill_id) VALUES (?,?)',
       [req.user.user_id, skillId]);
+    await conn.commit();
     res.status(201).json({ skill_id: skillId, skill_name });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  finally { if (conn) conn.release(); }
 });
 
 router.delete('/skills/:id', auth, async (req, res) => {
@@ -159,16 +164,21 @@ router.delete('/skills/:id', auth, async (req, res) => {
 router.post('/certifications', auth, upload.single('certificate_img'), async (req, res) => {
   const { certification_name, certificate_url, certified_level } = req.body;
   const certificate_img = req.file ? req.file.buffer : null;
+  let conn;
   try {
-    const [cert] = await db.execute(
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+    const [cert] = await conn.execute(
       `INSERT INTO certifications (certification_name) VALUES (?) ON DUPLICATE KEY UPDATE certification_id=LAST_INSERT_ID(certification_id)`,
       [certification_name]);
-    await db.execute(
+    await conn.execute(
       `INSERT INTO user_certifications (user_id,certification_id,certified_level,certificate_url,certificate_img)
        VALUES (?,?,?,?,?)`,
       [req.user.user_id, cert.insertId, certified_level || null, certificate_url || null, certificate_img]);
+    await conn.commit();
     res.status(201).json({ certification_id: cert.insertId, certification_name });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  finally { if (conn) conn.release(); }
 });
 
 /* ── POST /education ── */

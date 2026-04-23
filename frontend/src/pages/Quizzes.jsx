@@ -308,6 +308,7 @@ const Quizzes = () => {
   const [quizzes, setQuizzes]       = useState([]);
   const [profile, setProfile]       = useState(null);
   const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [quizDetail, setQuizDetail] = useState(null);
@@ -318,6 +319,8 @@ const Quizzes = () => {
   const CATS = ['Engineering','Business','Life Skills','Psychology','Teaching Skills','Health & Nutrition','Physical Fitness','Agriculture'];
 
   const fetchAll = async () => {
+    setLoading(true);
+    setError(false);
     try {
       const params = new URLSearchParams();
       if (catFilter)  params.set('category', catFilter);
@@ -328,7 +331,10 @@ const Quizzes = () => {
       ]);
       setQuizzes(qRes.data);
       setProfile(pRes.data);
-    } catch { toast.error('Failed to load quizzes'); }
+    } catch { 
+      setError(true);
+      toast.error('Failed to load quizzes'); 
+    }
     finally { setLoading(false); }
   };
 
@@ -405,7 +411,15 @@ const Quizzes = () => {
       </div>
 
       {/* Quiz List */}
-      {allQuizzes.length === 0 ? (
+      {error && quizzes.length === 0 ? (
+        <div className="empty-state">
+          <h3>Failed to load quizzes</h3>
+          <p>Please try again later.</p>
+          <button className="btn btn-secondary btn-sm" onClick={fetchAll} style={{ marginTop: '1rem' }}>
+            Try Again
+          </button>
+        </div>
+      ) : allQuizzes.length === 0 ? (
         <div className="empty-state"><h3>No quizzes found</h3><p>Try changing your filters</p></div>
       ) : (
         <div className="quiz-list">

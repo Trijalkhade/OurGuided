@@ -294,7 +294,7 @@ router.get('/feed', auth, async (req, res) => {
       [userId, userId]
     );
 
-    // Convert author photos
+    // Convert author photos and images (pure CPU, no extra queries)
     for (const p of candidates) {
       if (p.photo && Buffer.isBuffer(p.photo)) {
         p.photo = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
@@ -306,12 +306,22 @@ router.get('/feed', auth, async (req, res) => {
       } else { p.image = null; }
       delete p.small_img;
       p.user_saved = p.user_saved > 0;
+    }
 
-      // Fetch extra images
-      const [imgs] = await conn.execute(
-        'SELECT image FROM post_images WHERE post_id=? ORDER BY sort_order', [p.post_id]
-      );
-      p.extra_images = imgs.map(r => `data:image/jpeg;base64,${r.image.toString('base64')}`);
+    // Batch-fetch extra images in 1 query instead of N
+    if (candidates.length) {
+      const ids = candidates.map(p => p.post_id);
+      const ph = ids.map(() => '?').join(',');
+      const [extraImgs] = await conn.execute(
+        `SELECT post_id, image FROM post_images WHERE post_id IN (${ph}) ORDER BY post_id, sort_order`, ids);
+      const imgMap = {};
+      for (const r of extraImgs) {
+        if (!imgMap[r.post_id]) imgMap[r.post_id] = [];
+        imgMap[r.post_id].push(`data:image/jpeg;base64,${r.image.toString('base64')}`);
+      }
+      for (const p of candidates) {
+        p.extra_images = imgMap[p.post_id] || [];
+      }
     }
 
     // Score each post

@@ -114,6 +114,14 @@ async function createNotification(userId, type, title, message) {
     await db.execute('INSERT INTO notifications (user_id,type,title,message) VALUES (?,?,?,?)',
       [userId, type, title, message || null]);
 
+    // Real-time push via Socket.io
+    try {
+      const { io } = require('../server');
+      if (io) {
+        io.to(`user:${userId}`).emit('new_notification', { type, title, message });
+      }
+    } catch {}
+
     // Check if user wants external notifications
     const [[prefs]] = await db.execute(
       'SELECT notify_email, email FROM user_profile up JOIN users u ON up.user_id=u.user_id WHERE up.user_id=?',
@@ -121,8 +129,6 @@ async function createNotification(userId, type, title, message) {
     );
 
     if (prefs && prefs.notify_email) {
-      // In a real app, you might want to filter which types get emailed (e.g. only mentions)
-      // For now, let's send for all if enabled
       await sendEmail(prefs.email, `OurGuided: ${title}`, message);
     }
 

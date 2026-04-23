@@ -18,7 +18,7 @@ import { RiQuestionLine } from 'react-icons/ri';
  * .sidebar-footer  → user info + logout (ALWAYS visible, never scrolls away)
  */
 const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, socket } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { onTap } = useFeedback();
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ const Layout = () => {
     navigate('/login');
   };
 
-  /* Poll unread notification count */
+  /* Fetch initial unread count, then use socket for real-time updates */
   useEffect(() => {
     const fetchCount = async () => {
       try {
@@ -43,27 +43,28 @@ const Layout = () => {
       } catch { }
     };
     fetchCount();
-    const iv = setInterval(fetchCount, 60_000);
-    return () => clearInterval(iv);
   }, []);
+
+  /* Socket-driven real-time notification updates */
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (data) => {
+      setUnreadCount(prev => prev + 1);
+    };
+    socket.on('new_notification', handler);
+    return () => socket.off('new_notification', handler);
+  }, [socket]);
 
   /* Debounced unified search */
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (searchQuery.length >= 2) {
         try {
-          const [uRes, pRes, qRes] = await Promise.all([
-            API.get(`/users/search/${encodeURIComponent(searchQuery)}`),
-            API.get(`/posts/search?q=${encodeURIComponent(searchQuery)}`),
-            API.get('/quizzes').then(r => ({
-              data: r.data.filter(q =>
-                q.title.toLowerCase().includes(searchQuery.toLowerCase()))
-            })),
-          ]);
+          const { data } = await API.get(`/search?q=${encodeURIComponent(searchQuery)}`);
           setSearchResults({
-            users: uRes.data.slice(0, 4),
-            posts: pRes.data.slice(0, 4),
-            quizzes: qRes.data.slice(0, 3),
+            users: (data.users || []).slice(0, 4),
+            posts: (data.posts || []).slice(0, 4),
+            quizzes: (data.quizzes || []).slice(0, 3),
           });
           setShowResults(true);
         } catch { }

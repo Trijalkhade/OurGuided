@@ -13,6 +13,8 @@ const Explore = () => {
   const [interests, setInterests]         = useState([]);
   const [loadingCats, setLoadingCats]     = useState(true);
   const [loadingPosts, setLoadingPosts]   = useState(false);
+  const [errorCats, setErrorCats]         = useState(false);
+  const [errorPosts, setErrorPosts]       = useState(false);
   const [savingInterests, setSavingInterests] = useState(false);
   const [activeTab, setActiveTab]         = useState('recommended');
 
@@ -26,22 +28,28 @@ const Explore = () => {
     );
   }
 
+  const load = async () => {
+    setLoadingCats(true);
+    setErrorCats(false);
+    try {
+      const [catRes, recRes] = await Promise.all([
+        API.get('/categories'),
+        API.get('/categories/recommended'),
+      ]);
+      setCategories(catRes.data);
+      setPosts(recRes.data.posts || []);
+      setInterests((recRes.data.interests || []).map(n => {
+        const cat = catRes.data.find(c => c.name === n);
+        return cat ? cat.category_id : null;
+      }).filter(Boolean));
+    } catch { 
+      setErrorCats(true);
+      toast.error('Failed to load explore'); 
+    }
+    finally { setLoadingCats(false); }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [catRes, recRes] = await Promise.all([
-          API.get('/categories'),
-          API.get('/categories/recommended'),
-        ]);
-        setCategories(catRes.data);
-        setPosts(recRes.data.posts || []);
-        setInterests((recRes.data.interests || []).map(n => {
-          const cat = catRes.data.find(c => c.name === n);
-          return cat ? cat.category_id : null;
-        }).filter(Boolean));
-      } catch { toast.error('Failed to load explore'); }
-      finally { setLoadingCats(false); }
-    };
     load();
   }, []);
 
@@ -49,10 +57,14 @@ const Explore = () => {
     setSelected(catName);
     setActiveTab('category');
     setLoadingPosts(true);
+    setErrorPosts(false);
     try {
       const { data } = await API.get(`/posts/feed?category=${encodeURIComponent(catName)}`);
       setPosts(data);
-    } catch { toast.error('Failed to load category'); }
+    } catch { 
+      setErrorPosts(true);
+      toast.error('Failed to load category'); 
+    }
     finally { setLoadingPosts(false); }
   };
 
@@ -60,10 +72,14 @@ const Explore = () => {
     setSelected(null);
     setActiveTab('recommended');
     setLoadingPosts(true);
+    setErrorPosts(false);
     try {
       const { data } = await API.get('/categories/recommended');
       setPosts(data.posts || []);
-    } catch { toast.error('Failed to load recommendations'); }
+    } catch { 
+      setErrorPosts(true);
+      toast.error('Failed to load recommendations'); 
+    }
     finally { setLoadingPosts(false); }
   };
 
@@ -83,6 +99,18 @@ const Explore = () => {
   };
 
   if (loadingCats) return <SkelExplore />;
+
+  if (errorCats) return (
+    <div className="explore-page">
+      <div className="empty-state" style={{ marginTop: '5rem' }}>
+        <h3>Failed to load Explore</h3>
+        <p>Something went wrong while fetching categories.</p>
+        <button className="btn btn-primary" onClick={load} style={{ width: 'auto', marginTop: '1rem' }}>
+          Try Again
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="explore-page">
@@ -146,6 +174,11 @@ const Explore = () => {
       {loadingPosts ? (
         <div style={{ maxWidth: 680, margin: '0 auto' }}>
           <SkelFeed />
+        </div>
+      ) : errorPosts ? (
+        <div className="empty-state">
+          <h3>Failed to load category</h3>
+          <p>Please try again.</p>
         </div>
       ) : posts.length === 0 ? (
         <div className="empty-state">

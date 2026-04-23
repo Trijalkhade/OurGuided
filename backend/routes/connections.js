@@ -121,14 +121,16 @@ router.post('/request/:userId', auth, async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    
+    await conn.beginTransaction();
+
     // Check if request already exists
     const [existing] = await conn.execute(
       'SELECT * FROM follows WHERE follower_id = ? AND following_id = ?',
       [fromUserId, toUserId]
     );
-    
+
     if (existing.length > 0) {
+      await conn.rollback();
       return res.status(400).json({ message: 'Request already sent' });
     }
 
@@ -137,10 +139,11 @@ router.post('/request/:userId', auth, async (req, res) => {
       [fromUserId, toUserId]
     );
 
-    // Send Email Notification
+    await conn.commit();
+
+    // Send Email Notification (fire-and-forget, outside transaction)
     try {
-      // 1. Get Recipient Info & Preferences
-      const [recipients] = await conn.execute(
+      const [recipients] = await db.execute(
         `SELECT u.email, ui.first_name, up.notify_email 
          FROM users u
          LEFT JOIN user_info ui ON u.user_id = ui.user_id
@@ -148,22 +151,17 @@ router.post('/request/:userId', auth, async (req, res) => {
          WHERE u.user_id = ?`,
         [toUserId]
       );
-
-      // 2. Get Sender details (to name the email)
-      const [senders] = await conn.execute(
+      const [senders] = await db.execute(
         `SELECT u.username, ui.first_name 
          FROM users u 
          LEFT JOIN user_info ui ON u.user_id = ui.user_id 
          WHERE u.user_id = ?`,
         [fromUserId]
       );
-
       if (recipients.length > 0 && senders.length > 0) {
         const recipient = recipients[0];
         const sender = senders[0];
         const senderName = sender.first_name || sender.username;
-
-        // Only send if they have email notifications turned on
         if (recipient.notify_email !== 0) {
           sendEmail(
             recipient.email,
@@ -174,11 +172,11 @@ router.post('/request/:userId', auth, async (req, res) => {
       }
     } catch (notificationError) {
       console.error('Failed to send connection email:', notificationError.message);
-      // Don't fail the request if email fails
     }
 
     res.status(201).json({ message: 'Connection request sent' });
   } catch (err) {
+    await conn?.rollback();
     console.error('REQUEST ERROR:', err.message);
     res.status(500).json({ message: err.message });
   } finally {
@@ -252,12 +250,19 @@ router.delete('/remove/:userId', auth, async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
+    await conn.beginTransaction();
     await conn.execute(
-      'DELETE FROM follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)',
-      [userId, req.params.userId, req.params.userId, userId]
+      'DELETE FROM follows WHERE follower_id = ? AND following_id = ?',
+      [userId, req.params.userId]
     );
+    await conn.execute(
+      'DELETE FROM follows WHERE follower_id = ? AND following_id = ?',
+      [req.params.userId, userId]
+    );
+    await conn.commit();
     res.json({ message: 'Connection removed' });
   } catch (err) {
+    await conn?.rollback();
     console.error('REMOVE ERROR:', err.message);
     res.status(500).json({ message: err.message });
   } finally {
