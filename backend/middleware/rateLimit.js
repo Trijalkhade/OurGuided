@@ -18,4 +18,14 @@ const apiLimiter = rateLimit({
   message: { message: 'Too many requests. Please slow down.' },
 });
 
-module.exports = { authLimiter, apiLimiter };
+// Unified Action Shield — 5 total create/update actions per 15 minutes per USER
+const globalActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.user?.user_id || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Wait! You are doing too much in a short time. Quality is better than quantity.' },
+});
+
+module.exports = { authLimiter, apiLimiter, globalActionLimiter };

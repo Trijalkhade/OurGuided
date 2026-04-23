@@ -23,6 +23,13 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
       [username, email, hashed]
     );
+
+    // Honeypot check: If nickname is filled, it's a bot
+    if (req.body.nickname) {
+      console.warn(`Bot detected: Honeypot filled by ${req.ip}`);
+      await conn.rollback();
+      return res.status(200).json({ token: 'bot_detected', user_id: 0, message: 'Welcome!' });
+    }
     const userId = result.insertId;
 
     // Create user_info

@@ -4,6 +4,7 @@ const db      = require('../db');
 const auth    = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const moderationService = require('../services/moderationService');
+const { globalActionLimiter } = require('../middleware/rateLimit');
 
 /* ── GET /   — list published quizzes ── */
 router.get('/', auth, async (req, res) => {
@@ -84,7 +85,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 /* ── POST / — create quiz (experts only) ── */
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, globalActionLimiter, async (req, res) => {
   const userId = req.user.user_id;
   const { title, description, category, difficulty, questions } = req.body;
 

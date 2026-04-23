@@ -17,7 +17,7 @@ const CATEGORIES = [
 
 const Register = () => {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ username: '', email: '', password: '', first_name: '', last_name: '', dob: '' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', first_name: '', last_name: '', dob: '', nickname: '' });
   const [interests, setInterests] = useState([]);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -98,6 +98,11 @@ const Register = () => {
               <label>Date of Birth *</label>
               <input type="date" required min="1945-01-01" max="2012-12-31"
                 value={form.dob} onChange={set('dob')} />
+            </div>
+            {/* Honeypot field */}
+            <div className="form-group" style={{ display: 'none' }}>
+              <label>Nickname</label>
+              <input value={form.nickname} onChange={set('nickname')} tabIndex="-1" autoComplete="off" />
             </div>
             <div className="form-group privacy-checkbox" style={{ marginTop: '1.25rem' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', fontWeight: 'normal', fontSize: '0.88rem', color: 'var(--text2)', lineHeight: 1.5 }}>
