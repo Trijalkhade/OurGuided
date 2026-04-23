@@ -233,6 +233,15 @@ exports.createPost = async (req, res) => {
   const mainImage   = req.files?.image?.[0]?.buffer   || null;
   const extraImages = req.files?.images?.map(f => f.buffer) || [];
 
+  const { isBufferSafeImage } = require('../utils/security');
+  if (mainImage && !isBufferSafeImage(mainImage))
+    return res.status(400).json({ message: 'Invalid main image format detected' });
+  
+  for (const img of extraImages) {
+    if (!isBufferSafeImage(img))
+      return res.status(400).json({ message: 'One or more extra images have an invalid format' });
+  }
+
   if (!content && !mainImage && !video)
     return res.status(400).json({ message: 'Post must contain text or media' });
 

@@ -89,6 +89,11 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
   const { bio, first_name, middle_name, last_name, dob } = req.body;
   const userId = req.user.user_id;
   const photo  = req.file ? req.file.buffer : null;
+
+  const { isBufferSafeImage } = require('../utils/security');
+  if (photo && !isBufferSafeImage(photo)) {
+    return res.status(400).json({ message: 'Invalid photo format detected' });
+  }
   let conn;
   try {
     conn = await db.getConnection();
@@ -128,7 +133,8 @@ router.post('/phones', auth, async (req, res) => {
 
 router.delete('/phones/:id', auth, async (req, res) => {
   try {
-    await db.execute('DELETE FROM user_phone WHERE phone_id=?', [req.params.id]);
+    const [r] = await db.execute('DELETE FROM user_phone WHERE phone_id=? AND user_id=?', [req.params.id, req.user.user_id]);
+    if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized or phone not found' });
     res.json({ message: 'Phone deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -164,6 +170,11 @@ router.delete('/skills/:id', auth, async (req, res) => {
 router.post('/certifications', auth, upload.single('certificate_img'), async (req, res) => {
   const { certification_name, certificate_url, certified_level } = req.body;
   const certificate_img = req.file ? req.file.buffer : null;
+
+  const { isBufferSafeImage } = require('../utils/security');
+  if (certificate_img && !isBufferSafeImage(certificate_img)) {
+    return res.status(400).json({ message: 'Invalid certificate image format detected' });
+  }
   let conn;
   try {
     conn = await db.getConnection();
