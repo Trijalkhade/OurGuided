@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io as socketIO } from 'socket.io-client';
+import { getDeviceId } from '../utils/device';
 
 const AuthContext = createContext(null);
 
@@ -17,10 +18,10 @@ API.interceptors.request.use(config => {
 });
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [socket, setSocket]   = useState(null);
-  const socketRef             = useRef(null);
+  const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
 
   /* Connect socket when we have a token */
   const connectSocket = (token) => {
@@ -91,7 +92,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    const { data } = await API.post('/auth/register', userData);
+    const deviceId = getDeviceId();
+    const { data } = await API.post('/auth/register', { ...userData, device_id: deviceId });
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);

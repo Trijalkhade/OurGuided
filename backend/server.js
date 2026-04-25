@@ -29,7 +29,7 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   socket.join(`user:${socket.userId}`);
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => { });
 });
 
 // Export io for use in notification helpers
@@ -43,8 +43,8 @@ initBirthdayScheduler();
 const moderationService = require('./services/moderationService');
 moderationService.startBackgroundModeration();
 
-process.on('uncaughtException',   (err)           => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));
-process.on('unhandledRejection',  (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
+process.on('uncaughtException', (err) => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));
+process.on('unhandledRejection', (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
 
 app.use(cors({
   origin: '*',
@@ -57,22 +57,22 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ── Rate Limiting ───────────────────────────────────────────────────────────
 const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
 app.use('/api', apiLimiter);
-app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // ── Routes ──────────────────────────────────────────────────────────────────
-app.use('/api/auth',        require('./routes/auth'));
-app.use('/api/users',       require('./routes/users'));
-app.use('/api/posts',       require('./routes/posts'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/posts', require('./routes/posts'));
 app.use('/api/connections', require('./routes/connections'));
-app.use('/api/study',       require('./routes/study'));
-app.use('/api/quizzes',     require('./routes/quizzes'));
-app.use('/api/categories',  require('./routes/categories'));
+app.use('/api/study', require('./routes/study'));
+app.use('/api/quizzes', require('./routes/quizzes'));
+app.use('/api/categories', require('./routes/categories'));
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/playlists',   require('./routes/playlists'));
+app.use('/api/playlists', require('./routes/playlists'));
 app.use('/api/recommendations', require('./routes/recommendations'));
-app.use('/api/feedback',    require('./routes/feedback'));
-app.use('/api/search',      require('./routes/search'));
+app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/search', require('./routes/search'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
 

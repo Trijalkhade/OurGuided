@@ -9,19 +9,30 @@ const { createNotification } = require('./notifications');
 
 // Register
 router.post('/register', async (req, res) => {
-  const { username, email, password, first_name, last_name, dob } = req.body;
+  const { username, email, password, first_name, last_name, dob, device_id } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required' });
   }
 
   const conn = await db.getConnection();
   try {
+    // Device limit check: Max 10 accounts per device
+    if (device_id) {
+      const [existing] = await conn.execute(
+        'SELECT COUNT(*) as count FROM users WHERE registration_device_id = ?',
+        [device_id]
+      );
+      if (existing[0].count >= 10) {
+        return res.status(403).json({ message: 'Account limit reached for this device (Max 10).' });
+      }
+    }
+
     await conn.beginTransaction();
 
     const hashed = await bcrypt.hash(password, 10);
     const [result] = await conn.execute(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [username, email, hashed]
+      'INSERT INTO users (username, email, password, registration_ip, registration_device_id) VALUES (?, ?, ?, ?, ?)',
+      [username, email, hashed, req.ip, device_id || null]
     );
 
     // Honeypot check: If nickname is filled, it's a bot

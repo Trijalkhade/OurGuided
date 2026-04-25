@@ -23,6 +23,7 @@ const globalActionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   keyGenerator: (req) => req.user?.user_id || req.ip,
+  validate: { default: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Wait! You are doing too much in a short time. Quality is better than quantity.' },

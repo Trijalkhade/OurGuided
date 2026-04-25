@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     email     VARCHAR(255) UNIQUE NOT NULL,
     CHECK (email REGEXP '^[A-Za-z0-9._%+-]{2,}@[A-Za-z0-9.-]{2,}\\.[A-Za-z]{2,}$'),
     password  CHAR(60) NOT NULL,
+    registration_ip VARCHAR(45),
+    registration_device_id VARCHAR(255),
     join_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

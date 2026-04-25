@@ -1,8 +1,8 @@
 const express = require('express');
-const router  = express.Router();
-const db      = require('../db');
-const auth    = require('../middleware/auth');
-const upload  = require('../middleware/upload');
+const router = express.Router();
+const db = require('../db');
+const auth = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
@@ -88,7 +88,7 @@ router.get('/:id', auth, async (req, res) => {
 router.put('/profile/update', auth, upload.single('photo'), async (req, res) => {
   const { bio, first_name, middle_name, last_name, dob } = req.body;
   const userId = req.user.user_id;
-  const photo  = req.file ? req.file.buffer : null;
+  const photo = req.file ? req.file.buffer : null;
 
   const { isBufferSafeImage } = require('../utils/security');
   if (photo && !isBufferSafeImage(photo)) {
@@ -107,7 +107,7 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     await conn.execute(`INSERT IGNORE INTO user_info (user_id,first_name,last_name) VALUES (?,  '','')`, [userId]);
     const [[existing]] = await conn.execute('SELECT first_name, last_name FROM user_info WHERE user_id=?', [userId]);
     const fn = first_name || existing.first_name;
-    const ln = last_name  || existing.last_name;
+    const ln = last_name || existing.last_name;
     if (!fn || !ln) return res.status(400).json({ message: 'First and Last name required' });
 
     await conn.execute(
