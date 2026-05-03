@@ -13,7 +13,9 @@ function processImages(post) {
 
   if (post.photo && Buffer.isBuffer(post.photo)) {
     post.photo = `data:image/jpeg;base64,${post.photo.toString('base64')}`;
-  } else if (!post.photo || post.photo === '') {
+  } else if (typeof post.photo === 'string' && post.photo.trim() !== '' && post.photo !== 'null' && post.photo !== 'undefined') {
+    // Already a URL or data-URI — leave as-is
+  } else {
     post.photo = null;
   }
 

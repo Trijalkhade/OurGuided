@@ -35,6 +35,7 @@ const PostDetail = () => {
   const [liking, setLiking]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showLikers, setShowLikers] = useState(false);
+  const [imgError, setImgError]     = useState(false);
 
   /* Lightbox */
   const [lightboxOpen, setLightboxOpen]   = useState(false);
@@ -117,7 +118,7 @@ const PostDetail = () => {
           ) : (
             <Link to={`/profile/${post.user_id}`}>
               <div className="avatar">
-                {post.photo ? <img src={post.photo} alt={displayName} /> : displayName[0]?.toUpperCase()}
+                {post.photo && !imgError ? <img src={post.photo} alt={displayName} onError={() => setImgError(true)} /> : displayName[0]?.toUpperCase()}
               </div>
             </Link>
           )}

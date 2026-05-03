@@ -36,6 +36,7 @@ const Profile = () => {
   const [showSkillInput, setShowSkillInput] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('none');
   const [connectionLoading, setConnectionLoading] = useState(false);
+  const [imgError, setImgError]       = useState(false);
 
   const isOwn = user?.user_id === Number(id);
 
@@ -158,8 +159,8 @@ const Profile = () => {
         <div className="profile-top">
           {/* Profile avatar — always visible, correct ratio */}
           <div className="profile-avatar">
-            {profile.photo
-              ? <img src={profile.photo} alt={displayName} />
+            {profile.photo && !imgError
+              ? <img src={profile.photo} alt={displayName} onError={() => setImgError(true)} />
               : displayName[0]?.toUpperCase() || '?'
             }
           </div>

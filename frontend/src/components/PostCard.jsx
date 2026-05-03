@@ -108,6 +108,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showLikers,   setShowLikers]   = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const [lightboxOpen,  setLightboxOpen]  = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -192,8 +193,8 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
           ) : (
             <Link to={`/profile/${post.user_id}`}>
               <div className="avatar">
-                {post.photo
-                  ? <img src={post.photo} alt={displayName}/>
+                {post.photo && !imgError
+                  ? <img src={post.photo} alt={displayName} onError={() => setImgError(true)} />
                   : displayName[0]?.toUpperCase() || '?'
                 }
               </div>

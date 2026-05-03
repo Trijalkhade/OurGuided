@@ -16,6 +16,19 @@ function buildFullName(first, middle, last, username) {
   return name || username || 'Unknown';
 }
 
+function AvatarWithFallback({ photo, username, style }) {
+  const [error, setError] = useState(false);
+  return (
+    <div className="avatar" style={style}>
+      {photo && !error ? (
+        <img src={photo} alt={username || 'User'} onError={() => setError(true)} />
+      ) : (
+        getInitial(username)
+      )}
+    </div>
+  );
+}
+
 /* ── Escape-key + scroll-lock hook ────────────────────────────── */
 function useModalBehaviour(onClose) {
   useEffect(() => {
@@ -90,12 +103,7 @@ export const LikersModal = ({ postId, onClose }) => {
                 className="liker-row"
                 onClick={onClose}
               >
-                <div className="avatar">
-                  {liker.photo
-                    ? <img src={liker.photo} alt={liker.username || 'User'} />
-                    : getInitial(liker.username)
-                  }
-                </div>
+                <AvatarWithFallback photo={liker.photo} username={liker.username} />
                 <div className="liker-info">
                   <div className="liker-name">
                     {buildFullName(liker.first_name, liker.middle_name, liker.last_name, liker.username)}
@@ -176,9 +184,11 @@ export const CommentsModal = ({ postId, commentCount, onClose }) => {
               return (
                 <div key={c.comment_id} className="analytics-comment-row">
                   <Link to={`/profile/${c.user_id}`} onClick={onClose}>
-                    <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.82rem', flexShrink: 0 }}>
-                      {getInitial(c.username)}
-                    </div>
+                    <AvatarWithFallback 
+                      photo={c.photo} 
+                      username={c.username} 
+                      style={{ width: 36, height: 36, fontSize: '0.82rem', flexShrink: 0 }} 
+                    />
                   </Link>
                   <div className="analytics-comment-body">
                     <div className="analytics-comment-meta">
