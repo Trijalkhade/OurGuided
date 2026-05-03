@@ -24,5 +24,6 @@ router.delete('/:id/reject', auth, postController.rejectPost);
 router.post('/:id/like',      auth, postController.likePost);
 router.post('/:id/watchlist', auth, postController.watchlistToggle);
 router.post('/:id/comment',   auth, globalActionLimiter, postController.commentOnPost);
+router.get('/:id/likers',    auth, postController.getPostLikers);
 
 module.exports = router;

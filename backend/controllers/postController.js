@@ -419,3 +419,38 @@ exports.commentOnPost = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
 };
+
+exports.getPostLikers = async (req, res) => {
+  const postId = req.params.id;
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const [likers] = await conn.execute(
+      `SELECT u.user_id, u.username, 
+              COALESCE(ui.first_name, '') AS first_name, 
+              COALESCE(ui.middle_name, '') AS middle_name, 
+              COALESCE(ui.last_name, '') AS last_name,
+              COALESCE(ui.photo, '') AS photo
+       FROM likes l
+       JOIN users u ON l.user_id = u.user_id
+       LEFT JOIN user_info ui ON u.user_id = ui.user_id
+       WHERE l.post_id = ?`,
+      [postId]
+    );
+
+    likers.forEach(l => {
+      if (l.photo && Buffer.isBuffer(l.photo)) {
+        l.photo = `data:image/jpeg;base64,${l.photo.toString('base64')}`;
+      } else if (!l.photo || l.photo === '') {
+        l.photo = null;
+      }
+    });
+
+    res.json(likers);
+  } catch (err) {
+    console.error('GET LIKERS ERROR:', err.message);
+    res.status(500).json({ message: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
+};

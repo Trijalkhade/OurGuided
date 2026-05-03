@@ -6,6 +6,7 @@ import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 import useFeedback from '../hooks/useFeedback';
 import ImageModal from './ImageModal';
+import { LikersModal } from './PostAnalytics';
 import toast from 'react-hot-toast';
 
 function getEmbedUrl(url) {
@@ -97,6 +98,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   const [likeCount,  setLikeCount]  = useState(Number(post.like_count));
   const [saved,      setSaved]      = useState(Boolean(post.user_saved));
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
 
   const [lightboxOpen,  setLightboxOpen]  = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -234,9 +236,14 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
         )}
 
         <div className="post-actions">
-          <button className={`action-btn${liked ? ' liked' : ''}`} onClick={handleLike} aria-label="Like">
-            <FiHeart size={15}/> {likeCount}
-          </button>
+          <div className={`action-btn action-btn-split${liked ? ' liked' : ''}`}>
+            <button className="icon-part" onClick={handleLike} aria-label="Like">
+              <FiHeart size={15}/>
+            </button>
+            <button className="count-part" onClick={() => setShowLikers(true)} title="View likers">
+              {likeCount}
+            </button>
+          </div>
           <Link to={`/post/${post.post_id}`} className="action-btn" aria-label="Comments">
             <FiMessageCircle size={15}/> {Number(post.comment_count) || 0}
           </Link>
@@ -265,6 +272,9 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
       )}
       {showPlaylistModal && (
         <PlaylistModal postId={post.post_id} onClose={() => setShowPlaylistModal(false)}/>
+      )}
+      {showLikers && (
+        <LikersModal postId={post.post_id} onClose={() => setShowLikers(false)} />
       )}
     </>
   );

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
+import { PostAnalyticsCard } from '../components/PostAnalytics.jsx';
 import useFeedback from '../hooks/useFeedback';
 import { SkelProfile } from '../components/Skeleton.jsx';
 import {
@@ -23,6 +24,7 @@ const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === 
  */
 const Profile = () => {
   const { id }    = useParams();
+  const navigate  = useNavigate();
   const { user }  = useAuth();
   const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
@@ -241,13 +243,17 @@ const Profile = () => {
       {activeTab === 'posts' && (
         posts.length === 0
           ? <div className="empty-state"><h3>No posts yet</h3><p>Share something to get started!</p></div>
-          : posts.map(post => (
-            <PostCard
-              key={post.post_id}
-              post={post}
-              onDelete={pid => setPosts(prev => prev.filter(p => p.post_id !== pid))}
-            />
-          ))
+          : (
+            <div className="post-analytics-grid">
+              {posts.map(post => (
+                <PostAnalyticsCard
+                  key={post.post_id}
+                  post={post}
+                  onPostClick={(pid) => navigate(`/post/${pid}`)}
+                />
+              ))}
+            </div>
+          )
       )}
 
       {/* ── SKILLS & CERTIFICATIONS ── */}
