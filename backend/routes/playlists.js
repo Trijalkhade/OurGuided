@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { processImages } = require('../utils/dbHelpers');
 
 /* GET / — my playlists */
 router.get('/', auth, async (req, res) => {
@@ -50,8 +51,7 @@ router.get('/:id', auth, async (req, res) => {
       [req.params.id]);
 
     items.forEach(p => {
-      if (p.small_img) { p.image = `data:image/jpeg;base64,${p.small_img.toString('base64')}`; }
-      delete p.small_img;
+      processImages(p);
     });
 
     res.json({ ...playlist, items });

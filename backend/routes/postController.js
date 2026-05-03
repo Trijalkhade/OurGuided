@@ -1,28 +1,9 @@
 const db = require('../db');
 const { createNotification } = require('../routes/notifications');
-const moderationService = require('../services/moderationService');
+const moderationService = require('../utils/moderationService');
+const { processImages, buildPostSelect, formatPhoto } = require('../utils/dbHelpers');
 
 /* ── Helpers ── */
-
-// Convert binary fields to base64 — no DB calls, pure CPU
-function processImages(post) {
-  if (post.small_img) {
-    post.image = `data:image/jpeg;base64,${post.small_img.toString('base64')}`;
-  } else { post.image = null; }
-  delete post.small_img;
-
-  if (post.photo && Buffer.isBuffer(post.photo)) {
-    post.photo = `data:image/jpeg;base64,${post.photo.toString('base64')}`;
-  } else if (typeof post.photo === 'string' && post.photo.trim() !== '' && post.photo !== 'null' && post.photo !== 'undefined') {
-    // Already a URL or data-URI — leave as-is
-  } else {
-    post.photo = null;
-  }
-
-  post.user_saved = (post.user_saved || 0) > 0;
-  post.extra_images = post.extra_images || [];
-  return post;
-}
 
 // Batch-fetch extra images for a list of posts — 1 query total instead of N
 async function batchExtraImages(conn, posts) {
@@ -41,26 +22,6 @@ async function batchExtraImages(conn, posts) {
   for (const p of posts) {
     p.extra_images = map[p.post_id] || [];
   }
-}
-
-// Main SELECT with counts baked in as subqueries — 0 extra queries per post
-function buildPostSelect(userId) {
-  return `
-    SELECT p.post_id, p.user_id, p.text AS content, p.post_date, p.category,
-           p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
-           GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
-           u.username,
-           COALESCE(ui.first_name,'') AS first_name,
-           COALESCE(ui.last_name,'')  AS last_name,
-           COALESCE(ui.photo,'')      AS photo,
-           (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
-           (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_liked,
-           (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
-           (SELECT COUNT(*) FROM user_watch WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_saved
-    FROM posts p
-    INNER JOIN users u     ON p.user_id  = u.user_id
-    LEFT  JOIN user_info ui ON p.user_id = ui.user_id
-    LEFT  JOIN post_tags pt ON p.post_id = pt.post_id`;
 }
 
 /* ── Controller Methods ── */
@@ -440,18 +401,11 @@ exports.getPostLikers = async (req, res) => {
       [postId]
     );
 
-    likers.forEach(l => {
-      if (l.photo && Buffer.isBuffer(l.photo)) {
-        // Binary BLOB stored in DB
-        l.photo = `data:image/jpeg;base64,${l.photo.toString('base64')}`;
-      } else if (l.photo && typeof l.photo === 'string' && l.photo.length > 0) {
-        // Already a URL or data-URI — leave as-is
-      } else {
-        l.photo = null;
-      }
+    for (const l of likers) {
+      l.photo = formatPhoto(l.photo);
       // Ensure username is never null to prevent frontend crashes
       if (!l.username) l.username = `user_${l.user_id}`;
-    });
+    }
 
     res.json(likers);
   } catch (err) {

@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { buildPostSelect, processImages, formatPhoto } = require('../utils/dbHelpers');
 
 /* ══════════════════════════════════════════════════════════════════
    HELPERS
@@ -300,38 +301,14 @@ router.get('/feed', auth, async (req, res) => {
     
     const ids = candidateIds.map(c => c.post_id);
     const [candidates] = await conn.query(
-      `SELECT p.post_id, p.user_id, p.text AS content, p.post_date, p.category,
-              p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
-              GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
-              u.username,
-              COALESCE(ui.first_name,'') AS first_name,
-              COALESCE(ui.last_name,'')  AS last_name,
-              COALESCE(ui.photo,'')      AS photo,
-              (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id) AS like_count,
-              (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id AND user_id=?) AS user_liked,
-              (SELECT COUNT(*) FROM comments WHERE post_id=p.post_id) AS comment_count,
-              (SELECT COUNT(*) FROM user_watch WHERE post_id=p.post_id AND user_id=?) AS user_saved
-       FROM posts p
-       INNER JOIN users u ON p.user_id=u.user_id
-       LEFT  JOIN user_info ui ON p.user_id=ui.user_id
-       LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
+      `${buildPostSelect(userId)}
        WHERE p.post_id IN (${ids.join(',')})
-       GROUP BY p.post_id`,
-      [userId, userId]
+       GROUP BY p.post_id`
     );
 
     // Convert author photos and images
     for (const p of candidates) {
-      if (p.photo && Buffer.isBuffer(p.photo)) {
-        p.photo = `data:image/jpeg;base64,${p.photo.toString('base64')}`;
-      } else if (!p.photo || p.photo === '') {
-        p.photo = null;
-      }
-      if (p.small_img) {
-        p.image = `data:image/jpeg;base64,${p.small_img.toString('base64')}`;
-      } else { p.image = null; }
-      delete p.small_img;
-      p.user_saved = p.user_saved > 0;
+      processImages(p);
     }
 
     // Batch-fetch extra images in 1 query instead of N
@@ -464,7 +441,7 @@ router.get('/similar-users', auth, async (req, res) => {
       username: u.username,
       first_name: u.first_name,
       last_name: u.last_name,
-      photo:    Buffer.isBuffer(u.photo) ? `data:image/jpeg;base64,${u.photo.toString('base64')}` : (u.photo || null),
+      photo:    formatPhoto(u.photo),
       is_expert: u.is_expert,
       total_knowledge: u.total_knowledge,
       cluster: u.cluster,

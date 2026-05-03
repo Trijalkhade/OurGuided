@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { formatPhoto } = require('../utils/dbHelpers');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
@@ -14,7 +15,12 @@ router.get('/search/:query', auth, async (req, res) => {
        LEFT JOIN user_info ui    ON u.user_id=ui.user_id
        LEFT JOIN user_profile up ON u.user_id=up.user_id
        WHERE u.username LIKE ? OR ui.first_name LIKE ? OR ui.last_name LIKE ?
-       LIMIT 20`, [q, q, q]);
+        LIMIT 20`, [q, q, q]);
+    
+    for (const u of users) {
+      u.photo = formatPhoto(u.photo);
+    }
+    
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -52,7 +58,7 @@ router.get('/:id', auth, async (req, res) => {
        WHERE u.user_id=?`, [userId]);
 
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.photo) user.photo = `data:image/jpeg;base64,${user.photo.toString('base64')}`;
+    user.photo = formatPhoto(user.photo);
 
     const [phones] = await db.execute(
       'SELECT phone_id, phone_no, about FROM user_phone WHERE user_id=?', [userId]);

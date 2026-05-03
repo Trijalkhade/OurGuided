@@ -1,5 +1,5 @@
 const db = require('./db');
-const moderationService = require('./services/moderationService');
+const moderationService = require('./utils/moderationService');
 
 async function scanExistingComments() {
   try {

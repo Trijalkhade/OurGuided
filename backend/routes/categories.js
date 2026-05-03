@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { buildPostSelect, processImages } = require('../utils/dbHelpers');
 
 /* ── GET / — list all categories with post counts ── */
 router.get('/', auth, async (req, res) => {
@@ -60,45 +61,21 @@ router.get('/recommended', auth, async (req, res) => {
       const names = interests.map(i => i.name);
       const placeholders = names.map(() => '?').join(',');
       [posts] = await db.query(
-        `SELECT p.post_id, p.user_id, p.text AS content, p.post_date, p.category,
-                p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
-                GROUP_CONCAT(DISTINCT pt.tag) AS tags,
-                u.username, COALESCE(ui.first_name,'') AS first_name, COALESCE(ui.last_name,'') AS last_name,
-                (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id) AS like_count,
-                (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id AND user_id=?) AS user_liked,
-                (SELECT COUNT(*) FROM comments WHERE post_id=p.post_id) AS comment_count,
-                (SELECT COUNT(*) FROM user_watch WHERE post_id=p.post_id AND user_id=?) AS user_saved
-         FROM posts p
-         INNER JOIN users u    ON p.user_id=u.user_id
-         LEFT  JOIN user_info ui ON p.user_id=ui.user_id
-         LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
+        `${buildPostSelect(userId)}
          WHERE p.category IN (${placeholders}) AND p.is_pending=FALSE AND p.is_deleted=FALSE
          GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
-        [userId, userId, ...names]);
+        [...names]);
     } else {
       // Fall back to latest posts
       [posts] = await db.query(
-        `SELECT p.post_id, p.user_id, p.text AS content, p.post_date, p.category,
-                p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
-                GROUP_CONCAT(DISTINCT pt.tag) AS tags,
-                u.username, COALESCE(ui.first_name,'') AS first_name, COALESCE(ui.last_name,'') AS last_name,
-                (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id) AS like_count,
-                (SELECT COUNT(*) FROM likes WHERE post_id=p.post_id AND user_id=?) AS user_liked,
-                (SELECT COUNT(*) FROM comments WHERE post_id=p.post_id) AS comment_count,
-                (SELECT COUNT(*) FROM user_watch WHERE post_id=p.post_id AND user_id=?) AS user_saved
-         FROM posts p
-         INNER JOIN users u      ON p.user_id=u.user_id
-         LEFT  JOIN user_info ui ON p.user_id=ui.user_id
-         LEFT  JOIN post_tags pt ON p.post_id=pt.post_id
+        `${buildPostSelect(userId)}
          WHERE p.is_pending=FALSE AND p.is_deleted=FALSE
-         GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
-        [userId, userId]);
+         GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`);
     }
 
     // Convert images
     for (const p of posts) {
-      if (p.small_img) { p.image = `data:image/jpeg;base64,${p.small_img.toString('base64')}`; }
-      delete p.small_img;
+      processImages(p);
     }
 
     res.json({ posts, interests: interests.map(i => i.name) });

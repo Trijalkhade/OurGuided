@@ -3,7 +3,7 @@ const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
 const { createNotification } = require('./notifications');
-const moderationService = require('../services/moderationService');
+const moderationService = require('../utils/moderationService');
 const { globalActionLimiter } = require('../middleware/rateLimit');
 
 /* ── GET /   — list published quizzes ── */

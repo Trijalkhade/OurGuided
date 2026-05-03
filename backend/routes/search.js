@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { formatPhoto } = require('../utils/dbHelpers');
 
 /* GET /api/search?q=... — unified search across users, posts, quizzes */
 router.get('/', auth, async (req, res) => {
@@ -42,6 +43,10 @@ router.get('/', auth, async (req, res) => {
          ORDER BY q.created_at DESC LIMIT 4`, [like, like]
       ).then(([rows]) => rows),
     ]);
+
+    for (const u of users) {
+      u.photo = formatPhoto(u.photo);
+    }
 
     res.json({ users, posts, quizzes });
   } catch (err) {

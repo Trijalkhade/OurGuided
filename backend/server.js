@@ -40,7 +40,7 @@ const { initBirthdayScheduler } = require('./utils/birthdayScheduler');
 initBirthdayScheduler();
 
 // Initialize Moderation Service
-const moderationService = require('./services/moderationService');
+const moderationService = require('./utils/moderationService');
 moderationService.startBackgroundModeration();
 
 process.on('uncaughtException', (err) => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));

@@ -4,7 +4,7 @@ const auth = require('../middleware/auth');
 const { triggerBirthdayEmailsNow } = require('../utils/birthdayScheduler');
 const db = require('../db');
 const moderationLogger = require('../utils/moderationLogger');
-const moderationService = require('../services/moderationService');
+const moderationService = require('../utils/moderationService');
 
 /**
  * ADMIN ROUTES
