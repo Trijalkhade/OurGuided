@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiList, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
@@ -6,7 +6,7 @@ import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 import useFeedback from '../hooks/useFeedback';
 import ImageModal from './ImageModal';
-import { LikersModal } from './PostAnalytics';
+import { LikersModal, CommentsModal } from './PostAnalytics';
 import toast from 'react-hot-toast';
 
 function getEmbedUrl(url) {
@@ -35,6 +35,13 @@ const PlaylistModal = ({ postId, onClose }) => {
       .finally(() => setLoading(false));
   }, []);
 
+  // Escape key to close
+  React.useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   const addToPlaylist = async (playlistId) => {
     setAdding(playlistId);
     try {
@@ -51,7 +58,7 @@ const PlaylistModal = ({ postId, onClose }) => {
       <div className="modal" style={{ maxWidth: 360 }}>
         <div className="modal-header">
           <h3><FiList size={15} style={{ marginRight: 6 }}/>Add to Playlist</h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}><FiX/></button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close"><FiX/></button>
         </div>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '1.5rem' }}><div className="spinner" style={{ margin: '0 auto' }}/></div>
@@ -95,10 +102,12 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   const { onTap, onSuccess, onLikeSuccess, onDeleteSuccess } = useFeedback();
 
   const [liked,      setLiked]      = useState(Number(post.user_liked) > 0);
-  const [likeCount,  setLikeCount]  = useState(Number(post.like_count));
+  const [likeCount,  setLikeCount]  = useState(Number(post.like_count) || 0);
+  const [commentCount] = useState(Number(post.comment_count) || 0);
   const [saved,      setSaved]      = useState(Boolean(post.user_saved));
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
-  const [showLikers, setShowLikers] = useState(false);
+  const [showLikers,   setShowLikers]   = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const [lightboxOpen,  setLightboxOpen]  = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -109,23 +118,23 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   ];
 
   const handleLike = async () => {
-    onTap(); // Haptic feedback immediately
+    onTap();
     try {
       const { data } = await API.post(`/posts/${post.post_id}/like`);
       setLiked(data.liked);
-      setLikeCount(prev => data.liked ? prev + 1 : prev - 1);
-      if (data.liked) onLikeSuccess(); // Beep + chime on successful like
-    } catch { 
-      toast.error('Failed to like'); 
+      setLikeCount(prev => Math.max(0, data.liked ? prev + 1 : prev - 1));
+      if (data.liked) onLikeSuccess();
+    } catch {
+      toast.error('Failed to like');
     }
   };
 
   const handleSave = async () => {
-    onTap(); // Haptic feedback immediately
+    onTap();
     try {
       const { data } = await API.post(`/posts/${post.post_id}/watchlist`);
       setSaved(data.saved);
-      if (data.saved) onSuccess(); // Feedback on success
+      if (data.saved) onSuccess();
       toast.success(data.saved ? 'Saved to watchlist' : 'Removed from watchlist');
       if (!data.saved && onUnsave) onUnsave(post.post_id);
     } catch { toast.error('Failed to save'); }
@@ -136,7 +145,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
     onTap();
     try {
       await API.delete(`/posts/${post.post_id}`);
-      onDeleteSuccess(); // Scrape sound for delete
+      onDeleteSuccess();
       toast.success('Post deleted');
       if (onDelete) onDelete(post.post_id);
     } catch { toast.error('Failed to delete'); }
@@ -235,18 +244,48 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
           )
         )}
 
+        {/* ── Action bar ── */}
         <div className="post-actions">
+          {/* Split like button: left=toggle, right=view likers */}
           <div className={`action-btn action-btn-split${liked ? ' liked' : ''}`}>
-            <button className="icon-part" onClick={handleLike} aria-label="Like">
+            <button
+              className="icon-part"
+              onClick={handleLike}
+              aria-label={liked ? 'Unlike' : 'Like'}
+              title={liked ? 'Unlike' : 'Like'}
+            >
               <FiHeart size={15}/>
             </button>
-            <button className="count-part" onClick={() => setShowLikers(true)} title="View likers">
+            <button
+              className="count-part"
+              onClick={() => setShowLikers(true)}
+              title={`${likeCount} like${likeCount !== 1 ? 's' : ''} — see who liked`}
+              aria-label="View likers"
+            >
               {likeCount}
             </button>
           </div>
-          <Link to={`/post/${post.post_id}`} className="action-btn" aria-label="Comments">
-            <FiMessageCircle size={15}/> {Number(post.comment_count) || 0}
-          </Link>
+
+          {/* Split comment button: left=navigate to post, right=quick preview modal */}
+          <div className="action-btn action-btn-split">
+            <Link
+              to={`/post/${post.post_id}`}
+              className="icon-part"
+              aria-label="Go to comments"
+              title="View full post"
+            >
+              <FiMessageCircle size={15}/>
+            </Link>
+            <button
+              className="count-part"
+              onClick={() => setShowComments(true)}
+              title={`${commentCount} comment${commentCount !== 1 ? 's' : ''} — quick preview`}
+              aria-label="Preview comments"
+            >
+              {commentCount}
+            </button>
+          </div>
+
           <div className="post-actions-right">
             <button
               className="action-btn"
@@ -260,6 +299,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
               className={`action-btn${saved ? ' saved' : ''}`}
               onClick={handleSave}
               title={saved ? 'Remove from watchlist' : 'Save to watchlist'}
+              aria-label={saved ? 'Remove from watchlist' : 'Save to watchlist'}
             >
               <FiBookmark size={15}/>
             </button>
@@ -275,6 +315,13 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
       )}
       {showLikers && (
         <LikersModal postId={post.post_id} onClose={() => setShowLikers(false)} />
+      )}
+      {showComments && (
+        <CommentsModal
+          postId={post.post_id}
+          commentCount={commentCount}
+          onClose={() => setShowComments(false)}
+        />
       )}
     </>
   );

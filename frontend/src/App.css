@@ -1143,10 +1143,12 @@ img {
 
 .action-btn-split {
   padding: 0 !important;
-  display: flex !important;
+  display: inline-flex !important;
+  align-items: stretch !important;
   overflow: hidden;
 }
 
+/* icon-part can be <button> OR <a> (Link) */
 .action-btn-split .icon-part,
 .action-btn-split .count-part {
   background: none;
@@ -1156,32 +1158,42 @@ img {
   cursor: pointer;
   display: flex;
   align-items: center;
-  transition: background var(--t);
+  justify-content: center;
+  transition: background var(--t), color var(--t);
   font-weight: inherit;
   font-size: inherit;
+  text-decoration: none; /* for Link */
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .action-btn-split .icon-part {
-  padding-right: .4rem;
+  padding-right: .35rem;
 }
 
 .action-btn-split .count-part {
-  padding-left: .4rem;
-  border-left: 1px solid rgba(0, 0, 0, 0.05);
+  padding-left: .35rem;
+  border-left: 1px solid var(--border);
+  min-width: 1.6rem;
 }
 
-html[data-theme="dark"] .action-btn-split .count-part {
-  border-left-color: rgba(255, 255, 255, 0.05);
-}
-
+/* Hover states */
 .action-btn-split .icon-part:hover,
 .action-btn-split .count-part:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--accentbg);
+  color: var(--accent2);
 }
 
+/* Liked state hover */
 .action-btn-split.liked .icon-part:hover,
 .action-btn-split.liked .count-part:hover {
   background: rgba(244, 63, 94, 0.08);
+  color: #f43f5e;
+}
+
+/* Dark mode separator */
+html[data-theme="dark"] .action-btn-split .count-part {
+  border-left-color: var(--border);
 }
 
 .post-actions-right {
@@ -1651,11 +1663,12 @@ html[data-theme="dark"] .action-btn-split .count-part {
 ═══════════════════════════════════════════════════════════════ */
 .post-analytics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 0.75rem;
   margin-top: 1rem;
 }
 
+/* ── Card ── */
 .post-analytics-card {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -1664,22 +1677,27 @@ html[data-theme="dark"] .action-btn-split .count-part {
   background: var(--bg3);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  outline: none;
 }
 
-.post-analytics-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+.post-analytics-card:hover,
+.post-analytics-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--border2);
 }
 
 .post-analytics-card .thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  display: block;
 }
 
 .post-analytics-card .thumb-content {
-  padding: 1rem;
+  padding: 0.9rem 1rem;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1687,67 +1705,146 @@ html[data-theme="dark"] .action-btn-split .count-part {
   align-items: center;
   text-align: center;
   font-size: 0.8rem;
+  line-height: 1.5;
   color: var(--text3);
   background: var(--card);
+  overflow: hidden;
 }
 
+/* ── Hover overlay ── */
 .post-analytics-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(13, 26, 56, 0.7);
-  backdrop-filter: blur(2px);
+  inset: 0;
+  /* adapts to both light and dark: uses a semi-transparent dark tint always */
+  background: rgba(5, 10, 25, 0.72);
+  backdrop-filter: blur(3px) saturate(0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 0;
   opacity: 0;
   transition: opacity 0.2s ease;
   color: #fff;
 }
 
-.post-analytics-card:hover .post-analytics-overlay {
+.post-analytics-card:hover .post-analytics-overlay,
+.post-analytics-card:focus-visible .post-analytics-overlay {
   opacity: 1;
 }
 
+.analytics-overlay-divider {
+  width: 1px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+/* ── Stat items inside overlay ── */
 .stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.18rem;
+  padding: 0 1.4rem;
 }
 
 .stat-item .count {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   font-family: var(--mono);
+  line-height: 1;
 }
 
 .stat-item .label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.8;
+  letter-spacing: 0.8px;
+  opacity: 0.75;
+  font-weight: 600;
 }
 
-/* Likers Modal */
+/* Clickable stat item button inside overlay */
+.stat-item-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: background 0.15s ease, transform 0.15s ease;
+  padding: 0.5rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+.stat-item-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: scale(1.05);
+}
+
+.stat-item-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Analytics modal (likers + comments) ── */
+.analytics-modal {
+  max-width: 420px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.analytics-modal .modal-header {
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+
+.analytics-modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+}
+
+.analytics-modal-empty {
+  padding: 2.5rem 2rem;
+  text-align: center;
+  color: var(--text3);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ── Shared liker / user list ── */
 .liker-list {
   display: flex;
   flex-direction: column;
-  max-height: 400px;
+  max-height: 420px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.liker-list::-webkit-scrollbar {
+  width: 4px;
+}
+.liker-list::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 4px;
 }
 
 .liker-row {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.85rem 1rem;
+  gap: 0.9rem;
+  padding: 0.82rem 1.4rem;
   border-bottom: 1px solid var(--border);
   transition: background var(--t);
   text-decoration: none;
+  color: var(--text);
 }
 
 .liker-row:last-child {
@@ -1765,17 +1862,64 @@ html[data-theme="dark"] .action-btn-split .count-part {
 
 .liker-name {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+  text-decoration: none;
+}
+
+.liker-name:hover {
+  color: var(--accent2);
 }
 
 .liker-username {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text3);
-  margin-top: -1px;
+  margin-top: 1px;
+  font-family: var(--mono);
+}
+
+/* ── Comment rows inside CommentsModal ── */
+.analytics-comment-row {
+  display: flex;
+  gap: 0.82rem;
+  padding: 0.9rem 1.4rem;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+
+.analytics-comment-row:last-child {
+  border-bottom: none;
+}
+
+.analytics-comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.analytics-comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+
+.analytics-comment-text {
+  font-size: 0.875rem;
+  color: var(--text2);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.analytics-comment-time {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-top: 0.28rem;
 }
 
 

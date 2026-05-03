@@ -4,6 +4,7 @@ import { API, useAuth } from '../context/AuthContext';
 import { FiHeart, FiSend, FiBookmark, FiEyeOff } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import ImageModal from '../components/ImageModal';
+import { LikersModal } from '../components/PostAnalytics';
 import toast from 'react-hot-toast';
 
 function getEmbedUrl(url) {
@@ -33,6 +34,7 @@ const PostDetail = () => {
   const [likeCount, setLikeCount]   = useState(0);
   const [liking, setLiking]         = useState(false);
   const [saved, setSaved]           = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
 
   /* Lightbox */
   const [lightboxOpen, setLightboxOpen]   = useState(false);
@@ -190,11 +192,26 @@ const PostDetail = () => {
 
         {/* Actions */}
         <div className="post-actions">
-          <button className={`action-btn${liked ? ' liked' : ''}`} onClick={handleLike} disabled={liking}>
-            <FiHeart size={15} /> {likeCount}
-          </button>
+          <div className={`action-btn action-btn-split${liked ? ' liked' : ''}`}>
+            <button
+              className="icon-part"
+              onClick={handleLike}
+              disabled={liking}
+              aria-label={liked ? 'Unlike' : 'Like'}
+            >
+              <FiHeart size={15} />
+            </button>
+            <button
+              className="count-part"
+              onClick={() => setShowLikers(true)}
+              title={`${likeCount} like${likeCount !== 1 ? 's' : ''} — see who liked`}
+              aria-label="View likers"
+            >
+              {likeCount}
+            </button>
+          </div>
           <span style={{ color: 'var(--text3)', fontSize: '0.82rem', marginLeft: '0.35rem' }}>
-            {post.comments?.length || 0} comments
+            {post.comments?.length || 0} comment{(post.comments?.length || 0) !== 1 ? 's' : ''}
           </span>
           <div className="post-actions-right">
             <button className={`action-btn${saved ? ' saved' : ''}`} onClick={handleSave} title="Save to watchlist">
@@ -258,6 +275,9 @@ const PostDetail = () => {
           startIndex={lightboxIndex}
           onClose={() => setLightboxOpen(false)}
         />
+      )}
+      {showLikers && (
+        <LikersModal postId={id} onClose={() => setShowLikers(false)} />
       )}
     </div>
   );

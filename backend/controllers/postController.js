@@ -440,10 +440,15 @@ exports.getPostLikers = async (req, res) => {
 
     likers.forEach(l => {
       if (l.photo && Buffer.isBuffer(l.photo)) {
+        // Binary BLOB stored in DB
         l.photo = `data:image/jpeg;base64,${l.photo.toString('base64')}`;
-      } else if (!l.photo || l.photo === '') {
+      } else if (l.photo && typeof l.photo === 'string' && l.photo.length > 0) {
+        // Already a URL or data-URI — leave as-is
+      } else {
         l.photo = null;
       }
+      // Ensure username is never null to prevent frontend crashes
+      if (!l.username) l.username = `user_${l.user_id}`;
     });
 
     res.json(likers);
