@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import ImageModal from '../components/ImageModal';
 import { LikersModal } from '../components/PostAnalytics';
 import toast from 'react-hot-toast';
+import AvatarWithFallback from '../components/Avatar.jsx';
 
 function getEmbedUrl(url) {
   if (!url) return null;
@@ -35,7 +36,6 @@ const PostDetail = () => {
   const [liking, setLiking]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showLikers, setShowLikers] = useState(false);
-  const [imgError, setImgError]     = useState(false);
 
   /* Lightbox */
   const [lightboxOpen, setLightboxOpen]   = useState(false);
@@ -117,9 +117,7 @@ const PostDetail = () => {
             <div className="avatar">?</div>
           ) : (
             <Link to={`/profile/${post.user_id}`}>
-              <div className="avatar">
-                {post.photo && !imgError ? <img src={post.photo} alt={displayName} onError={() => setImgError(true)} /> : displayName[0]?.toUpperCase()}
-              </div>
+              <AvatarWithFallback photo={post.photo} username={displayName} />
             </Link>
           )}
           <div className="post-header-info">
@@ -252,9 +250,11 @@ const PostDetail = () => {
             return (
               <div key={c.comment_id} className="comment">
                 <Link to={`/profile/${c.user_id}`}>
-                  <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.82rem' }}>
-                    {cName?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <AvatarWithFallback
+                    photo={c.photo}
+                    username={cName}
+                    style={{ width: 36, height: 36, fontSize: '0.82rem' }}
+                  />
                 </Link>
                 <div className="comment-content">
                   <div className="comment-user">{cName}</div>

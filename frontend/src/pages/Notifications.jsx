@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { FiBell, FiMail, FiMessageSquare, FiShield, FiStar, FiZap, FiBook, FiTrash2, FiChevronDown } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 
 const Toggle = ({ checked, onChange, onToggle }) => (
   <div className={`switch ${checked ? 'on' : 'off'}`} onClick={() => {

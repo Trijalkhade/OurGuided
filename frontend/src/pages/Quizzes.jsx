@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import toast from 'react-hot-toast';
 import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight } from 'react-icons/fi';
 

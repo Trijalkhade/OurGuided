@@ -4100,3 +4100,53 @@ html[data-theme="dark"] .action-btn-split .count-part {
     width: min(340px, calc(100vw - 2rem));
   }
 }
+/* Connections & Requests (Migrated from Connections.css) */
+.connections-list, .requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.connection-card, .request-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+  transition: box-shadow 0.3s ease;
+}
+
+.connection-card:hover, .request-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.connection-info {
+  flex: 1;
+}
+
+.connection-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.connection-info .username {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text3);
+}
+
+.connection-info .bio {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+.request-actions {
+  display: flex;
+  gap: 0.5rem;
+}

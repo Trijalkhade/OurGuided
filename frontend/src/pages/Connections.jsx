@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import { SkelConnections } from '../components/Skeleton.jsx';
-import '../styles/Connections.css';
+import AvatarWithFallback from '../components/Avatar.jsx';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Connections = () => {
   const [connections, setConnections] = useState([]);
@@ -147,11 +148,11 @@ const Connections = () => {
             connections.map(conn => (
               <div key={conn.connection_id} className="connection-card">
                 <Link to={`/profile/${conn.connected_user_id}`} style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
-                  <div className="avatar" style={{ width: 50, height: 50, fontSize: '1.2rem', flexShrink: 0 }}>
-                    {conn.photo && conn.photo !== ''
-                      ? <img src={conn.photo} alt={conn.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : (conn.first_name || conn.username || '?')[0]?.toUpperCase()}
-                  </div>
+                  <AvatarWithFallback 
+                    photo={conn.photo} 
+                    username={conn.first_name || conn.username} 
+                    style={{ width: 50, height: 50, fontSize: '1.2rem', flexShrink: 0 }} 
+                  />
                   <div className="connection-info">
                     <h4>{conn.first_name} {conn.last_name}</h4>
                     <p className="username">@{conn.username}</p>
@@ -181,11 +182,11 @@ const Connections = () => {
             requests.map(req => (
               <div key={req.connection_id} className="request-card">
                 <Link to={`/profile/${req.connection_id}`} style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, textDecoration: 'none', color: 'inherit' }}>
-                  <div className="avatar" style={{ width: 50, height: 50, fontSize: '1.2rem', flexShrink: 0 }}>
-                    {req.photo && req.photo !== ''
-                      ? <img src={req.photo} alt={req.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : (req.first_name || req.username || '?')[0]?.toUpperCase()}
-                  </div>
+                  <AvatarWithFallback 
+                    photo={req.photo} 
+                    username={req.first_name || req.username} 
+                    style={{ width: 50, height: 50, fontSize: '1.2rem', flexShrink: 0 }} 
+                  />
                   <div className="connection-info">
                     <h4>{req.first_name} {req.last_name}</h4>
                     <p className="username">@{req.username}</p>

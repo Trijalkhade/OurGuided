@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import FeedbackWidget from './FeedbackWidget';
 import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,

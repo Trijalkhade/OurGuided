@@ -4,10 +4,11 @@ import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiLis
 import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import ImageModal from './ImageModal';
 import { LikersModal, CommentsModal } from './PostAnalytics';
 import toast from 'react-hot-toast';
+import AvatarWithFallback from './Avatar';
 
 function getEmbedUrl(url) {
   if (!url) return null;
@@ -108,7 +109,6 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showLikers,   setShowLikers]   = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [imgError, setImgError] = useState(false);
 
   const [lightboxOpen,  setLightboxOpen]  = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -189,15 +189,10 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
       <div className="post-card">
         <div className="post-header">
           {post.is_anonymous && !isOwn ? (
-            <div className="avatar">?</div>
+            <AvatarWithFallback photo={null} username="?" />
           ) : (
             <Link to={`/profile/${post.user_id}`}>
-              <div className="avatar">
-                {post.photo && !imgError
-                  ? <img src={post.photo} alt={displayName} onError={() => setImgError(true)} />
-                  : displayName[0]?.toUpperCase() || '?'
-                }
-              </div>
+              <AvatarWithFallback photo={post.photo} username={displayName} />
             </Link>
           )}
           <div className="post-header-info">

@@ -3,8 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import { PostAnalyticsCard } from '../components/PostAnalytics.jsx';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import { SkelProfile } from '../components/Skeleton.jsx';
+import AvatarWithFallback from '../components/Avatar.jsx';
 import {
   FiEdit, FiAward, FiBook, FiCode,
   FiUserPlus, FiUserCheck, FiUserX
@@ -36,7 +37,6 @@ const Profile = () => {
   const [showSkillInput, setShowSkillInput] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('none');
   const [connectionLoading, setConnectionLoading] = useState(false);
-  const [imgError, setImgError]       = useState(false);
 
   const isOwn = user?.user_id === Number(id);
 
@@ -158,12 +158,11 @@ const Profile = () => {
 
         <div className="profile-top">
           {/* Profile avatar — always visible, correct ratio */}
-          <div className="profile-avatar">
-            {profile.photo && !imgError
-              ? <img src={profile.photo} alt={displayName} onError={() => setImgError(true)} />
-              : displayName[0]?.toUpperCase() || '?'
-            }
-          </div>
+          <AvatarWithFallback
+            photo={profile.photo}
+            username={displayName}
+            className="profile-avatar"
+          />
 
           <div className="profile-info">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>

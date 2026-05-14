@@ -4,30 +4,9 @@ import { FiHeart, FiMessageCircle, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import AvatarWithFallback, { getInitial, buildFullName } from './Avatar';
 
-/* ── Shared helper ─────────────────────────────────────────────── */
-function getInitial(username) {
-  if (!username || typeof username !== 'string' || username.length === 0) return '?';
-  return username[0].toUpperCase();
-}
 
-function buildFullName(first, middle, last, username) {
-  const name = `${first || ''} ${middle ? middle + ' ' : ''}${last || ''}`.trim();
-  return name || username || 'Unknown';
-}
-
-function AvatarWithFallback({ photo, username, style }) {
-  const [error, setError] = useState(false);
-  return (
-    <div className="avatar" style={style}>
-      {photo && !error ? (
-        <img src={photo} alt={username || 'User'} onError={() => setError(true)} />
-      ) : (
-        getInitial(username)
-      )}
-    </div>
-  );
-}
 
 /* ── Escape-key + scroll-lock hook ────────────────────────────── */
 function useModalBehaviour(onClose) {

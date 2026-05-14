@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PostCard from '../components/PostCard.jsx';
-import useFeedback from '../hooks/useFeedback';
+import useFeedback from '../utils/useFeedback';
 import { SkelFeed } from '../components/Skeleton.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
