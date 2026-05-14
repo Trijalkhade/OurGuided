@@ -37,8 +37,8 @@ async function uploadToS3(fileData, mimetype, folder = 'images') {
       ContentType: mimetype,
       CacheControl: 'max-age=31536000', // Cache for 1 year
     },
-    partSize: 10 * 1024 * 1024, // 10 MB per part
-    queueSize: 4, // 4 concurrent uploads
+    partSize: 10 * 1024 * 1024, // 10 MB per worker
+    queueSize: Math.max(1, require('os').cpus().length - 1), // Max concurrency (-1)
     leavePartsOnError: false, // Clean up failed parts
   });
 

@@ -11,7 +11,9 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-server.timeout = 600000; // 10 minutes for large video uploads
+server.timeout = 1800000; // 30 minutes for huge video uploads
+server.keepAliveTimeout = 1800000;
+server.headersTimeout = 1800000;
 const PORT = process.env.PORT || 5000;
 
 // ── Socket.io ───────────────────────────────────────────────────────────────
