@@ -21,7 +21,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
     "puppeteer": "^24.40.0",
-    "react-snap": "^1.23.0",
+    "react-snap": "^1.13.1",
     "vite": "^7.3.1"
   },
   "reactSnap": {
@@ -42,5 +42,23 @@
       "/feed"
     ],
     "userAgent": "ReactSnap"
+  },
+  "overrides": {
+    "react-snap": {
+      "html-minifier": "npm:html-minifier-terser@^7.2.0",
+      "minimalcss": {
+        "cheerio": "^1.0.0-rc.12",
+        "css-select": "^4.3.0"
+      },
+      "sourcemapped-stacktrace-node": {
+        "isomorphic-fetch": {
+          "node-fetch": "^2.6.7"
+        }
+      }
+    },
+    "nth-check": "^2.1.1",
+    "send": "^0.19.0",
+    "qs": "^6.14.0",
+    "path-to-regexp": "^0.1.10"
   }
 }

@@ -10,6 +10,8 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate limiting
+
 const server = http.createServer(app);
 server.timeout = 1800000; // 30 minutes for huge video uploads
 server.keepAliveTimeout = 1800000;
