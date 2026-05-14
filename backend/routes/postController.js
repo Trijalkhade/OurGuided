@@ -208,6 +208,7 @@ exports.createPost = async (req, res) => {
   const { content, tags, video, category, is_anonymous } = req.body;
   const mainImage   = req.files?.image?.[0]?.buffer   || null;
   const extraImages = req.files?.images?.map(f => f.buffer) || [];
+  const videoFile   = req.files?.video?.[0]?.buffer   || null;
 
   const { isBufferSafeImage } = require('../utils/security');
   if (mainImage && !isBufferSafeImage(mainImage))
@@ -218,7 +219,7 @@ exports.createPost = async (req, res) => {
       return res.status(400).json({ message: 'One or more extra images have an invalid format' });
   }
 
-  if (!content && !mainImage && !video)
+  if (!content && !mainImage && !video && !videoFile)
     return res.status(400).json({ message: 'Post must contain text or media' });
 
   let conn;
@@ -232,14 +233,22 @@ exports.createPost = async (req, res) => {
       s3ImageUrl = await uploadToS3(mainImage, req.files.image[0].mimetype, 'posts');
     }
 
+    // 2. Upload Video to S3 (if provided as file)
+    let finalVideoUrl = video || null;
+    if (videoFile) {
+      finalVideoUrl = await uploadToS3(videoFile, req.files.video[0].mimetype, 'posts/videos');
+    }
+
+    const mediaType = (mainImage || s3ImageUrl) ? 'image' : (finalVideoUrl) ? 'video' : 'none';
+
     const [result] = await conn.execute(
       `INSERT INTO posts (user_id,text,media_type,image_url,video_url,category,is_anonymous,is_pending)
        VALUES (?,?,?,?,?,?,?,FALSE)`,
-      [req.user.user_id, content || '', mainImage ? 'image' : video ? 'video' : 'none',
-       s3ImageUrl, video || null, category || null, is_anonymous === 'true' ? 1 : 0]);
+      [req.user.user_id, content || '', mediaType,
+       s3ImageUrl, finalVideoUrl, category || null, is_anonymous === 'true' ? 1 : 0]);
     const postId = result.insertId;
 
-    // 2. Upload Extra Images to S3
+    // 3. Upload Extra Images to S3
     for (let i = 0; i < extraImages.length; i++) {
       const extraUrl = await uploadToS3(extraImages[i], req.files.images[i].mimetype, 'posts/extra');
       await conn.execute('INSERT INTO post_images (post_id,image_url,sort_order) VALUES (?,?,?)',

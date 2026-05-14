@@ -8,6 +8,7 @@
     "test": "bash run_tests.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1046.0",
     "@google/generative-ai": "^0.21.0",
     "axios": "^1.15.0",
     "bcryptjs": "^2.4.3",

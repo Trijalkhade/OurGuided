@@ -230,8 +230,8 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
           <div style={{ overflow: 'hidden' }}>{renderImages()}</div>
         )}
         {post.media_type === 'video' && post.video && (
-          post.video.endsWith('.mp4') || post.video.endsWith('.webm') ? (
-            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 360 }}>
+          post.video.match(/\.(mp4|webm|mov|m4v)(\?|$)/i) ? (
+            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 420 }}>
               <source src={post.video}/>
             </video>
           ) : (

@@ -19,6 +19,7 @@ const CreatePost = ({ onPostCreated }) => {
   const [tags, setTags] = useState('');
   const [imageFiles, setImageFiles] = useState([]);
   const [videoUrl, setVideoUrl] = useState('');
+  const [videoFile, setVideoFile] = useState(null);
   const [category, setCategory] = useState('');
   const [isAnon, setIsAnon] = useState(false);
   const [showExtra, setShowExtra] = useState(false);
@@ -27,8 +28,8 @@ const CreatePost = ({ onPostCreated }) => {
   const initials = (user && user.username ? user.username[0] : '?') && (user.username[0] || '?').toUpperCase();
 
   const handleSubmit = async () => {
-    if (!content.trim() && imageFiles.length === 0 && !videoUrl.trim())
-      return toast.error('Add some content to post');
+    if (!content.trim() && imageFiles.length === 0 && !videoUrl.trim() && !videoFile)
+      return toast.error('Add some media or text to post');
     onTap();
     setLoading(true);
     try {
@@ -41,10 +42,11 @@ const CreatePost = ({ onPostCreated }) => {
         fd.append('image', imageFiles[0]);
         for (let i = 1; i < imageFiles.length; i++) fd.append('images', imageFiles[i]);
       }
+      if (videoFile) fd.append('video', videoFile);
       if (videoUrl.trim()) fd.append('video', videoUrl.trim());
       await API.post('/posts', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setContent(''); setTags(''); setImageFiles([]);
-      setVideoUrl(''); setCategory(''); setIsAnon(false); setShowExtra(false);
+      setVideoUrl(''); setVideoFile(null); setCategory(''); setIsAnon(false); setShowExtra(false);
       onCreateSuccess(); // Beep + chime on post created
       toast.success('Post created!');
       onPostCreated && onPostCreated();
@@ -83,7 +85,12 @@ const CreatePost = ({ onPostCreated }) => {
             <input type="file" accept="image/*" multiple onChange={e => setImageFiles(Array.from(e.target.files || []).slice(0, 5))} />
             {imageFiles.length > 0 && <div style={{ fontSize: '.76rem', color: 'var(--text3)', marginTop: '.25rem' }}>{imageFiles.length} image{imageFiles.length > 1 ? 's' : ''} selected</div>}
           </div>
-          <input placeholder="Video URL (YouTube or .mp4)…" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '.5rem' }}>
+            <label style={{ display: 'block', fontSize: '.7rem', color: 'var(--text3)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '.3rem' }}>Video (MP4)</label>
+            <input type="file" accept="video/mp4,video/x-m4v,video/*" onChange={e => setVideoFile(e.target.files?.[0] || null)} />
+            {videoFile && <div style={{ fontSize: '.76rem', color: 'var(--text3)', marginTop: '.25rem' }}>Video selected: {videoFile.name}</div>}
+          </div>
+          <input placeholder="Or Video URL (YouTube)…" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
             style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '.42rem .72rem', fontSize: '.85rem', color: 'var(--text)', outline: 'none' }} />
         </div>
       )}

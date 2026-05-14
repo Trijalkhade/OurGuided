@@ -15,7 +15,11 @@ router.get('/tag/:tag',    auth, postController.getPostsByTag);
 router.get('/search',      auth, postController.searchPosts);
 router.get('/:id',         auth, postController.getPostDetail);
 
-router.post('/',           auth, globalActionLimiter, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'images', maxCount: 5 }]), postController.createPost);
+router.post('/',           auth, globalActionLimiter, upload.fields([
+  { name: 'image', maxCount: 1 }, 
+  { name: 'images', maxCount: 5 },
+  { name: 'video', maxCount: 1 }
+]), postController.createPost);
 router.delete('/:id',      auth, postController.deletePost);
 
 router.post('/:id/approve', auth, postController.approvePost);
