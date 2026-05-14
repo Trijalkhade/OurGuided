@@ -1,0 +1,364 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #f0f2f8;
+  --bg2: #ffffff;
+  --bg3: #eaecf4;
+  --card: #ffffff;
+  --border: #dde2ef;
+  --border2: #c8d0e7;
+  --accent: #3b5bfa;
+  --accent2: #2243e0;
+  --accent3: #06b6d4;
+  --accentbg: rgba(59, 91, 250, 0.07);
+  --accentbg2: rgba(59, 91, 250, 0.14);
+  --text: #0d1a38;
+  --text2: #455070;
+  --text3: #8892b5;
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --shadow-xs: 0 1px 3px rgba(13, 26, 56, .05);
+  --shadow-sm: 0 2px 8px rgba(13, 26, 56, .08), 0 1px 3px rgba(13, 26, 56, .04);
+  --shadow: 0 6px 20px rgba(13, 26, 56, .10), 0 2px 6px rgba(13, 26, 56, .05);
+  --shadow-lg: 0 16px 50px rgba(13, 26, 56, .14), 0 4px 12px rgba(13, 26, 56, .06);
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 20px;
+  --r-xl: 24px;
+  --sidebar-w: 270px;
+  --font: 'Plus Jakarta Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --t: .18s ease;
+  /* Medal colors */
+  --medal-gold: #f59e0b;
+  --medal-silver: #94a3b8;
+  --medal-bronze: #b45309;
+  /* Chart/SVG colors */
+  --chart-primary: #3b5bfa;
+  --chart-secondary: #06b6d4;
+  --chart-grid: #dde2ef;
+  --chart-text: #8892b5;
+  /* State backgrounds */
+  --success-bg: rgba(5, 150, 105, 0.1);
+  --success-border: rgba(5, 150, 105, 0.3);
+}
+
+/* Dark Mode Theme */
+html[data-theme="dark"] {
+  --bg: #0f1419;
+  --bg2: #1a1f2e;
+  --bg3: #252d3d;
+  --card: #1a1f2e;
+  --border: #2d3748;
+  --border2: #384756;
+  --accent: #5b7cff;
+  --accent2: #7c9aff;
+  --accent3: #06d9f5;
+  --accentbg: rgba(91, 124, 255, 0.12);
+  --accentbg2: rgba(91, 124, 255, 0.20);
+  --text: #e8e8ff;
+  --text2: #b8c5dd;
+  --text3: #7a8aae;
+  --danger: #ff6b6b;
+  --success: #51d88a;
+  --warning: #ffa940;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, .20);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .25), 0 1px 3px rgba(0, 0, 0, .15);
+  --shadow: 0 6px 20px rgba(0, 0, 0, .30), 0 2px 6px rgba(0, 0, 0, .15);
+  --shadow-lg: 0 16px 50px rgba(0, 0, 0, .40), 0 4px 12px rgba(0, 0, 0, .20);
+  /* Medal colors (same in dark mode) */
+  --medal-gold: #f59e0b;
+  --medal-silver: #94a3b8;
+  --medal-bronze: #b45309;
+  /* Chart/SVG colors */
+  --chart-primary: #5b7cff;
+  --chart-secondary: #06d9f5;
+  --chart-grid: #2d3748;
+  --chart-text: #7a8aae;
+  /* State backgrounds */
+  --success-bg: rgba(81, 216, 138, 0.15);
+  --success-border: rgba(81, 216, 138, 0.4);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════════════════ */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: -.3px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text3);
+}
+
+img {
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════ */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: .85rem 0;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .85rem;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING / SPINNER
+═══════════════════════════════════════════════════════════════ */
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg);
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SKELETON LOADING UI
+═══════════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg3) 25%,
+    var(--border) 50%,
+    var(--bg3) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FORMS
+═══════════════════════════════════════════════════════════════ */
+.form-group {
+  margin-bottom: 1.1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text3);
+  margin-bottom: .42rem;
+  font-family: var(--mono);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: .78rem 1rem;
+  background: var(--bg3);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: .9rem;
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t), background var(--t);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--accent);
+  background: var(--bg2);
+  box-shadow: 0 0 0 3px var(--accentbg);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  padding: .72rem 1.4rem;
+  border: none;
+  border-radius: var(--r);
+  font-weight: 600;
+  font-size: .875rem;
+  cursor: pointer;
+  transition: all var(--t);
+  letter-spacing: .1px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn:disabled {
+  opacity: .5;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  color: #fff;
+  width: 100%;
+}
+
+.btn-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(59, 91, 250, .38);
+}
+
+.btn-secondary {
+  background: var(--bg3);
+  color: var(--text2);
+  border: 1.5px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent3);
+  color: var(--text);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text3);
+  padding: .42rem;
+}
+
+.btn-ghost:hover {
+  color: var(--accent);
+  background: var(--accentbg);
+  border-radius: 8px;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, .08);
+  color: var(--danger);
+  border: 1.5px solid rgba(239, 68, 68, .25);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-sm {
+  padding: .35rem .72rem;
+  font-size: .78rem;
+  border-radius: 8px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   AVATAR — consistent sizing, object-fit:cover, no distortion
+═══════════════════════════════════════════════════════════════ */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .875rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  color: #fff;
+  border: 2px solid var(--bg2);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  display: block;
+}

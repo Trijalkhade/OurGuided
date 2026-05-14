@@ -16,7 +16,7 @@ router.get('/', auth, async (req, res) => {
 
     const [users, posts, quizzes] = await Promise.all([
       conn.execute(
-        `SELECT u.user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
+        `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
          FROM users u
          LEFT JOIN user_info ui    ON u.user_id=ui.user_id
          LEFT JOIN user_profile up ON u.user_id=up.user_id
@@ -25,7 +25,7 @@ router.get('/', auth, async (req, res) => {
       ).then(([rows]) => rows),
 
       conn.query(
-        `SELECT p.post_id, p.text AS content, p.category, p.post_date, u.username
+        `SELECT p.public_id AS post_id, p.text AS content, p.category, p.post_date, u.username
          FROM posts p
          INNER JOIN users u ON p.user_id = u.user_id
          LEFT  JOIN post_tags pt ON p.post_id = pt.post_id

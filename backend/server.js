@@ -4,6 +4,9 @@ const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const compression = require('compression');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
@@ -16,7 +19,10 @@ const io = new Server(server, {
 });
 
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
+  // Read token from cookie header (sent via withCredentials)
+  const cookieHeader = socket.handshake.headers?.cookie || '';
+  const tokenMatch = cookieHeader.match(/(?:^|;\s*)token=([^;]*)/);
+  const token = tokenMatch?.[1] || socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication required'));
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
@@ -45,6 +51,11 @@ moderationService.startBackgroundModeration();
 
 process.on('uncaughtException', (err) => console.error('UNCAUGHT EXCEPTION:', err?.stack || err));
 process.on('unhandledRejection', (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
+
+// ── Security & Performance Middleware ────────────────────────────────────────
+app.use(helmet());
+app.use(compression());
+app.use(cookieParser());
 
 app.use(cors({
   origin: '*',

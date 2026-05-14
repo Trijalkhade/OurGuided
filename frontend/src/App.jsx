@@ -1,28 +1,33 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+
+// Eager imports — needed on first render
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Feed from './pages/Feed';
-import Profile from './pages/Profile';
-import Watchlist from './pages/Watchlist';
-import PostDetail from './pages/PostDetail';
-import EditProfile from './pages/EditProfile';
-import Study from './pages/Study';
-import Connections from './pages/Connections';
-import Explore from './pages/Explore';
-import Quizzes from './pages/Quizzes';
-import Notifications from './pages/Notifications';
-import Leaderboard from './pages/Leaderboard';
-import Playlists from './pages/Playlists';
-import Moderation from './pages/Moderation';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import CookiePolicy from './pages/CookiePolicy';
 import Layout from './components/Layout';
-import './App.css';
+
+// Lazy imports — loaded on-demand when user navigates
+const Feed = lazy(() => import('./pages/Feed'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
+const Study = lazy(() => import('./pages/Study'));
+const Connections = lazy(() => import('./pages/Connections'));
+const Explore = lazy(() => import('./pages/Explore'));
+const Quizzes = lazy(() => import('./pages/Quizzes'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Playlists = lazy(() => import('./pages/Playlists'));
+const Moderation = lazy(() => import('./pages/Moderation'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+
 
 const LoadingScreen = () => (
   <div className="loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -60,6 +65,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/cookies" element={<CookiePolicy />} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>

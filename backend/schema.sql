@@ -3,13 +3,15 @@ USE DBMS;
 -- ── Users ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     user_id   INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL DEFAULT (UUID()),
     username  VARCHAR(100) UNIQUE NOT NULL,
     email     VARCHAR(255) UNIQUE NOT NULL,
     CHECK (email REGEXP '^[A-Za-z0-9._%+-]{2,}@[A-Za-z0-9.-]{2,}\\.[A-Za-z]{2,}$'),
     password  CHAR(60) NOT NULL,
     registration_ip VARCHAR(45),
     registration_device_id VARCHAR(255),
-    join_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    join_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE INDEX idx_users_public_id (public_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_profile (
@@ -136,6 +138,7 @@ CREATE INDEX idx_user_certifications_cert ON user_certifications(certification_i
 -- ── Posts ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS posts (
     post_id    INT AUTO_INCREMENT PRIMARY KEY,
+    public_id  CHAR(36) NOT NULL DEFAULT (UUID()),
     user_id    INT NOT NULL,
     text       VARCHAR(5000),
     video_url  TEXT,
@@ -147,7 +150,8 @@ CREATE TABLE IF NOT EXISTS posts (
     is_deleted   BOOLEAN DEFAULT FALSE,
     deleted_at   TIMESTAMP NULL,
     post_date  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_posts_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_posts_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE INDEX idx_posts_public_id (public_id)
 );
 CREATE INDEX idx_posts_user ON posts(user_id);
 CREATE INDEX idx_posts_date ON posts(post_date DESC);
@@ -386,4 +390,14 @@ CREATE TABLE IF NOT EXISTS content_deletions (
   INDEX idx_deleted_at (deleted_at)
 );
 
- 
+-- ── Password Resets ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  pin_hash CHAR(60) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  INDEX idx_reset_lookup (user_id, used, expires_at)
+);

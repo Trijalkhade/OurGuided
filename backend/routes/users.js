@@ -3,14 +3,14 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
-const { formatPhoto } = require('../utils/dbHelpers');
+const { formatPhoto, resolveUserId, getUserPublicId } = require('../utils/dbHelpers');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
   try {
     const q = `%${req.params.query}%`;
     const [users] = await db.execute(
-      `SELECT u.user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
+      `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
        FROM users u
        LEFT JOIN user_info ui    ON u.user_id=ui.user_id
        LEFT JOIN user_profile up ON u.user_id=up.user_id
@@ -29,7 +29,7 @@ router.get('/search/:query', auth, async (req, res) => {
 router.get('/leaderboard', auth, async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT u.user_id, u.username,
+      `SELECT u.public_id AS user_id, u.username,
               COALESCE(ui.first_name,'') AS first_name, COALESCE(ui.last_name,'') AS last_name,
               up.total_knowledge, up.core_level, up.is_expert,
               ss.streak_days, ss.streak_factor
@@ -45,9 +45,12 @@ router.get('/leaderboard', auth, async (req, res) => {
 /* ── GET /:id ── */
 router.get('/:id', auth, async (req, res) => {
   try {
-    const userId = req.params.id;
+    // Resolve UUID public_id to internal user_id
+    const userId = await resolveUserId(req.params.id);
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+
     const [[user]] = await db.execute(
-      `SELECT u.user_id, u.username, u.email, u.join_date,
+      `SELECT u.public_id AS user_id, u.username, u.email, u.join_date,
               ui.first_name, ui.middle_name, ui.last_name, ui.photo,
               up.dob, up.bio, up.core_level, up.total_knowledge, up.badges,
               up.knowledge_today, up.is_expert, up.is_private,

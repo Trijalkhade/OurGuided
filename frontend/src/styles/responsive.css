@@ -1,0 +1,120 @@
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .usage-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-w: 0px;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .mobile-nav {
+    display: block;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .search-bar {
+    padding: .65rem 1rem;
+  }
+
+  .feed-container,
+  .profile-container,
+  .explore-page,
+  .usage-page {
+    padding: 1rem;
+  }
+
+  .profile-name {
+    font-size: 1.18rem;
+  }
+
+  .profile-avatar {
+    width: 68px;
+    height: 68px;
+    font-size: 1.65rem;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .onboarding-categories {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quiz-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .usage-stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .edu-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .edu-score {
+    grid-column: span 2;
+  }
+
+  .auth-box {
+    padding: 2rem 1.5rem;
+  }
+
+  .lightbox-nav.prev {
+    left: .5rem;
+  }
+
+  .lightbox-nav.next {
+    right: .5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-stats {
+    gap: 1rem;
+  }
+
+  .usage-stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .post-img-grid.g5plus {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profile-top {
+    flex-wrap: wrap;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE TWEAKS FOR NEW FEATURES
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .usage-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

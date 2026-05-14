@@ -8,14 +8,8 @@ const AuthContext = createContext(null);
 // Detect prerender
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
-const API = axios.create({ baseURL: '/api' });
-
-API.interceptors.request.use(config => {
-  if (isPrerender) return config;
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+const API = axios.create({ baseURL: '/api', withCredentials: true });
+// No interceptor needed — cookie is sent automatically by the browser
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -23,10 +17,10 @@ export const AuthProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const socketRef = useRef(null);
 
-  /* Connect socket when we have a token */
-  const connectSocket = (token) => {
+  /* Connect socket — cookie is sent automatically via withCredentials */
+  const connectSocket = () => {
     if (isPrerender || socketRef.current) return;
-    const s = socketIO('/', { auth: { token }, transports: ['websocket', 'polling'] });
+    const s = socketIO('/', { withCredentials: true, transports: ['websocket', 'polling'] });
     s.on('connect', () => console.log('Socket connected'));
     s.on('connect_error', (err) => console.warn('Socket auth error:', err.message));
     socketRef.current = s;
@@ -41,7 +35,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* Validate token on mount */
+  /* Validate session on mount — cookie is sent automatically */
   useEffect(() => {
     if (isPrerender) {
       setLoading(false);
@@ -51,21 +45,14 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false;
 
     const validate = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       try {
         const { data } = await API.get('/auth/me');
         if (!cancelled) {
           setUser(data);
           localStorage.setItem('user', JSON.stringify(data));
-          connectSocket(token);
+          connectSocket();
         }
       } catch {
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
         if (!cancelled) setUser(null);
       } finally {
@@ -84,26 +71,24 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await API.post('/auth/login', { email, password });
-    localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
-    connectSocket(data.token);
+    connectSocket();
     return data;
   };
 
   const register = async (userData) => {
     const deviceId = getDeviceId();
     const { data } = await API.post('/auth/register', { ...userData, device_id: deviceId });
-    localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
-    connectSocket(data.token);
+    connectSocket();
     return data;
   };
 
   const logout = async () => {
     disconnectSocket();
-    localStorage.removeItem('token');
+    try { await API.post('/auth/logout'); } catch { /* ignore */ }
     localStorage.removeItem('user');
     setUser(null);
   };

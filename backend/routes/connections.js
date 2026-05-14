@@ -3,11 +3,13 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { sendEmail } = require('../utils/notifier');
+const { formatPhoto, resolveUserId, getUserPublicId } = require('../utils/dbHelpers');
 
 // Check connection status with another user
 router.get('/status/:userId', auth, async (req, res) => {
   const currentUserId = req.user.user_id;
-  const targetUserId = req.params.userId;
+  const targetUserId = await resolveUserId(req.params.userId);
+  if (!targetUserId) return res.status(404).json({ message: 'User not found' });
   let conn;
   try {
     conn = await db.getConnection();
@@ -31,11 +33,14 @@ router.get('/status/:userId', auth, async (req, res) => {
       status = 'pending_received';
     }
 
+    const targetPublicId = req.params.userId;
+    const currentPublicId = await getUserPublicId(currentUserId);
+
     res.json({
       status,
-      connection_id: targetUserId,
-      user_id: currentUserId,
-      connected_user_id: targetUserId
+      connection_id: targetPublicId,
+      user_id: currentPublicId,
+      connected_user_id: targetPublicId
     });
   } catch (err) {
     console.error('STATUS CHECK ERROR:', err.message);
@@ -52,8 +57,8 @@ router.get('/my-connections', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const [connections] = await conn.execute(
-      `SELECT f1.following_id AS connection_id,
-              f1.following_id AS connected_user_id,
+      `SELECT u.public_id AS connection_id,
+              u.public_id AS connected_user_id,
               'accepted' AS status,
               u.username,
               COALESCE(ui.first_name, '') AS first_name,
@@ -69,6 +74,7 @@ router.get('/my-connections', auth, async (req, res) => {
        ORDER BY f1.follow_date DESC`,
       [userId]
     );
+    for (const c of connections) { c.photo = formatPhoto(c.photo); }
     res.json(connections);
   } catch (err) {
     console.error('GET CONNECTIONS ERROR:', err.message);
@@ -85,8 +91,8 @@ router.get('/requests', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const [requests] = await conn.execute(
-      `SELECT f1.follower_id AS connection_id, 
-              f1.follower_id AS user_id, 
+      `SELECT u.public_id AS connection_id, 
+              u.public_id AS user_id, 
               'pending' AS status,
               u.username,
               COALESCE(ui.first_name, '') AS first_name,
@@ -100,6 +106,7 @@ router.get('/requests', auth, async (req, res) => {
        ORDER BY f1.follow_date DESC`,
       [userId]
     );
+    for (const r of requests) { r.photo = formatPhoto(r.photo); }
     res.json(requests);
   } catch (err) {
     console.error('GET REQUESTS ERROR:', err.message);
@@ -112,7 +119,8 @@ router.get('/requests', auth, async (req, res) => {
 // Send connection request (follow)
 router.post('/request/:userId', auth, async (req, res) => {
   const fromUserId = req.user.user_id;
-  const toUserId = req.params.userId;
+  const toUserId = await resolveUserId(req.params.userId);
+  if (!toUserId) return res.status(404).json({ message: 'User not found' });
 
   if (fromUserId == toUserId) {
     return res.status(400).json({ message: 'Cannot connect with yourself' });
@@ -190,8 +198,8 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const currentUserId = req.user.user_id;
-    // In our new schema, connectionId from frontend is actually the target user's id
-    const targetUserId = req.params.connectionId;
+    const targetUserId = await resolveUserId(req.params.connectionId);
+    if (!targetUserId) return res.status(404).json({ message: 'User not found' });
 
     // Follow them back
     await conn.execute(
@@ -199,11 +207,13 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
       [currentUserId, targetUserId]
     );
 
-    const returnedConnection = { connection_id: targetUserId, user_id: targetUserId, connected_user_id: currentUserId };
+    const targetPublicId = req.params.connectionId;
+    const currentPublicId = await getUserPublicId(currentUserId);
+    const returnedConnection = { connection_id: targetPublicId, user_id: targetPublicId, connected_user_id: currentPublicId };
 
     // Fetch the other user's public info (the requester) to return to the frontend
     const [userRows] = await conn.execute(
-      `SELECT u.user_id, u.username, COALESCE(ui.first_name, '') AS first_name,
+      `SELECT u.public_id AS user_id, u.username, COALESCE(ui.first_name, '') AS first_name,
               COALESCE(ui.last_name, '') AS last_name, COALESCE(ui.photo, '') AS photo,
               COALESCE(up.bio, '') AS bio
        FROM users u
@@ -214,6 +224,7 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
     );
 
     const userInfo = userRows[0] || null;
+    if (userInfo) userInfo.photo = formatPhoto(userInfo.photo);
 
     res.json({ message: 'Connection accepted', connection: returnedConnection, user: userInfo });
   } catch (err) {
@@ -230,7 +241,8 @@ router.delete('/reject/:connectionId', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
     const currentUserId = req.user.user_id;
-    const targetUserId = req.params.connectionId;
+    const targetUserId = await resolveUserId(req.params.connectionId);
+    if (!targetUserId) return res.status(404).json({ message: 'User not found' });
     await conn.execute(
       'DELETE FROM follows WHERE follower_id = ? AND following_id = ?',
       [targetUserId, currentUserId]
@@ -247,17 +259,19 @@ router.delete('/reject/:connectionId', auth, async (req, res) => {
 // Remove connection (unfollow both logically)
 router.delete('/remove/:userId', auth, async (req, res) => {
   const userId = req.user.user_id;
+  const targetUserId = await resolveUserId(req.params.userId);
+  if (!targetUserId) return res.status(404).json({ message: 'User not found' });
   let conn;
   try {
     conn = await db.getConnection();
     await conn.beginTransaction();
     await conn.execute(
       'DELETE FROM follows WHERE follower_id = ? AND following_id = ?',
-      [userId, req.params.userId]
+      [userId, targetUserId]
     );
     await conn.execute(
       'DELETE FROM follows WHERE follower_id = ? AND following_id = ?',
-      [req.params.userId, userId]
+      [targetUserId, userId]
     );
     await conn.commit();
     res.json({ message: 'Connection removed' });

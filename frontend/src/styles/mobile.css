@@ -1,0 +1,50 @@
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE BOTTOM NAV — logout always visible
+═══════════════════════════════════════════════════════════════ */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: .38rem 0 calc(.38rem + env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .18rem;
+  padding: .38rem .55rem;
+  border-radius: 10px;
+  color: var(--text3);
+  font-size: .56rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--t);
+  border: none;
+  background: none;
+  cursor: pointer;
+  min-width: 46px;
+}
+
+.mobile-nav-item svg {
+  font-size: 1.2rem;
+}
+
+.mobile-nav-item.active {
+  color: var(--accent);
+}
+
+.mobile-nav-item.logout {
+  color: var(--danger);
+}

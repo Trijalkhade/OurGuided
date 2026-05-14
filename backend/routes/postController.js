@@ -1,7 +1,7 @@
 const db = require('../db');
 const { createNotification } = require('../routes/notifications');
 const moderationService = require('../utils/moderationService');
-const { processImages, buildPostSelect, formatPhoto } = require('../utils/dbHelpers');
+const { processImages, buildPostSelect, formatPhoto, resolvePostId, resolveUserId, getPostPublicId, getUserPublicId } = require('../utils/dbHelpers');
 
 /* ── Helpers ── */
 
@@ -52,7 +52,8 @@ exports.getFeed = async (req, res) => {
 
 exports.getUserPosts = async (req, res) => {
   const userId    = req.user.user_id;
-  const profileId = req.params.id;
+  const profileId = await resolveUserId(req.params.id);
+  if (!profileId) return res.status(404).json({ message: 'User not found' });
   let conn;
   try {
     conn = await db.getConnection();
@@ -166,25 +167,32 @@ exports.searchPosts = async (req, res) => {
 
 exports.getPostDetail = async (req, res) => {
   const userId = req.user.user_id;
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [posts] = await conn.query(
-      `${buildPostSelect(userId)} WHERE p.post_id=? AND p.is_deleted = FALSE GROUP BY p.post_id`, [req.params.id]);
+      `${buildPostSelect(userId)} WHERE p.post_id=? AND p.is_deleted = FALSE GROUP BY p.post_id`, [postId]);
     if (!posts.length) return res.status(404).json({ message: 'Post not found' });
 
     await batchExtraImages(conn, posts);
     const post = processImages(posts[0]);
 
     const [comments] = await conn.execute(
-      `SELECT c.comment_id, c.user_id, c.content, c.dated AS comment_date,
+      `SELECT c.comment_id, c.user_id, u.public_id AS user_public_id, c.content, c.dated AS comment_date,
               u.username,
               COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'')  AS last_name
        FROM comments c
        INNER JOIN users u      ON c.user_id=u.user_id
        LEFT  JOIN user_info ui ON c.user_id=ui.user_id
-       WHERE c.post_id=? AND c.is_deleted = FALSE ORDER BY c.dated ASC`, [req.params.id]);
+       WHERE c.post_id=? AND c.is_deleted = FALSE ORDER BY c.dated ASC`, [postId]);
+    // Replace internal user_id with public_id in comments
+    for (const c of comments) {
+      c.user_id = c.user_public_id;
+      delete c.user_public_id;
+    }
     post.comments = comments;
     res.json(post);
   } catch (err) { console.error('POST DETAIL:', err.message); res.status(500).json({ message: err.message }); }
@@ -257,17 +265,19 @@ exports.createPost = async (req, res) => {
       }).catch(e => console.error('Moderation queue failed:', e));
     }
 
-    res.status(201).json({ post_id: postId });
+    res.status(201).json({ post_id: await getPostPublicId(postId) });
   } catch (err) { await conn?.rollback(); console.error('CREATE POST:', err.message); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
 };
 
 exports.deletePost = async (req, res) => {
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [r] = await conn.execute('DELETE FROM posts WHERE post_id=? AND user_id=?',
-      [req.params.id, req.user.user_id]);
+      [postId, req.user.user_id]);
     if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized' });
     res.json({ message: 'Post deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -301,21 +311,23 @@ exports.rejectPost = async (req, res) => {
 };
 
 exports.likePost = async (req, res) => {
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [existing] = await conn.execute('SELECT 1 FROM likes WHERE user_id=? AND post_id=?',
-      [req.user.user_id, req.params.id]);
+      [req.user.user_id, postId]);
     if (existing.length) {
-      await conn.execute('DELETE FROM likes WHERE user_id=? AND post_id=?', [req.user.user_id, req.params.id]);
+      await conn.execute('DELETE FROM likes WHERE user_id=? AND post_id=?', [req.user.user_id, postId]);
       return res.json({ liked: false });
     }
-    await conn.execute('INSERT INTO likes (user_id,post_id) VALUES (?,?)', [req.user.user_id, req.params.id]);
+    await conn.execute('INSERT INTO likes (user_id,post_id) VALUES (?,?)', [req.user.user_id, postId]);
 
     // Fire-and-forget notification
     (async () => {
       try {
-        const [[post]] = await db.execute('SELECT user_id, text FROM posts WHERE post_id=?', [req.params.id]);
+        const [[post]] = await db.execute('SELECT user_id, text FROM posts WHERE post_id=?', [postId]);
         if (post.user_id !== req.user.user_id) {
           const snippet = (post.text || '').substring(0, 50) + (post.text.length > 50 ? '...' : '');
           await createNotification(
@@ -332,18 +344,20 @@ exports.likePost = async (req, res) => {
 };
 
 exports.watchlistToggle = async (req, res) => {
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [existing] = await conn.execute('SELECT 1 FROM user_watch WHERE user_id=? AND post_id=?',
-      [req.user.user_id, req.params.id]);
+      [req.user.user_id, postId]);
     if (existing.length) {
       await conn.execute('DELETE FROM user_watch WHERE user_id=? AND post_id=?',
-        [req.user.user_id, req.params.id]);
+        [req.user.user_id, postId]);
       return res.json({ saved: false });
     }
     await conn.execute('INSERT INTO user_watch (user_id,post_id) VALUES (?,?)',
-      [req.user.user_id, req.params.id]);
+      [req.user.user_id, postId]);
     res.json({ saved: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
@@ -352,12 +366,13 @@ exports.watchlistToggle = async (req, res) => {
 exports.commentOnPost = async (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ message: 'Comment required' });
-
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [r] = await conn.execute('INSERT INTO comments (user_id,post_id,content) VALUES (?,?,?)',
-      [req.user.user_id, req.params.id, content]);
+      [req.user.user_id, postId, content]);
 
     // Background moderation
     moderationService.queueForDetection({
@@ -367,7 +382,7 @@ exports.commentOnPost = async (req, res) => {
     // Fire-and-forget notification
     (async () => {
       try {
-        const [[post]] = await db.execute('SELECT user_id FROM posts WHERE post_id=?', [req.params.id]);
+        const [[post]] = await db.execute('SELECT user_id FROM posts WHERE post_id=?', [postId]);
         if (post.user_id !== req.user.user_id) {
           const commentSnippet = content.substring(0, 60) + (content.length > 60 ? '...' : '');
           await createNotification(
@@ -384,12 +399,13 @@ exports.commentOnPost = async (req, res) => {
 };
 
 exports.getPostLikers = async (req, res) => {
-  const postId = req.params.id;
+  const postId = await resolvePostId(req.params.id);
+  if (!postId) return res.status(404).json({ message: 'Post not found' });
   let conn;
   try {
     conn = await db.getConnection();
     const [likers] = await conn.execute(
-      `SELECT u.user_id, u.username, 
+      `SELECT u.public_id AS user_id, u.username, 
               COALESCE(ui.first_name, '') AS first_name, 
               COALESCE(ui.middle_name, '') AS middle_name, 
               COALESCE(ui.last_name, '') AS last_name,
