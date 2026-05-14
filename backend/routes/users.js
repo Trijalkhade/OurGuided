@@ -98,11 +98,19 @@ router.get('/:id', auth, async (req, res) => {
 router.put('/profile/update', auth, upload.single('photo'), async (req, res) => {
   const { bio, first_name, middle_name, last_name, dob } = req.body;
   const userId = req.user.user_id;
-  const photo = req.file ? req.file.buffer : null;
+  const photoPath = req.file ? req.file.path : null;
 
+  const fs = require('fs');
   const { isBufferSafeImage } = require('../utils/security');
-  if (photo && !isBufferSafeImage(photo)) {
-    return res.status(400).json({ message: 'Invalid photo format detected' });
+  
+  try {
+    if (photoPath) {
+      const buffer = fs.readFileSync(photoPath);
+      if (!isBufferSafeImage(buffer)) throw new Error('Invalid photo format detected');
+    }
+  } catch (err) {
+    if (photoPath && fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+    return res.status(400).json({ message: err.message });
   }
   let conn;
   try {
@@ -110,8 +118,8 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     await conn.beginTransaction();
 
     let s3PhotoUrl = null;
-    if (photo) {
-        s3PhotoUrl = await uploadToS3(photo, req.file.mimetype, 'profiles');
+    if (photoPath) {
+        s3PhotoUrl = await uploadToS3(photoPath, req.file.mimetype, 'profiles');
     }
 
     await conn.execute(`INSERT IGNORE INTO user_profile (user_id,dob) VALUES (?,'2000-01-01')`, [userId]);
@@ -131,8 +139,14 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
 
     await conn.commit();
     res.json({ message: 'Profile updated' });
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
-  finally { if (conn) conn.release(); }
+  } catch (err) { 
+    await conn?.rollback(); 
+    res.status(500).json({ message: err.message }); 
+  }
+  finally { 
+    if (conn) conn.release(); 
+    if (photoPath && fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+  }
 });
 
 /* ── POST /phones ── */
@@ -184,27 +198,47 @@ router.delete('/skills/:id', auth, async (req, res) => {
 /* ── POST /certifications ── */
 router.post('/certifications', auth, upload.single('certificate_img'), async (req, res) => {
   const { certification_name, certificate_url, certified_level } = req.body;
-  const certificate_img = req.file ? req.file.buffer : null;
+  const certificate_img_path = req.file ? req.file.path : null;
 
+  const fs = require('fs');
   const { isBufferSafeImage } = require('../utils/security');
-  if (certificate_img && !isBufferSafeImage(certificate_img)) {
-    return res.status(400).json({ message: 'Invalid certificate image format detected' });
+  try {
+    if (certificate_img_path) {
+      const buffer = fs.readFileSync(certificate_img_path);
+      if (!isBufferSafeImage(buffer)) throw new Error('Invalid certificate image format detected');
+    }
+  } catch (err) {
+    if (certificate_img_path && fs.existsSync(certificate_img_path)) fs.unlinkSync(certificate_img_path);
+    return res.status(400).json({ message: err.message });
   }
   let conn;
   try {
     conn = await db.getConnection();
     await conn.beginTransaction();
+    
+    let certBuffer = null;
+    if (certificate_img_path) {
+      certBuffer = fs.readFileSync(certificate_img_path);
+    }
+
     const [cert] = await conn.execute(
       `INSERT INTO certifications (certification_name) VALUES (?) ON DUPLICATE KEY UPDATE certification_id=LAST_INSERT_ID(certification_id)`,
       [certification_name]);
+    const certId = cert.insertId;
     await conn.execute(
       `INSERT INTO user_certifications (user_id,certification_id,certified_level,certificate_url,certificate_img)
        VALUES (?,?,?,?,?)`,
-      [req.user.user_id, cert.insertId, certified_level || null, certificate_url || null, certificate_img]);
+      [req.user.user_id, certId, certified_level || null, certificate_url || null, certBuffer]);
     await conn.commit();
-    res.status(201).json({ certification_id: cert.insertId, certification_name });
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
-  finally { if (conn) conn.release(); }
+    res.status(201).json({ certification_id: certId, certification_name });
+  } catch (err) { 
+    await conn?.rollback(); 
+    res.status(500).json({ message: err.message }); 
+  }
+  finally { 
+    if (conn) conn.release(); 
+    if (certificate_img_path && fs.existsSync(certificate_img_path)) fs.unlinkSync(certificate_img_path);
+  }
 });
 
 /* ── POST /education ── */

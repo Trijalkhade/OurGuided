@@ -206,17 +206,27 @@ exports.getPostDetail = async (req, res) => {
 
 exports.createPost = async (req, res) => {
   const { content, tags, video, category, is_anonymous } = req.body;
-  const mainImage   = req.files?.image?.[0]?.buffer   || null;
-  const extraImages = req.files?.images?.map(f => f.buffer) || [];
-  const videoFile   = req.files?.video?.[0]?.buffer   || null;
+  const mainImage   = req.files?.image?.[0]?.path   || null;
+  const extraImages = req.files?.images?.map(f => f.path) || [];
+  const videoFile   = req.files?.video?.[0]?.path   || null;
 
+  const fs = require('fs');
   const { isBufferSafeImage } = require('../utils/security');
-  if (mainImage && !isBufferSafeImage(mainImage))
-    return res.status(400).json({ message: 'Invalid main image format detected' });
   
-  for (const img of extraImages) {
-    if (!isBufferSafeImage(img))
-      return res.status(400).json({ message: 'One or more extra images have an invalid format' });
+  try {
+    if (mainImage) {
+      const buffer = fs.readFileSync(mainImage);
+      if (!isBufferSafeImage(buffer)) throw new Error('Invalid main image format detected');
+    }
+    for (const imgPath of extraImages) {
+      const buffer = fs.readFileSync(imgPath);
+      if (!isBufferSafeImage(buffer)) throw new Error('One or more extra images have an invalid format');
+    }
+  } catch (err) {
+    if (mainImage) fs.unlinkSync(mainImage);
+    extraImages.forEach(p => fs.unlinkSync(p));
+    if (videoFile) fs.unlinkSync(videoFile);
+    return res.status(400).json({ message: err.message });
   }
 
   if (!content && !mainImage && !video && !videoFile)
