@@ -159,6 +159,7 @@
   line-height: 1.65;
   font-size: .9rem;
   color: var(--text2);
+  white-space: pre-wrap;
 }
 
 .post-tags {
