@@ -287,15 +287,38 @@ exports.createPost = async (req, res) => {
 exports.deletePost = async (req, res) => {
   const postId = await resolvePostId(req.params.id);
   if (!postId) return res.status(404).json({ message: 'Post not found' });
+  
   let conn;
   try {
     conn = await db.getConnection();
-    const [r] = await conn.execute('DELETE FROM posts WHERE post_id=? AND user_id=?',
-      [postId, req.user.user_id]);
-    if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized' });
-    res.json({ message: 'Post deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-  finally { if (conn) conn.release(); }
+    
+    // 1. Fetch S3 URLs before deleting from DB
+    const [[post]] = await conn.execute('SELECT image_url FROM posts WHERE post_id=? AND user_id=?', [postId, req.user.user_id]);
+    if (!post) return res.status(403).json({ message: 'Not authorized or post not found' });
+
+    const [extras] = await conn.execute('SELECT image_url FROM post_images WHERE post_id=?', [postId]);
+
+    // 2. Delete from Database (This will CASCADE delete comments, likes, and post_images entries)
+    await conn.execute('DELETE FROM posts WHERE post_id=?', [postId]);
+
+    // 3. Delete from S3 in the background (Don't make the user wait for AWS)
+    const { deleteFromS3 } = require('../utils/s3');
+    (async () => {
+      try {
+        if (post.image_url) await deleteFromS3(post.image_url);
+        for (const img of extras) {
+          if (img.image_url) await deleteFromS3(img.image_url);
+        }
+      } catch (e) { console.error('S3 Cleanup Failed:', e.message); }
+    })();
+
+    res.json({ message: 'Post and associated media deleted successfully' });
+  } catch (err) { 
+    console.error('DELETE POST ERROR:', err.message);
+    res.status(500).json({ message: err.message }); 
+  } finally { 
+    if (conn) conn.release(); 
+  }
 };
 
 exports.approvePost = async (req, res) => {
