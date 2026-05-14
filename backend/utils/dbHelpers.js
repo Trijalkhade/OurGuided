@@ -72,14 +72,20 @@ exports.buildPostSelect = (userId) => {
 
 // ── UUID Resolvers ──────────────────────────────────────────────────────────
 // Resolve a public_id (UUID) to an internal user_id (integer)
-exports.resolveUserId = async (publicId) => {
-  const [rows] = await db.execute('SELECT user_id FROM users WHERE public_id = ?', [publicId]);
+exports.resolveUserId = async (id) => {
+  if (!id) return null;
+  // If it's already an integer, just return it
+  if (!isNaN(id) && Number.isInteger(Number(id))) return Number(id);
+  const [rows] = await db.execute('SELECT user_id FROM users WHERE public_id = ?', [id]);
   return rows.length ? rows[0].user_id : null;
 };
 
 // Resolve a public_id (UUID) to an internal post_id (integer)
-exports.resolvePostId = async (publicId) => {
-  const [rows] = await db.execute('SELECT post_id FROM posts WHERE public_id = ?', [publicId]);
+exports.resolvePostId = async (id) => {
+  if (!id) return null;
+  // If it's already an integer, just return it
+  if (!isNaN(id) && Number.isInteger(Number(id))) return Number(id);
+  const [rows] = await db.execute('SELECT post_id FROM posts WHERE public_id = ?', [id]);
   return rows.length ? rows[0].post_id : null;
 };
 
