@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
-const { processImages } = require('../utils/dbHelpers');
+const { processImages, resolveUserId, resolvePostId } = require('../utils/dbHelpers');
 
 /* GET / — my playlists */
 router.get('/', auth, async (req, res) => {
@@ -19,11 +19,13 @@ router.get('/', auth, async (req, res) => {
 /* GET /public/:userId — public playlists of a user */
 router.get('/public/:userId', auth, async (req, res) => {
   try {
+    const userId = await resolveUserId(req.params.userId);
+    if (!userId) return res.status(404).json({ message: 'User not found' });
     const [rows] = await db.execute(
       `SELECT pl.playlist_id, pl.title, pl.description, pl.created_at,
               (SELECT COUNT(*) FROM playlist_items WHERE playlist_id=pl.playlist_id) AS item_count
        FROM playlists pl WHERE pl.user_id=? AND pl.is_public=TRUE ORDER BY pl.created_at DESC`,
-      [req.params.userId]);
+      [userId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -38,7 +40,7 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Private playlist' });
 
     const [items] = await db.execute(
-      `SELECT p.post_id, p.text AS content, p.post_date, p.category,
+      `SELECT p.public_id AS post_id, p.text AS content, p.post_date, p.category,
               p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
               u.username, COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'') AS last_name,
@@ -74,12 +76,14 @@ router.post('/', auth, async (req, res) => {
 router.post('/:id/add', auth, async (req, res) => {
   const { post_id } = req.body;
   if (!post_id) return res.status(400).json({ message: 'post_id required' });
+  const postId = await resolvePostId(post_id);
+  if (!postId) return res.status(400).json({ message: 'Post not found' });
   try {
     const [[pl]] = await db.execute('SELECT user_id FROM playlists WHERE playlist_id=?', [req.params.id]);
     if (!pl || pl.user_id !== req.user.user_id)
       return res.status(403).json({ message: 'Not your playlist' });
     await db.execute('INSERT IGNORE INTO playlist_items (playlist_id,post_id) VALUES (?,?)',
-      [req.params.id, post_id]);
+      [req.params.id, postId]);
     res.json({ message: 'Added' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

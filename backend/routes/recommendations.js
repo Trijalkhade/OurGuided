@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
-const { buildPostSelect, processImages, formatPhoto } = require('../utils/dbHelpers');
+const { buildPostSelect, processImages, formatPhoto, getUserPublicId } = require('../utils/dbHelpers');
 
 /* ══════════════════════════════════════════════════════════════════
    HELPERS
@@ -306,12 +306,7 @@ router.get('/feed', auth, async (req, res) => {
        GROUP BY p.post_id`
     );
 
-    // Convert author photos and images
-    for (const p of candidates) {
-      processImages(p);
-    }
-
-    // Batch-fetch extra images in 1 query instead of N
+    // Batch-fetch extra images BEFORE processImages swaps IDs to UUIDs
     if (candidates.length) {
       const ph = ids.map(() => '?').join(',');
       const [extraImgs] = await conn.execute(
@@ -326,11 +321,12 @@ router.get('/feed', auth, async (req, res) => {
       }
     }
 
-    // SCORE & RANK
+    // SCORE & RANK (must happen before processImages swaps IDs to UUIDs,
+    // because scoring checks connectedUsers set of integer IDs)
     const scored = candidates.map(p => ({ ...p, _score: extractFeaturesAndScore(p, uVec, connectedUsers) }));
     scored.sort((a, b) => b._score - a._score || new Date(b.post_date) - new Date(a.post_date));
 
-    // RE-RANKING: Diversity & Anti-Fatigue
+    // RE-RANKING: Diversity & Anti-Fatigue (also uses integer user_id)
     const finalFeed = [];
     const recentAuthors = [];
     const recentCategories = [];
@@ -366,8 +362,11 @@ router.get('/feed', auth, async (req, res) => {
     const offset = (page - 1) * limit;
     const page_posts = finalFeed.slice(offset, offset + limit);
 
-    // Remove internal score
-    page_posts.forEach(p => delete p._score);
+    // Remove internal score, then swap internal IDs → UUIDs
+    page_posts.forEach(p => {
+      delete p._score;
+      processImages(p);
+    });
 
     res.json({ posts: page_posts, has_more: (offset + page_posts.length) < finalFeed.length });
   } catch (err) {
@@ -390,7 +389,7 @@ router.get('/similar-users', auth, async (req, res) => {
 
     // Get candidate users (excluding current user initially)
     const [users] = await conn.execute(
-      `SELECT u.user_id, u.username,
+      `SELECT u.user_id, u.public_id, u.username,
               COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'') AS last_name,
               COALESCE(ui.photo,'') AS photo,
@@ -405,7 +404,7 @@ router.get('/similar-users', auth, async (req, res) => {
 
     // Get current user to ensure they are clustered
     const [[currentUser]] = await conn.execute(
-      `SELECT u.user_id, u.username,
+      `SELECT u.user_id, u.public_id, u.username,
               COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'') AS last_name,
               COALESCE(ui.photo,'') AS photo,
@@ -437,7 +436,7 @@ router.get('/similar-users', auth, async (req, res) => {
     // Get users in same cluster, sorted by cosine similarity
     const sameCluster = clustered.filter(u => u.cluster === myVec.cluster && u.userId !== userId);
     const withSim = sameCluster.map(u => ({
-      user_id:  u.user_id,
+      user_id:  u.public_id,
       username: u.username,
       first_name: u.first_name,
       last_name: u.last_name,

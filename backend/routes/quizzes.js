@@ -227,7 +227,7 @@ router.delete('/:id', auth, async (req, res) => {
 router.get('/:id/leaderboard', auth, async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT qa.user_id, u.username,
+      `SELECT u.public_id AS user_id, u.username,
               COALESCE(ui.first_name,'') AS first_name, COALESCE(ui.last_name,'') AS last_name,
               MAX(qa.percentage) AS best_pct, MAX(qa.score) AS best_score
        FROM quiz_attempts qa
