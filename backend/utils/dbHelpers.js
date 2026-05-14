@@ -1,26 +1,35 @@
 const db = require('../db');
 
 // Helper for formatting binary photo buffers to base64
-exports.formatPhoto = (photoBuffer) => {
-  if (photoBuffer && Buffer.isBuffer(photoBuffer)) {
-    return `data:image/jpeg;base64,${photoBuffer.toString('base64')}`;
+exports.formatPhoto = (photo, photo_url) => {
+  if (photo_url) return photo_url;
+  if (!photo) return null;
+  if (typeof photo === 'string' && (photo.startsWith('http') || photo.startsWith('data:'))) return photo;
+  try {
+    return `data:image/jpeg;base64,${photo.toString('base64')}`;
+  } catch (e) {
+    return null;
   }
-  if (typeof photoBuffer === 'string' && photoBuffer.trim() !== '' && photoBuffer !== 'null' && photoBuffer !== 'undefined') {
-    return photoBuffer;
-  }
-  return null;
 };
 
 // Helper to process a post's images consistently
 exports.processImages = (post) => {
-  if (post.small_img) {
+  if (!post) return null;
+  
+  // Handle User Photo
+  post.photo = exports.formatPhoto(post.photo, post.photo_url);
+  delete post.photo_url;
+
+  // Handle Main Post Image
+  if (post.image_url) {
+    post.image = post.image_url;
+  } else if (post.small_img) {
     post.image = `data:image/jpeg;base64,${post.small_img.toString('base64')}`;
   } else {
     post.image = null;
   }
   delete post.small_img;
-
-  post.photo = exports.formatPhoto(post.photo);
+  delete post.image_url;
 
   post.user_saved = (post.user_saved || 0) > 0;
   post.extra_images = post.extra_images || [];
@@ -44,12 +53,13 @@ exports.buildPostSelect = (userId) => {
   return `
     SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
            p.text AS content, p.post_date, p.category,
-           p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
+           p.media_type, p.small_img, p.image_url, p.video_url AS video, p.is_anonymous,
            GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
            u.username,
            COALESCE(ui.first_name,'') AS first_name,
            COALESCE(ui.last_name,'')  AS last_name,
            COALESCE(ui.photo,'')      AS photo,
+           ui.photo_url,
            (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
            (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_liked,
            (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,

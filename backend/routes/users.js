@@ -4,6 +4,7 @@ const db = require('../db');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { formatPhoto, resolveUserId, getUserPublicId } = require('../utils/dbHelpers');
+const { uploadToS3 } = require('../utils/s3');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
@@ -108,6 +109,11 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     conn = await db.getConnection();
     await conn.beginTransaction();
 
+    let s3PhotoUrl = null;
+    if (photo) {
+        s3PhotoUrl = await uploadToS3(photo, req.file.mimetype, 'profiles');
+    }
+
     await conn.execute(`INSERT IGNORE INTO user_profile (user_id,dob) VALUES (?,'2000-01-01')`, [userId]);
     await conn.execute(
       `UPDATE user_profile SET bio=COALESCE(?,bio), dob=COALESCE(?,dob) WHERE user_id=?`,
@@ -120,8 +126,8 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     if (!fn || !ln) return res.status(400).json({ message: 'First and Last name required' });
 
     await conn.execute(
-      `UPDATE user_info SET first_name=?, middle_name=?, last_name=?, photo=COALESCE(?,photo) WHERE user_id=?`,
-      [fn, middle_name || null, ln, photo, userId]);
+      `UPDATE user_info SET first_name=?, middle_name=?, last_name=?, photo_url=COALESCE(?,photo_url) WHERE user_id=?`,
+      [fn, middle_name || null, ln, s3PhotoUrl, userId]);
 
     await conn.commit();
     res.json({ message: 'Profile updated' });
