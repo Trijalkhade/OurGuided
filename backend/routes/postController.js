@@ -275,6 +275,13 @@ exports.createPost = async (req, res) => {
     // Fire-and-forget: follower notifications
     (async () => {
       try {
+        // Fetch creator's name for the notification
+        const [[creator]] = await db.execute(
+          `SELECT COALESCE(ui.first_name, u.username) AS name
+           FROM users u LEFT JOIN user_info ui ON u.user_id = ui.user_id
+           WHERE u.user_id = ?`, [req.user.user_id]);
+        const creatorName = creator?.name || 'Someone';
+
         const [followers] = await db.execute(
           `SELECT f.follower_id
            FROM follows f
@@ -285,7 +292,7 @@ exports.createPost = async (req, res) => {
         for (let i = 0; i < followers.length; i += chunkSize) {
           const chunk = followers.slice(i, i + chunkSize);
           await Promise.all(chunk.map(f =>
-            createNotification(f.follower_id, 'new_skill', 'New Post Available', 'Someone you follow posted new content')
+            createNotification(f.follower_id, 'new_skill', 'New Post Available', `${creatorName} shared a new post`)
           ));
         }
       } catch (e) { console.error('Post notification failed:', e); }
@@ -384,12 +391,17 @@ exports.likePost = async (req, res) => {
     // Fire-and-forget notification
     (async () => {
       try {
-        const [[post]] = await db.execute('SELECT user_id, text FROM posts WHERE post_id=?', [postId]);
+        const [[post]] = await db.execute('SELECT user_id FROM posts WHERE post_id=?', [postId]);
         if (post.user_id !== req.user.user_id) {
-          const snippet = (post.text || '').substring(0, 50) + (post.text.length > 50 ? '...' : '');
+          // Fetch liker's name
+          const [[liker]] = await db.execute(
+            `SELECT COALESCE(ui.first_name, u.username) AS name
+             FROM users u LEFT JOIN user_info ui ON u.user_id = ui.user_id
+             WHERE u.user_id = ?`, [req.user.user_id]);
+          const likerName = liker?.name || 'Someone';
           await createNotification(
             post.user_id, 'connection', 'New Like!',
-            `<strong>${req.user.name || 'Someone'}</strong> liked your post:<br><em>"${snippet}"</em>`
+            `${likerName} liked your post`
           );
         }
       } catch (e) { console.error('Like notification failed:', e); }
@@ -441,10 +453,15 @@ exports.commentOnPost = async (req, res) => {
       try {
         const [[post]] = await db.execute('SELECT user_id FROM posts WHERE post_id=?', [postId]);
         if (post.user_id !== req.user.user_id) {
-          const commentSnippet = content.substring(0, 60) + (content.length > 60 ? '...' : '');
+          // Fetch commenter's name
+          const [[commenter]] = await db.execute(
+            `SELECT COALESCE(ui.first_name, u.username) AS name
+             FROM users u LEFT JOIN user_info ui ON u.user_id = ui.user_id
+             WHERE u.user_id = ?`, [req.user.user_id]);
+          const commenterName = commenter?.name || 'Someone';
           await createNotification(
             post.user_id, 'connection', 'New Comment',
-            `<strong>${req.user.name || 'Someone'}</strong> commented on your post:<br><em>"${commentSnippet}"</em>`
+            `${commenterName} commented on your post`
           );
         }
       } catch (e) { console.error('Comment notification failed:', e); }

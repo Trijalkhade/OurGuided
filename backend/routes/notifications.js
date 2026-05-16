@@ -129,7 +129,9 @@ async function createNotification(userId, type, title, message) {
     );
 
     if (prefs && prefs.notify_email) {
-      await sendEmail(prefs.email, `OurGuided: ${title}`, message);
+      // Never forward raw notification content to email — use a safe generic message
+      const safeEmailBody = `You have a new notification on OurGuided: ${title}\n\nLog in to OurGuided to view the details.\n\nLearn. Guide. Grow.\nThe OurGuided Team`;
+      await sendEmail(prefs.email, `OurGuided: ${title}`, safeEmailBody);
     }
 
   } catch (err) { console.error('Notification error:', err.message); }

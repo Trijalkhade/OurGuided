@@ -142,14 +142,23 @@ router.post('/', auth, globalActionLimiter, async (req, res) => {
           content: quizContent
         });
 
-        // Notify ALL interested users
-        const [users] = await db.execute('SELECT user_id FROM user_profile WHERE notify_quizzes=TRUE');
-        for (const u of users) {
-          // Skip the creator
-          if (u.user_id === userId) continue;
+        // Notify only followers who have quiz notifications enabled
+        const [[creatorInfo]] = await db.execute(
+          `SELECT COALESCE(ui.first_name, u.username) AS name
+           FROM users u LEFT JOIN user_info ui ON u.user_id = ui.user_id
+           WHERE u.user_id = ?`, [userId]);
+        const creatorName = creatorInfo?.name || 'Someone';
+
+        const [followers] = await db.execute(
+          `SELECT f.follower_id
+           FROM follows f
+           JOIN user_profile up ON f.follower_id = up.user_id
+           WHERE f.following_id = ? AND up.notify_quizzes = TRUE`,
+          [userId]);
+        for (const f of followers) {
           await createNotification(
-            u.user_id, 'quiz', 'New Quiz Published!',
-            `A new quiz "${title}" has been published in ${category || 'General'}. Test your knowledge now!`
+            f.follower_id, 'quiz', 'New Quiz Published!',
+            `${creatorName} published a new quiz. Test your knowledge now!`
           );
         }
       } catch (e) { 
