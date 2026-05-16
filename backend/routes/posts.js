@@ -17,7 +17,7 @@ router.get('/:id',         auth, postController.getPostDetail);
 
 router.post('/',           auth, globalActionLimiter, upload.fields([
   { name: 'image', maxCount: 1 }, 
-  { name: 'images', maxCount: 5 },
+  { name: 'images', maxCount: 6 },
   { name: 'video', maxCount: 1 }
 ]), postController.createPost);
 router.delete('/:id',      auth, postController.deletePost);

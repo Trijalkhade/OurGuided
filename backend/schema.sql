@@ -159,7 +159,8 @@ CREATE INDEX idx_posts_date ON posts(post_date DESC);
 CREATE TABLE IF NOT EXISTS post_images (
     image_id INT AUTO_INCREMENT PRIMARY KEY,
     post_id  INT NOT NULL,
-    image    MEDIUMBLOB NOT NULL,
+    image    MEDIUMBLOB NULL,
+    image_url TEXT,
     sort_order INT DEFAULT 0,
     FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE ON UPDATE CASCADE
 );

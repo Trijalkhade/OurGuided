@@ -2,7 +2,8 @@ const db = require('../db');
 const { createNotification } = require('../routes/notifications');
 const moderationService = require('../utils/moderationService');
 const { processImages, buildPostSelect, formatPhoto, resolvePostId, resolveUserId, getPostPublicId, getUserPublicId } = require('../utils/dbHelpers');
-const { uploadToS3 } = require('../utils/s3');
+const { uploadToS3, deleteFromS3 } = require('../utils/s3');
+const crypto = require('crypto');
 
 /* ── Helpers ── */
 
@@ -233,6 +234,7 @@ exports.createPost = async (req, res) => {
     return res.status(400).json({ message: 'Post must contain text or media' });
 
   let conn;
+  const uploadedUrls = [];
   try {
     conn = await db.getConnection();
     await conn.beginTransaction();
@@ -241,26 +243,30 @@ exports.createPost = async (req, res) => {
     let s3ImageUrl = null;
     if (mainImage) {
       s3ImageUrl = await uploadToS3(mainImage, req.files.image[0].mimetype, 'posts');
+      if (s3ImageUrl) uploadedUrls.push(s3ImageUrl);
     }
 
     // 2. Upload Video to S3 (if provided as file)
     let finalVideoUrl = video || null;
     if (videoFile) {
       finalVideoUrl = await uploadToS3(videoFile, req.files.video[0].mimetype, 'posts/videos');
+      if (finalVideoUrl) uploadedUrls.push(finalVideoUrl);
     }
 
     const mediaType = (mainImage || s3ImageUrl) ? 'image' : (finalVideoUrl) ? 'video' : 'none';
 
+    const publicId = crypto.randomUUID();
     const [result] = await conn.execute(
-      `INSERT INTO posts (user_id,text,media_type,image_url,video_url,category,is_anonymous,is_pending)
-       VALUES (?,?,?,?,?,?,?,FALSE)`,
-      [req.user.user_id, content || '', mediaType,
+      `INSERT INTO posts (user_id,public_id,text,media_type,image_url,video_url,category,is_anonymous,is_pending)
+       VALUES (?,?,?,?,?,?,?,?,FALSE)`,
+      [req.user.user_id, publicId, content || '', mediaType,
        s3ImageUrl, finalVideoUrl, category || null, is_anonymous === 'true' ? 1 : 0]);
     const postId = result.insertId;
 
     // 3. Upload Extra Images to S3
     for (let i = 0; i < extraImages.length; i++) {
       const extraUrl = await uploadToS3(extraImages[i], req.files.images[i].mimetype, 'posts/extra');
+      if (extraUrl) uploadedUrls.push(extraUrl);
       await conn.execute('INSERT INTO post_images (post_id,image_url,sort_order) VALUES (?,?,?)',
         [postId, extraUrl, i]);
     }
@@ -305,9 +311,22 @@ exports.createPost = async (req, res) => {
       }).catch(e => console.error('Moderation queue failed:', e));
     }
 
-    const [[{ public_id }]] = await conn.execute('SELECT public_id FROM posts WHERE post_id = ?', [postId]);
-    res.status(201).json({ post_id: public_id });
-  } catch (err) { await conn?.rollback(); console.error('CREATE POST:', err.message); res.status(500).json({ message: err.message }); }
+    res.status(201).json({ post_id: publicId });
+  } catch (err) { 
+    await conn?.rollback(); 
+    console.error('CREATE POST ERROR:', err.message); 
+    
+    // Cleanup uploaded files from S3 if creation failed
+    if (uploadedUrls.length > 0) {
+      (async () => {
+        for (const url of uploadedUrls) {
+          try { await deleteFromS3(url); } catch (e) { console.error('Cleanup delete failed:', e.message); }
+        }
+      })();
+    }
+    
+    res.status(500).json({ message: err.message }); 
+  }
   finally { if (conn) conn.release(); }
 };
 

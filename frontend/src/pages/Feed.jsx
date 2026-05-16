@@ -81,8 +81,8 @@ const CreatePost = ({ onPostCreated }) => {
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <div>
-            <label style={{ display: 'block', fontSize: '.7rem', color: 'var(--text3)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '.3rem' }}>Images (up to 5)</label>
-            <input type="file" accept="image/*" multiple onChange={e => setImageFiles(Array.from(e.target.files || []).slice(0, 5))} />
+            <label style={{ display: 'block', fontSize: '.7rem', color: 'var(--text3)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '.3rem' }}>Images (up to 6)</label>
+            <input type="file" accept="image/*" multiple onChange={e => setImageFiles(Array.from(e.target.files || []).slice(0, 6))} />
             {imageFiles.length > 0 && <div style={{ fontSize: '.76rem', color: 'var(--text3)', marginTop: '.25rem' }}>{imageFiles.length} image{imageFiles.length > 1 ? 's' : ''} selected</div>}
           </div>
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '.5rem' }}>
