@@ -79,7 +79,9 @@ const Connections = () => {
       window.dispatchEvent(new Event('connectionsUpdated'));
     } catch (err) {
       onError();
-      toast.error('Failed to accept request');
+      const errorMsg = err.response?.data?.message || 'Failed to accept request';
+      console.error('Accept connection error:', err);
+      toast.error(`Error: ${errorMsg}`);
     }
   };
 
