@@ -2,3 +2,4 @@ node_modules/
 .env
 frontend/dist/
 backend/tmp/
+.DS_Store
