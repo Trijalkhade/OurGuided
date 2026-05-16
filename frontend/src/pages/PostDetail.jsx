@@ -163,11 +163,11 @@ const PostDetail = () => {
           <div className={`post-img-grid ${
             allImages.length === 2 ? 'g2' : allImages.length === 3 ? 'g3' : allImages.length === 4 ? 'g4' : 'g5plus'
           }`}>
-            {allImages.slice(0, 5).map((src, i) => (
+            {allImages.slice(0, 6).map((src, i) => (
               <div key={i} className="gi" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
                 <img src={src} alt={`Image ${i + 1}`} />
-                {i === 4 && allImages.length > 5 && (
-                  <div className="gi-overlay">+{allImages.length - 5}</div>
+                {i === 5 && allImages.length > 6 && (
+                  <div className="gi-overlay">+{allImages.length - 6}</div>
                 )}
               </div>
             ))}

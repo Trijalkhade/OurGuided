@@ -169,15 +169,15 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
       return <img src={allImages[0]} className="post-img-single" alt="Post image" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}/>;
     }
     const count = allImages.length;
-    const displayImages = allImages.slice(0, 5);
-    const remainder = count - 5;
+    const displayImages = allImages.slice(0, 6);
+    const remainder = count - 6;
     const gridClass = count === 2 ? 'g2' : count === 3 ? 'g3' : count === 4 ? 'g4' : 'g5plus';
     return (
       <div className={`post-img-grid ${gridClass}`}>
         {displayImages.map((src, i) => (
           <div key={i} className="gi" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
             <img src={src} alt={`Image ${i + 1}`}/>
-            {i === 4 && remainder > 0 && <div className="gi-overlay">+{remainder}</div>}
+            {i === 5 && remainder > 0 && <div className="gi-overlay">+{remainder}</div>}
           </div>
         ))}
       </div>
