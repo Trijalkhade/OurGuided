@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 const { sendEmail } = require('../utils/notifier');
 const { createNotification } = require('./notifications');
 const { getUserPublicId } = require('../utils/dbHelpers');
+const crypto = require('crypto');
 
 // Cookie options for JWT token
 const COOKIE_OPTIONS = {
@@ -40,9 +41,10 @@ router.post('/register', async (req, res) => {
     await conn.beginTransaction();
 
     const hashed = await bcrypt.hash(password, 10);
+    const publicId = crypto.randomUUID();
     const [result] = await conn.execute(
-      'INSERT INTO users (username, email, password, registration_ip, registration_device_id) VALUES (?, ?, ?, ?, ?)',
-      [username, email, hashed, req.ip, device_id || null]
+      'INSERT INTO users (username, email, password, public_id, registration_ip, registration_device_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, email, hashed, publicId, req.ip, device_id || null]
     );
 
     // Honeypot check: If nickname is filled, it's a bot
@@ -90,8 +92,7 @@ The OurGuided Team`;
 
     const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPTIONS);
-    // Fetch the auto-generated public_id for the new user
-    const [[{ public_id: publicId }]] = await conn.execute('SELECT public_id FROM users WHERE user_id = ?', [userId]);
+    // public_id was explicitly set during INSERT, use it directly
     res.status(201).json({ user_id: publicId, username, email });
   } catch (err) {
     await conn.rollback();
