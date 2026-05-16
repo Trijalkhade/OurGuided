@@ -38,7 +38,7 @@ const Profile = () => {
   const [connectionStatus, setConnectionStatus] = useState('none');
   const [connectionLoading, setConnectionLoading] = useState(false);
 
-  const isOwn = user?.user_id === Number(id);
+  const isOwn = user?.user_id === id;
 
   // 🚀 SEO CONTENT FOR GOOGLE
   if (isPrerender) {

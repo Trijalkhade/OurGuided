@@ -6,7 +6,7 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  validate: false,
   message: { message: 'Too many attempts. Please try again after 15 minutes.' },
 });
 
@@ -16,7 +16,7 @@ const apiLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  validate: false,
   message: { message: 'Too many requests. Please slow down.' },
 });
 
