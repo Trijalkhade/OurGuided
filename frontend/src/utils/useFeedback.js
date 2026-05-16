@@ -89,7 +89,7 @@ export const useFeedback = () => {
           soundEffect.beepChime();
           break;
         case 'accept-connection':
-          soundEffect.playAudioFile('connect_sound.mp4', soundEffect.beepChime);
+          soundEffect.playAudioFile('connect_sound.mp4', () => soundEffect.beepChime());
           break;
         case 'delete-success':
           soundEffect.scrape();
