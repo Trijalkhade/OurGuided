@@ -17,32 +17,16 @@ const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { month: 'shor
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const HistoryBar = ({ history }) => {
-  if (!history.length) return null;
-  const max    = Math.max(...history.map(d => parseFloat(d.total_hours) || 0), 0.1);
-  const recent = [...history].reverse().slice(-14);
-  return (
-    <div className="usage-history-chart">
-      {recent.map((d, i) => {
-        const pct = Math.round((parseFloat(d.total_hours) / max) * 100);
-        return (
-          <div key={i} className="bar-col" title={`${formatDate(d.session_date)}: ${fmt(d.total_hours)}h`}>
-            <div className="bar-fill" style={{ height: `${Math.max(pct, 3)}%` }} />
-            <div className="bar-label">{formatDate(d.session_date).split(' ')[0].slice(0, 3)}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+
 
 const KnowledgeLineChart = ({ data, year }) => {
+  const [hoverPoint, setHoverPoint] = useState(null);
+  
   if (!data || !data.monthly) return null;
   const monthly = data.monthly;
-  const W = 620, H = 240, PL = 52, PR = 20, PT = 18, PB = 42;
+  const W = 620, H = 260, PL = 52, PR = 20, PT = 24, PB = 42;
   const innerW = W - PL - PR, innerH = H - PT - PB;
   
-  // Get CSS variables from the document
   const getCSSVar = (name) => {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || '#3b5bfa';
@@ -54,12 +38,9 @@ const KnowledgeLineChart = ({ data, year }) => {
   const chartText = getCSSVar('--chart-text');
   
   const maxK = Math.max(...monthly.map(m => m.cumulative), 1);
-  
-  // Scale x from 0 to 12. 0 is start of Jan, 12 is end of Dec.
   const getX = (m, dFrac = 1) => PL + ((m + dFrac) / 12) * innerW;
   const getY = (v) => PT + innerH - (v / maxK) * innerH;
 
-  // Monthly nodes represent the END of each month
   const pathData = monthly.reduce((acc, m, i) => {
     const x = getX(i);
     const y = getY(m.cumulative);
@@ -75,52 +56,103 @@ const KnowledgeLineChart = ({ data, year }) => {
     const m = date.getMonth();
     const daysInMonth = new Date(year, m + 1, 0).getDate();
     const dFrac = date.getDate() / daysInMonth;
-    
-    // Find approximate cumulative at this day to place dot on the line
     const prev = m > 0 ? monthly[m - 1].cumulative : 0;
     const approxCum = prev + (monthly[m].knowledge * dFrac);
-    
     return { x: getX(m, dFrac), y: getY(approxCum), knowledge: parseFloat(d.knowledge), date: d.date };
   });
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 300, display: 'block' }}>
+    <div style={{ position: 'relative', overflowX: 'auto', padding: '1rem 0' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 400, display: 'block', overflow: 'visible' }}>
         <defs>
           <linearGradient id="kGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={chartPrimary} stopOpacity="0.6"/>
+            <stop offset="0%" stopColor={chartPrimary} stopOpacity="0.4"/>
             <stop offset="100%" stopColor={chartSecondary} stopOpacity="0"/>
           </linearGradient>
         </defs>
+        
+        {/* Y-Axis Grid */}
         {yTicks.map((t, i) => (
           <g key={i}>
             <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke={chartGrid} strokeWidth="1" strokeDasharray="4 3"/>
-            <text x={PL - 5} y={t.y + 4} textAnchor="end" fontSize="9" fill={chartText} fontFamily="monospace">{fmtK(t.val)}</text>
+            <text x={PL - 10} y={t.y + 4} textAnchor="end" fontSize="11" fill={chartText} fontFamily="var(--mono)">{fmtK(t.val)}</text>
           </g>
         ))}
-        <line x1={getX(curMonthIdx)} y1={PT} x2={getX(curMonthIdx)} y2={PT + innerH}
-          stroke={chartPrimary} strokeWidth="1" strokeDasharray="4 3" opacity="0.5"/>
+        
+        {/* Current Month Indicator */}
+        <line x1={getX(curMonthIdx)} y1={PT} x2={getX(curMonthIdx)} y2={PT + innerH} stroke={chartPrimary} strokeWidth="1" strokeDasharray="4 3" opacity="0.4"/>
+        
+        {/* Area & Line */}
         <path d={areaD} fill="url(#kGrad)"/>
-        <path d={pathData} fill="none" stroke={chartPrimary} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+        <path d={pathData} fill="none" stroke={chartPrimary} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
+        
+        {/* Daily Dots */}
         {dailyDots.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r="3" fill={chartSecondary} opacity="0.7">
-            <title>{d.date}: +{fmt(d.knowledge)} pts</title>
-          </circle>
+          <circle key={`d-${i}`} cx={d.x} cy={d.y} r="3" fill={chartSecondary} opacity="0.6"
+            onMouseEnter={() => setHoverPoint({ type: 'daily', x: d.x, y: d.y, val: `+${fmt(d.knowledge)}`, date: d.date })}
+            onMouseLeave={() => setHoverPoint(null)}
+            style={{ cursor: 'pointer', transition: 'r 0.2s' }}
+          />
         ))}
+        
+        {/* Monthly Dots */}
+        {monthly.map((m, i) => {
+          const isHovered = hoverPoint?.type === 'monthly' && hoverPoint?.index === i;
+          return (
+            <g key={`m-${i}`} 
+               onMouseEnter={() => setHoverPoint({ type: 'monthly', index: i, x: getX(i), y: getY(m.cumulative), val: fmt(m.cumulative), label: m.label, gained: fmt(m.knowledge) })}
+               onMouseLeave={() => setHoverPoint(null)}
+               style={{ cursor: 'pointer' }}>
+              <circle cx={getX(i)} cy={getY(m.cumulative)} r={isHovered ? "7" : "5"}
+                fill="var(--bg)" stroke={chartPrimary} strokeWidth={isHovered ? "3" : "2"}
+                style={{ transition: 'all 0.2s' }} />
+              {/* Invisible larger hit area for easier hovering */}
+              <circle cx={getX(i)} cy={getY(m.cumulative)} r="15" fill="transparent" />
+            </g>
+          );
+        })}
+        
+        {/* X-Axis Labels */}
         {monthly.map((m, i) => (
-          <g key={i}>
-            <circle cx={getX(i)} cy={getY(m.cumulative)} r="5"
-              fill="var(--bg2)" stroke={chartPrimary} strokeWidth="2.5">
-              <title>{m.label} {year}: {fmt(m.cumulative)} cum pts</title>
-            </circle>
-          </g>
+          <text key={`l-${i}`} x={getX(i - 0.5)} y={H - 10} textAnchor="middle" fontSize="11" fill={chartText} fontFamily="var(--mono)" fontWeight={i === curMonthIdx ? 'bold' : 'normal'}>{m.label}</text>
         ))}
-        {monthly.map((m, i) => (
-          <text key={i} x={getX(i - 0.5)} y={H - 8} textAnchor="middle" fontSize="9" fill={chartText} fontFamily="monospace">{m.label}</text>
-        ))}
+        
+        {/* Axes Base Lines */}
         <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
         <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
       </svg>
+      
+      {/* Interactive Tooltip Overlay */}
+      {hoverPoint && (
+        <div style={{
+          position: 'absolute',
+          left: `calc(${(hoverPoint.x / W) * 100}%)`,
+          top: `calc(${(hoverPoint.y / H) * 100}%)`,
+          transform: `translate(${hoverPoint.x > W * 0.8 ? '-90%' : hoverPoint.x < W * 0.2 ? '-10%' : '-50%'}, calc(-100% - 12px))`,
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-sm)',
+          padding: '0.4rem 0.6rem',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          pointerEvents: 'none',
+          zIndex: 10,
+          minWidth: '90px',
+          textAlign: 'center'
+        }}>
+          {hoverPoint.type === 'monthly' ? (
+            <>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '2px', fontWeight: 'bold' }}>{hoverPoint.label} {year}</div>
+              <div style={{ fontSize: '0.95rem', color: 'var(--accent)', fontWeight: 'bold' }}>{hoverPoint.val} pts</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--success)' }}>+{hoverPoint.gained} this month</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '2px' }}>{hoverPoint.date}</div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--accent2)', fontWeight: 'bold' }}>{hoverPoint.val} pts</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -135,7 +167,7 @@ const UsageTracker = () => {
   const [elapsed,   setElapsed]   = useState(0);
   const [loading,   setLoading]   = useState(true);
   const [actLoad,   setActLoad]   = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('annual');
   const tickRef = useRef(null);
 
   const startTick = useCallback((startTime) => {
@@ -195,71 +227,27 @@ const UsageTracker = () => {
     <div className="usage-page">
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div><h2>Usage Tracker</h2><p>Real-time session tracking &amp; knowledge growth analytics</p></div>
-        <button className="btn btn-secondary btn-sm" onClick={fetchAll} title="Refresh" style={{ width: 'auto' }}>
-          <FiRefreshCw size={14}/>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {isActive && (
+            <button className="btn btn-danger btn-sm" onClick={handleStop} disabled={actLoad} style={{ width: 'auto' }}>
+              <FiSquare size={14}/> End Session ({formatDuration(elapsed)})
+            </button>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={fetchAll} title="Refresh" style={{ width: 'auto' }}>
+            <FiRefreshCw size={14}/>
+          </button>
+        </div>
       </div>
 
       <div className="tabs" style={{ marginBottom: '1.25rem' }}>
-        {['overview','annual','sessions'].map(t => (
+        {['annual','sessions'].map(t => (
           <button key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
-      {activeTab === 'overview' && (
-        <>
-          <div className={`usage-timer-card${isActive ? ' active' : ''}`}>
-            <div className="usage-timer-label">Current Session</div>
-            <div className={`usage-timer-display${isActive ? '' : ' idle'}`}>
-              {isActive ? formatDuration(elapsed) : '– – : – –'}
-            </div>
-            <div className="usage-timer-sub">
-              {isActive
-                ? `Started ${new Date(status.active_session.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
-                : 'No active session — starts automatically on login'}
-            </div>
-            {isActive && (
-              <button className="btn btn-danger" style={{ width: 'auto', margin: '0 auto' }}
-                onClick={handleStop} disabled={actLoad}>
-                <FiSquare size={14}/> End Session
-              </button>
-            )}
-          </div>
 
-          <div className="usage-stat-grid">
-            {[
-              { 
-                icon: '⏱️', 
-                val: `${fmt((today?.hours || 0) + (isActive ? elapsed / 3600 : 0))}h`, 
-                label: 'Today' 
-              },
-              { icon: '🧠', val: fmtK(today?.knowledge),          label: "Today's Pts" },
-              { icon: '📅', val: stats?.streak_days ?? 0,         label: 'Day Streak' },
-              { icon: '⚡', val: fmtK(stats?.total_knowledge),    label: 'Total Pts' },
-              { icon: '🔥', val: `${fmt(stats?.multiplier||1,3)}×`, label: 'Multiplier' },
-              { icon: '🎯', val: fmt(stats?.learning_core||1,2),   label: 'Learn Core' },
-            ].map(({ icon, val, label }) => (
-              <div key={label} className="usage-stat-card">
-                <div className="usc-icon">{icon}</div>
-                <div className="usc-val">{val}</div>
-                <div className="usc-label">{label}</div>
-              </div>
-            ))}
-          </div>
-
-          {history.length > 0 && (
-            <div className="usage-chart-card">
-              <div className="usage-chart-title">
-                <FiBarChart2 style={{ display: 'inline', marginRight: 6 }}/>
-                Hours per Day — Last 14 Days
-              </div>
-              <HistoryBar history={history}/>
-            </div>
-          )}
-        </>
-      )}
 
       {activeTab === 'annual' && (
         <>

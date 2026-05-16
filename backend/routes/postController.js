@@ -298,7 +298,8 @@ exports.createPost = async (req, res) => {
       }).catch(e => console.error('Moderation queue failed:', e));
     }
 
-    res.status(201).json({ post_id: await getPostPublicId(postId) });
+    const [[{ public_id }]] = await conn.execute('SELECT public_id FROM posts WHERE post_id = ?', [postId]);
+    res.status(201).json({ post_id: public_id });
   } catch (err) { await conn?.rollback(); console.error('CREATE POST:', err.message); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
 };

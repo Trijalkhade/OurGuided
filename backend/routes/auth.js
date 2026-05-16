@@ -91,7 +91,7 @@ The OurGuided Team`;
     const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPTIONS);
     // Fetch the auto-generated public_id for the new user
-    const publicId = await getUserPublicId(userId);
+    const [[{ public_id: publicId }]] = await conn.execute('SELECT public_id FROM users WHERE user_id = ?', [userId]);
     res.status(201).json({ user_id: publicId, username, email });
   } catch (err) {
     await conn.rollback();
