@@ -117,7 +117,7 @@ const Layout = () => {
           <NavLink to="/study" onClick={() => onTap()} className={navClass}><FiBell size={16} style={{ opacity: 0.8 }} /> Usage</NavLink>
 
           <div className="nav-group-label" style={{ marginTop: '0.5rem' }}>Community</div>
-          <NavLink to="/leaderboard" onClick={() => onTap()} className={navClass}>🏆 Leaderboard</NavLink>
+          <NavLink to="/leaderboard" onClick={() => onTap()} className={navClass}>🏆 Top Voices</NavLink>
           <NavLink to="/moderation" onClick={() => onTap()} className={navClass}>🛡️ Moderation</NavLink>
           <NavLink to="/notifications" onClick={() => onTap()} className={navClass}>
             <span style={{ position: 'relative', display: 'inline-flex' }}>

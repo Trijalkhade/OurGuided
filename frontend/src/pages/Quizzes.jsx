@@ -16,7 +16,7 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
   ]}]);
   const [loading, setLoading] = useState(false);
 
-  const CATEGORIES = ['Engineering','Business','Life Skills','Psychology','Teaching Skills','Health & Nutrition','Physical Fitness','Agriculture'];
+  const CATEGORIES = ['Real Talk','Experiments & Ideas','Loopholes & Fixes','Life Hacks','Youth & Education','Health & Body','Earth & Hands','Economy & Power'];
 
   const addQuestion = () => setQuestions(prev => [...prev, {
     question_text: '', points: 1,
@@ -316,7 +316,7 @@ const Quizzes = () => {
   const [diffFilter, setDiffFilter] = useState('');
   const [activeTab, setActiveTab]   = useState('all');
 
-  const CATS = ['Engineering','Business','Life Skills','Psychology','Teaching Skills','Health & Nutrition','Physical Fitness','Agriculture'];
+  const CATS = ['Real Talk','Experiments & Ideas','Loopholes & Fixes','Life Hacks','Youth & Education','Health & Body','Earth & Hands','Economy & Power'];
 
   const fetchAll = async () => {
     setLoading(true);

@@ -5,14 +5,14 @@ import toast from 'react-hot-toast';
 import { RiRocketLine } from 'react-icons/ri';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
-  { id: 1, name: 'Engineering', icon: '⚙️' },
-  { id: 2, name: 'Business', icon: '💼' },
-  { id: 3, name: 'Life Skills', icon: '🌱' },
-  { id: 4, name: 'Psychology', icon: '🧠' },
-  { id: 5, name: 'Teaching Skills', icon: '🎓' },
-  { id: 6, name: 'Health & Nutrition', icon: '🥗' },
-  { id: 7, name: 'Physical Fitness', icon: '🏋️' },
-  { id: 8, name: 'Agriculture', icon: '🌾' },
+  { id: 1, name: 'Real Talk', icon: '💬' },
+  { id: 2, name: 'Experiments & Ideas', icon: '🧪' },
+  { id: 3, name: 'Loopholes & Fixes', icon: '🔧' },
+  { id: 4, name: 'Life Hacks', icon: '⚡' },
+  { id: 5, name: 'Youth & Education', icon: '🎒' },
+  { id: 6, name: 'Health & Body', icon: '🥗' },
+  { id: 7, name: 'Earth & Hands', icon: '🌱' },
+  { id: 8, name: 'Economy & Power', icon: '💡' },
 ];
 
 const Register = () => {
