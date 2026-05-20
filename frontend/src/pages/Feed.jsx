@@ -8,8 +8,8 @@ import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-ic
 import toast from 'react-hot-toast';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
-  'Engineering', 'Business', 'Life Skills', 'Psychology',
-  'Teaching Skills', 'Health & Nutrition', 'Physical Fitness', 'Agriculture',
+  'Real Talk', 'Experiments & Ideas', 'Loopholes & Fixes', 'Life Hacks',
+  'Youth & Education', 'Health & Body', 'Earth & Hands', 'Economy & Power',
 ];
 
 const CreatePost = ({ onPostCreated }) => {
@@ -64,7 +64,7 @@ const CreatePost = ({ onPostCreated }) => {
           {user && user.photo ? <img src={user.photo} alt={user.username} /> : initials}
         </div>
         <textarea className="post-input"
-          placeholder="Share your knowledge, a skill, or a learning insight…"
+          placeholder="What's on your mind? Share a real thought, a life hack, a truth, or call something out…"
           value={content} onChange={e => setContent(e.target.value)} rows={3} />
       </div>
 
@@ -135,8 +135,8 @@ const Feed = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Learn Real World Skills from Real People on OurGuided</h1>
-        <p>Explore practical knowledge, experiences, and career insights shared by real users on OurGuided.</p>
+        <h1>OurGuided — Where Real People Share Real Things</h1>
+        <p>No jargon, no courses, no fake professionalism. Just honest knowledge, opinions, life hacks, and truths — shared freely by students, professionals, and everyday people.</p>
       </div>
     );
   }

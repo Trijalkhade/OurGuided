@@ -20,8 +20,8 @@ const Leaderboard = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Top Learners Leaderboard on OurGuided</h1>
-        <p>See the most active learners and contributors on OurGuided.</p>
+        <h1>Most Active Voices on OurGuided</h1>
+        <p>The people contributing the most real knowledge, honest opinions, and practical wisdom to the OurGuided community.</p>
       </div>
     );
   }
@@ -42,14 +42,14 @@ const Leaderboard = () => {
   return (
     <div className="feed-container">
       <div className="page-header">
-        <h2>🏆 Leaderboard</h2>
-        <p>Top learners ranked by total knowledge points</p>
+        <h2>🏆 Top Voices</h2>
+        <p>The people putting in the most real talk and useful knowledge</p>
       </div>
 
       {leaders.length === 0 ? (
         <div className="empty-state">
-          <h3>No data yet</h3>
-          <p>Start studying to appear on the leaderboard!</p>
+          <h3>No one on the board yet</h3>
+          <p>Be the first to post something worth reading.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

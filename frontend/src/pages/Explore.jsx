@@ -22,8 +22,8 @@ const Explore = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Explore Skills and Knowledge on OurGuided</h1>
-        <p>Discover real-world skills shared by professionals and students on OurGuided.</p>
+        <h1>Explore What Actually Matters on OurGuided</h1>
+        <p>Real talk, life hacks, loopholes, experiments, and honest opinions — shared by real people, for real people.</p>
       </div>
     );
   }
@@ -116,7 +116,7 @@ const Explore = () => {
     <div className="explore-page">
       <div className="page-header">
         <h2>Explore</h2>
-        <p>Browse skills by category and personalise your learning path</p>
+        <p>Browse what people are talking about — pick what matters to you</p>
       </div>
 
       {/* Category Grid */}
@@ -138,8 +138,8 @@ const Explore = () => {
       <div className="interest-card">
         <div className="interest-card-header">
           <div>
-            <h3>Your Interests</h3>
-            <p>Select categories to personalise your feed</p>
+            <h3>What do you care about?</h3>
+            <p>Pick what matters to you — your feed will follow</p>
           </div>
           <button className="btn btn-primary btn-sm" onClick={saveInterests} disabled={savingInterests}>
             {savingInterests ? 'Saving…' : 'Save Interests'}
@@ -182,8 +182,8 @@ const Explore = () => {
         </div>
       ) : posts.length === 0 ? (
         <div className="empty-state">
-          <h3>No posts yet in this category</h3>
-          <p>Be the first to share knowledge here!</p>
+          <h3>Nothing here yet</h3>
+          <p>Be the first to say something real in this space.</p>
         </div>
       ) : (
         <div style={{ maxWidth: 680, margin: '0 auto' }}>

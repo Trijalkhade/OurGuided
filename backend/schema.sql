@@ -77,15 +77,16 @@ CREATE TABLE IF NOT EXISTS categories (
     description   VARCHAR(200)
 );
 
+-- Note: Manually update existing category rows in DB or re-seed for this to take effect in production
 INSERT IGNORE INTO categories (name, icon, description) VALUES
-('Engineering',      '⚙️',  'Software, hardware, and engineering topics'),
-('Business',         '💼',  'Business, entrepreneurship and management'),
-('Life Skills',      '🌱',  'Everyday practical life skills'),
-('Psychology',       '🧠',  'Human behaviour and mental wellness'),
-('Teaching Skills',  '🎓',  'Education methods and pedagogy'),
-('Health & Nutrition','🥗', 'Diet, nutrition and health science'),
-('Physical Fitness', '🏋️',  'Exercise, sports and body wellness'),
-('Agriculture',      '🌾',  'Farming, sustainability and food production');
+('Real Talk',           '💬', 'Opinions, criticism, uncomfortable truths — said plainly'),
+('Experiments & Ideas', '🧪', 'Unproven theories, personal experiments, what-if thinking'),
+('Loopholes & Fixes',   '🔧', 'Spot what is broken in the system and propose real fixes'),
+('Life Hacks',          '⚡', 'Practical skills that actually help you survive and thrive'),
+('Youth & Education',   '🎒', 'What school should teach but never does'),
+('Health & Body',       '🥗', 'Nutrition, fitness, and mental wellness — no pseudo-science'),
+('Earth & Hands',       '🌱', 'Farming, sustainability, building things, making things'),
+('Economy & Power',     '💡', 'Money, politics, corporations — who holds power and why');
 
 CREATE TABLE IF NOT EXISTS user_interests (
     user_id     INT NOT NULL,

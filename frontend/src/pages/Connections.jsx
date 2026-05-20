@@ -18,8 +18,8 @@ const Connections = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Connect with Learners on OurGuided</h1>
-        <p>Build connections with people learning and sharing real-world skills on OurGuided.</p>
+        <h1>Build Real Connections on OurGuided</h1>
+        <p>Connect with people who think clearly, speak honestly, and share things that actually matter in real life.</p>
       </div>
     );
   }
@@ -120,8 +120,8 @@ const Connections = () => {
   return (
     <div className="feed-container">
       <div className="page-header">
-        <h2>Connections</h2>
-        <p>Manage your network and connections</p>
+        <h2>Your People</h2>
+        <p>The ones thinking clearly and speaking honestly</p>
       </div>
 
       <div className="tabs">

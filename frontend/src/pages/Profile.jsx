@@ -44,8 +44,8 @@ const Profile = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>User Profiles and Skills on OurGuided</h1>
-        <p>Explore profiles of users sharing real-world experiences and knowledge on OurGuided.</p>
+        <h1>People on OurGuided — Real Voices, Real Experience</h1>
+        <p>Profiles of students, professionals, creators, and everyday people sharing what they actually know — not what looks good on a resume.</p>
       </div>
     );
   }
