@@ -36,6 +36,9 @@ const LoadingScreen = () => (
 );
 
 const PrivateRoute = ({ children }) => {
+  const isPrerender = typeof navigator !== 'undefined' && navigator.userAgent === 'ReactSnap';
+  if (isPrerender) return children;
+
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   return user ? children : <Navigate to="/login" replace />;

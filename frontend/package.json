@@ -39,7 +39,11 @@
       "/login",
       "/register",
       "/explore",
-      "/feed"
+      "/feed",
+      "/leaderboard",
+      "/connections",
+      "/quizzes",
+      "/playlists"
     ],
     "userAgent": "ReactSnap"
   },
