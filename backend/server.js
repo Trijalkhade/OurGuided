@@ -7,15 +7,16 @@ const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
+const timeout = require('connect-timeout');
 require('dotenv').config();
 
 const app = express();
 app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate limiting
 
 const server = http.createServer(app);
-server.timeout = 1800000; // 30 minutes for huge video uploads
-server.keepAliveTimeout = 1800000;
-server.headersTimeout = 1800000;
+// keepAlive / headers timeouts only — per-route timeout middleware handles request limits
+server.keepAliveTimeout = 65000;  // slightly above Nginx's 60s
+server.headersTimeout   = 70000;
 const PORT = process.env.PORT || 5000;
 
 // ── Socket.io ───────────────────────────────────────────────────────────────
@@ -61,6 +62,13 @@ process.on('unhandledRejection', (reason, promise) => console.error('UNHANDLED R
 app.use(helmet());
 app.use(compression());
 app.use(cookieParser());
+
+// Default 30-second timeout for all normal API routes.
+// Video upload routes override this with a longer per-route timeout in posts.js.
+app.use(timeout('30s'));
+app.use((req, res, next) => {
+  if (!req.timedout) next();
+});
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',

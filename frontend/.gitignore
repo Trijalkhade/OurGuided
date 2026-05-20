@@ -1,0 +1,6 @@
+# Environment variables — never commit real secrets
+.env
+
+# Build output
+dist/
+node_modules/

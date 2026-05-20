@@ -18,24 +18,51 @@ const COOKIE_OPTIONS = {
   path: '/',
 };
 
+// ── Device Fingerprint Middleware ────────────────────────────────────────────
+// Sets a server-side cookie (_dv) on first visit so the device limit check
+// cannot be bypassed by simply omitting the device_id from the request body.
+function ensureDeviceCookie(req, res, next) {
+  if (!req.cookies['_dv']) {
+    const id = crypto.randomUUID();
+    res.cookie('_dv', id, {
+      httpOnly: true,
+      sameSite: 'Strict',
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      secure: process.env.NODE_ENV === 'production',
+    });
+    req.deviceId = id;
+  } else {
+    req.deviceId = req.cookies['_dv'];
+  }
+  next();
+}
+
 // Register
-router.post('/register', async (req, res) => {
-  const { username, email, password, first_name, last_name, dob, device_id } = req.body;
+router.post('/register', ensureDeviceCookie, async (req, res) => {
+  const { username, email, password, first_name, last_name, dob } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required' });
   }
 
   const conn = await db.getConnection();
   try {
-    // Device limit check: Max 10 accounts per device
-    if (device_id) {
-      const [existing] = await conn.execute(
-        'SELECT COUNT(*) as count FROM users WHERE registration_device_id = ?',
-        [device_id]
-      );
-      if (existing[0].count >= 10) {
-        return res.status(403).json({ message: 'Account limit reached for this device (Max 10).' });
-      }
+    // Device limit check — unbypassable: server sets the _dv cookie, not the client
+    const deviceId = req.deviceId;
+    const [[{ deviceCount }]] = await conn.execute(
+      'SELECT COUNT(*) as count FROM users WHERE registration_device_id = ?',
+      [deviceId]
+    );
+    if (deviceCount >= 10) {
+      return res.status(429).json({ message: 'Too many accounts from this device (max 10).' });
+    }
+
+    // Secondary IP-based check to catch VPN/cookie rotation abuse
+    const [[{ ipCount }]] = await conn.execute(
+      'SELECT COUNT(*) as count FROM users WHERE registration_ip = ?',
+      [req.ip]
+    );
+    if (ipCount >= 15) {
+      return res.status(429).json({ message: 'Too many accounts from this network (max 15).' });
     }
 
     await conn.beginTransaction();
@@ -44,7 +71,7 @@ router.post('/register', async (req, res) => {
     const publicId = crypto.randomUUID();
     const [result] = await conn.execute(
       'INSERT INTO users (username, email, password, public_id, registration_ip, registration_device_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, email, hashed, publicId, req.ip, device_id || null]
+      [username, email, hashed, publicId, req.ip, deviceId]
     );
 
     // Honeypot check: If nickname is filled, it's a bot

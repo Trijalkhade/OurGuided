@@ -4,6 +4,13 @@ const upload  = require('../middleware/upload');
 const auth    = require('../middleware/auth');
 const postController = require('./postController');
 const { globalActionLimiter } = require('../middleware/rateLimit');
+const timeout = require('connect-timeout');
+
+// Allows video-upload requests to take up to 10 minutes before timing out.
+// All other routes use the 30s default set in server.js.
+function haltOnTimeout(req, res, next) {
+  if (!req.timedout) next();
+}
 
 /* ── POST ROUTES ── */
 
@@ -15,7 +22,7 @@ router.get('/tag/:tag',    auth, postController.getPostsByTag);
 router.get('/search',      auth, postController.searchPosts);
 router.get('/:id',         auth, postController.getPostDetail);
 
-router.post('/',           auth, globalActionLimiter, upload.fields([
+router.post('/',           auth, globalActionLimiter, timeout('600s'), haltOnTimeout, upload.fields([
   { name: 'image', maxCount: 1 }, 
   { name: 'images', maxCount: 6 },
   { name: 'video', maxCount: 1 }
