@@ -122,7 +122,7 @@ const Notifications = () => {
               <div className="settings-row">
                 <div className="settings-row-info">
                   <FiMail />
-                  <div><strong>Email Notifications</strong><p>Learning reminders and updates by email</p></div>
+                  <div><strong>Email Notifications</strong><p>Updates and reminders by email</p></div>
                 </div>
                 <Toggle checked={!!settings.notify_email} onChange={v => set('notify_email', v)} />
               </div>
@@ -155,7 +155,7 @@ const Notifications = () => {
             <h3>Notification Types</h3>
             <div className="settings-rows">
               {[
-                { key: 'notify_new_skills', icon: <FiBook />, title: 'New Skills & Content', desc: 'Alert when new learning content is posted' },
+                { key: 'notify_new_skills', icon: <FiBook />, title: 'New Posts & Content', desc: 'Alert when new content is posted' },
                 { key: 'notify_quizzes',    icon: <FiStar />, title: 'Quiz Releases',        desc: 'Alert when new quizzes are published' },
                 { key: 'notify_streaks',    icon: <FiZap />,  title: 'Streak Reminders',     desc: 'Remind me to maintain my learning streak' },
               ].map(({ key, icon, title, desc }) => (

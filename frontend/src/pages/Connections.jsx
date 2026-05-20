@@ -144,7 +144,7 @@ const Connections = () => {
           {connections.length === 0 ? (
             <div className="empty-state">
               <h3>No connections yet</h3>
-              <p>Start connecting with other users to build your network</p>
+              <p>Find people who share your interests</p>
             </div>
           ) : (
             connections.map(conn => (

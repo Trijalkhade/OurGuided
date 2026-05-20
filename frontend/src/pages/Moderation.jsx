@@ -62,7 +62,7 @@ const Moderation = () => {
         <FiShield size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
         <h3>Expert Access Required</h3>
         <p>Only verified experts can access the moderation queue.</p>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>Earn 100+ knowledge points and request expert status from your profile.</p>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>Earn 100+ points and request expert status from your profile.</p>
       </div>
     </div>
   );

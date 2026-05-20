@@ -59,7 +59,7 @@ const Register = () => {
       <div className="auth-box" style={{ maxWidth: step === 2 ? 540 : 460 }}>
         <div className="auth-logo">
           <h1>OurGuided</h1>
-          <p>{step === 1 ? 'Start your learning journey today' : 'What do you want to learn?'}</p>
+          <p>{step === 1 ? 'Join the conversation' : 'What do you care about?'}</p>
         </div>
 
         {/* Step indicator */}
@@ -131,7 +131,7 @@ const Register = () => {
         {step === 2 && (
           <div>
             <p style={{ color: 'var(--text2)', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-              Pick your interests to get personalised daily content and recommendations.
+              Pick what interests you — your feed will show more of it.
               You can always change these later.
             </p>
             <div className="onboarding-categories">

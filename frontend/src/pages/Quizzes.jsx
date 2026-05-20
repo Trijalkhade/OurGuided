@@ -64,11 +64,11 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
 
         <div className="form-group">
           <label>Quiz Title</label>
-          <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Python Basics" />
+          <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Spot the Loophole" />
         </div>
         <div className="form-group">
           <label>Description</label>
-          <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} placeholder="What will learners gain?" />
+          <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} placeholder="What should people know after this?" />
         </div>
         <div className="two-col">
           <div className="form-group">
@@ -359,7 +359,7 @@ const Quizzes = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div className="page-header" style={{ marginBottom: 0 }}>
           <h2>Quizzes</h2>
-          <p>Test your knowledge · Only experts can create quizzes</p>
+          <p>Challenge what you know · Only experts can create quizzes</p>
         </div>
         {profile?.is_expert && (
           <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
@@ -374,7 +374,7 @@ const Quizzes = () => {
           <FiAward size={20} />
           <div>
             <strong>Become an Expert</strong>
-            <p>Earn 100+ knowledge points through the Study Engine to unlock quiz creation.</p>
+            <p>Earn 100+ points through the Usage Tracker to unlock quiz creation.</p>
           </div>
           <span className="expert-pts">{Math.min(Number(profile?.total_knowledge || 0).toFixed(1), 100)} / 100 pts</span>
         </div>

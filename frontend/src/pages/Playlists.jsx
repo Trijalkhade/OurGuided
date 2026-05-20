@@ -156,7 +156,7 @@ const Playlists = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div className="page-header" style={{ marginBottom: 0 }}>
           <h2>Playlists</h2>
-          <p>Organise posts into learning sequences</p>
+          <p>Save and organise posts into collections</p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
           <FiPlus /> New Playlist
@@ -166,7 +166,7 @@ const Playlists = () => {
       {playlists.length === 0 ? (
         <div className="empty-state">
           <h3>No playlists yet</h3>
-          <p>Create a playlist to organise posts into a learning path.</p>
+          <p>Create a playlist to collect posts around a topic.</p>
           <button className="btn btn-primary" style={{ marginTop: '1rem', width: 'auto' }} onClick={() => setShowCreate(true)}>
             <FiPlus /> Create your first playlist
           </button>

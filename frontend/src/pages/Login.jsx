@@ -27,7 +27,7 @@ const Login = () => {
       <div className="auth-box">
         <div className="auth-logo">
           <h1>OurGuided</h1>
-          <p>Connect. Learn. Grow.</p>
+          <p>Speak freely. Share honestly.</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
