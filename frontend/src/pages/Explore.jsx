@@ -22,8 +22,8 @@ const Explore = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Explore Skills and Knowledge</h1>
-        <p>Discover real-world skills shared by professionals and students.</p>
+        <h1>Explore Skills and Knowledge on OurGuided</h1>
+        <p>Discover real-world skills shared by professionals and students on OurGuided.</p>
       </div>
     );
   }

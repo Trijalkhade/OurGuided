@@ -20,7 +20,7 @@ const Leaderboard = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Top Learners Leaderboard</h1>
+        <h1>Top Learners Leaderboard on OurGuided</h1>
         <p>See the most active learners and contributors on OurGuided.</p>
       </div>
     );

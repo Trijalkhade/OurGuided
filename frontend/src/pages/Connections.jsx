@@ -18,8 +18,8 @@ const Connections = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Connect with Learners</h1>
-        <p>Build connections with people learning and sharing real-world skills.</p>
+        <h1>Connect with Learners on OurGuided</h1>
+        <p>Build connections with people learning and sharing real-world skills on OurGuided.</p>
       </div>
     );
   }

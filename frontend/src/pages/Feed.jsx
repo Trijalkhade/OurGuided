@@ -135,8 +135,8 @@ const Feed = () => {
   if (isPrerender) {
     return (
       <div>
-        <h1>Learn Real World Skills from Real People</h1>
-        <p>Explore practical knowledge, experiences, and career insights shared by real users.</p>
+        <h1>Learn Real World Skills from Real People on OurGuided</h1>
+        <p>Explore practical knowledge, experiences, and career insights shared by real users on OurGuided.</p>
       </div>
     );
   }
