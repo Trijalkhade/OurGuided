@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { API, useAuth } from '../context/AuthContext';
-import { FiHeart, FiSend, FiBookmark, FiEyeOff } from 'react-icons/fi';
+import { FiHeart, FiSend, FiBookmark, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import ImageModal from '../components/ImageModal';
 import { LikersModal } from '../components/PostAnalytics';
@@ -26,6 +26,7 @@ import { SkelPostDetail } from '../components/Skeleton.jsx';
 const PostDetail = () => {
   const { id }    = useParams();
   const { user }  = useAuth();
+  const navigate  = useNavigate();
 
   const [post, setPost]             = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -93,7 +94,25 @@ const PostDetail = () => {
   if (loading) return <SkelPostDetail />;
 
   if (!post) return (
-    <div className="feed-container"><p style={{ padding: '2rem', color: 'var(--text3)' }}>Post not found</p></div>
+    <div className="feed-container">
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.1rem' }}>
+        <button
+          onClick={() => {
+            sessionStorage.setItem('returning_from_post', 'true');
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/feed');
+            }
+          }}
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <FiArrowLeft size={14} /> Back
+        </button>
+      </div>
+      <p style={{ padding: '2rem', color: 'var(--text3)' }}>Post not found</p>
+    </div>
   );
 
   const isOwn = user?.user_id === post.user_id;
@@ -109,6 +128,22 @@ const PostDetail = () => {
 
   return (
     <div className="feed-container">
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.1rem' }}>
+        <button
+          onClick={() => {
+            sessionStorage.setItem('returning_from_post', 'true');
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/feed');
+            }
+          }}
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <FiArrowLeft size={14} /> Back
+        </button>
+      </div>
       <div className="post-card" style={{ marginBottom: '1.5rem' }}>
 
         {/* Header */}
@@ -129,7 +164,7 @@ const PostDetail = () => {
               <Link to={`/profile/${post.user_id}`} className="post-user-name">{displayName}</Link>
             )}
             <div className="post-date">
-              {formatDistanceToNow(new Date(post.post_date), { addSuffix: true })}
+              {post.post_date ? formatDistanceToNow(new Date(post.post_date), { addSuffix: true }) : ''}
             </div>
           </div>
         </div>
@@ -260,7 +295,7 @@ const PostDetail = () => {
                   <div className="comment-user">{cName}</div>
                   <div className="comment-text">{c.content}</div>
                   <div className="comment-time">
-                    {formatDistanceToNow(new Date(c.comment_date), { addSuffix: true })}
+                    {c.comment_date ? formatDistanceToNow(new Date(c.comment_date), { addSuffix: true }) : ''}
                   </div>
                 </div>
               </div>

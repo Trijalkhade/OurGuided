@@ -120,7 +120,9 @@ export default function FeedbackWidget() {
                 {step === STEPS.DONE && '✅ Submitted!'}
               </span>
             </div>
-            <button className="fb-close-btn" onClick={reset} aria-label="Close feedback panel">×</button>
+            <button className="fb-close-btn" onClick={reset} aria-label="Close feedback panel">
+              <img src="/close_button.png" alt="Close" style={{ width: '30px', height: '30px', objectFit: 'contain' }} />
+            </button>
           </div>
 
           {/* ── STEP 1: Type picker ─────────────────────────────────────── */}

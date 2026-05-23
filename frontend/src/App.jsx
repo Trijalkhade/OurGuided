@@ -9,6 +9,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Layout from './components/Layout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy imports — loaded on-demand when user navigates
 const Feed = lazy(() => import('./pages/Feed'));
@@ -97,9 +98,11 @@ const App = () => (
     <AuthProvider>
       <FeedbackProvider>
         <BrowserRouter>
-          <Suspense fallback={<LoadingScreen />}>
-            <AppContent />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingScreen />}>
+              <AppContent />
+            </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </FeedbackProvider>
     </AuthProvider>

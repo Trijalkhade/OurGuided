@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PostCard from '../components/PostCard.jsx';
@@ -6,12 +6,19 @@ import useFeedback from '../utils/useFeedback';
 import { SkelFeed } from '../components/Skeleton.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
+
 const CATEGORIES = [
   'Real Talk', 'Experiments & Ideas', 'Loopholes & Fixes', 'Life Hacks',
   'Youth & Education', 'Health & Body', 'Earth & Hands', 'Economy & Power',
 ];
 
+// ── Module-level in-memory cache (no sessionStorage quota risk) ───────────────
+// This survives React navigation within the same browser tab session.
+let feedCache = null;
+
+/* ── CreatePost ──────────────────────────────────────────────────────────────── */
 const CreatePost = ({ onPostCreated }) => {
   const { user } = useAuth();
   const { onTap, onSuccess, onError, onCreateSuccess } = useFeedback();
@@ -47,12 +54,12 @@ const CreatePost = ({ onPostCreated }) => {
       await API.post('/posts', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setContent(''); setTags(''); setImageFiles([]);
       setVideoUrl(''); setVideoFile(null); setCategory(''); setIsAnon(false); setShowExtra(false);
-      onCreateSuccess(); // Beep + chime on post created
+      onCreateSuccess();
       toast.success('Post created!');
       onPostCreated && onPostCreated();
-    } catch (err) { 
+    } catch (err) {
       onError();
-      toast.error((err.response && err.response.data && err.response.data.message) || 'Failed to create post'); 
+      toast.error((err.response && err.response.data && err.response.data.message) || 'Failed to create post');
     }
     finally { setLoading(false); }
   };
@@ -114,24 +121,117 @@ const CreatePost = ({ onPostCreated }) => {
   );
 };
 
+/* ── Feed ────────────────────────────────────────────────────────────────────── */
 const Feed = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [posts, setPosts] = useState([]);
-  const [page, setPage] = useState(1);
-  const [catFilter, setCatFilter] = useState('');
-  const [hasMore, setHasMore] = useState(true);
-  const [useRec, setUseRec] = useState(true); // toggle recommended vs chronological
-  const [fetching, setFetching] = useState(true);
-  const [error, setError]       = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user && !isPrerender) {
-      navigate("/login");
+  // ── Refs (ALL before any early return) ──────────────────────────────────────
+  const stateRef          = useRef();
+  const pendingScrollRef  = useRef(null);
+  const isInitialMount    = useRef(true);
+
+  // Determine return-visit once at mount. useRef ensures it's stable across re-renders.
+  const isReturnVisit = useRef(
+    sessionStorage.getItem('returning_from_post') === 'true' && feedCache !== null
+  ).current;
+
+  // ── State (ALL before any early return) ─────────────────────────────────────
+  const [posts,     setPosts]     = useState(isReturnVisit ? feedCache.posts     : []);
+  const [page,      setPage]      = useState(isReturnVisit ? feedCache.page       : 1);
+  const [catFilter, setCatFilter] = useState(isReturnVisit ? feedCache.catFilter  : '');
+  const [hasMore,   setHasMore]   = useState(isReturnVisit ? feedCache.hasMore    : true);
+  const [useRec,    setUseRec]    = useState(isReturnVisit ? feedCache.useRec     : true);
+  const [fetching,  setFetching]  = useState(!isReturnVisit);
+  const [error,     setError]     = useState(false);
+
+  stateRef.current = { posts, page, catFilter, hasMore, useRec };
+
+  // ── fetchPosts (defined before effects that call it) ────────────────────────
+  const fetchPosts = async (p = 1, cat = catFilter, rec = useRec) => {
+    setFetching(true);
+    setError(false);
+    try {
+      let data;
+      if (rec && !cat) {
+        const res = await API.get(`/recommendations/feed?page=${p}`);
+        data = res.data.posts;
+        setHasMore(res.data.has_more);
+        setPosts(prev => p === 1 ? data : [...prev, ...data]);
+      } else {
+        const params = new URLSearchParams({ page: p });
+        if (cat) params.set('category', cat);
+        const res = await API.get(`/posts/feed?${params}`);
+        data = res.data;
+        setHasMore(data.length === 10);
+        setPosts(prev => p === 1 ? data : [...prev, ...data]);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(true);
+      toast.error('Failed to load feed');
+    } finally {
+      setFetching(false);
     }
+  };
+
+  // ── Effects (ALL before any early return) ───────────────────────────────────
+
+  // Auth redirect
+  useEffect(() => {
+    if (!loading && !user && !isPrerender) navigate('/login');
   }, [user, loading, navigate]);
 
-  // 🚀 SEO CONTENT FOR GOOGLE
+  // Mount: restore from cache or do a fresh fetch
+  useEffect(() => {
+    if (isReturnVisit) {
+      sessionStorage.removeItem('returning_from_post');
+      const savedScroll = sessionStorage.getItem('feed_scroll');
+      if (savedScroll) pendingScrollRef.current = parseInt(savedScroll, 10);
+      return; // Posts are already in state from cache; [posts] effect will scroll
+    }
+    feedCache = null; // clear stale cache on a fresh visit
+    fetchPosts(1, catFilter, useRec);
+  }, []); // eslint-disable-line
+
+  // Filter/mode changes (skip on initial mount — handled above)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setPage(1);
+    fetchPosts(1, catFilter, useRec);
+  }, [catFilter, useRec]); // eslint-disable-line
+
+  // Scroll restoration: fires AFTER posts are rendered into the DOM.
+  // Double-rAF ensures the browser has finished layout and paint before scrolling.
+  useEffect(() => {
+    if (pendingScrollRef.current !== null && posts.length > 0) {
+      const target = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: target, behavior: 'instant' });
+        });
+      });
+    }
+  }, [posts]);
+
+  // Continuously track scroll position + save posts to in-memory cache on unmount
+  useEffect(() => {
+    const handleScroll = () => {
+      sessionStorage.setItem('feed_scroll', window.scrollY.toString());
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      // Save to in-memory module cache (no sessionStorage quota risk)
+      feedCache = stateRef.current;
+    };
+  }, []);
+
+  // ── Early returns (AFTER all hooks — Rules of Hooks satisfied) ───────────────
   if (isPrerender) {
     return (
       <div>
@@ -143,36 +243,7 @@ const Feed = () => {
 
   if (!user) return null;
 
-  const fetchPosts = async (p = 1, cat = catFilter, rec = useRec) => {
-    setFetching(true);
-    setError(false);
-    try {
-      let data;
-      if (rec && !cat) {
-        // Use recommendation engine
-        const res = await API.get(`/recommendations/feed?page=${p}`);
-        data = res.data.posts;
-        setHasMore(res.data.has_more);
-        setPosts(prev => p === 1 ? data : [...prev, ...data]);
-      } else {
-        // Fallback: chronological with optional category filter
-        const params = new URLSearchParams({ page: p });
-        if (cat) params.set('category', cat);
-        const res = await API.get(`/posts/feed?${params}`);
-        data = res.data;
-        setHasMore(data.length === 10);
-        setPosts(prev => p === 1 ? data : [...prev, ...data]);
-      }
-    } catch (err) { 
-      console.error(err);
-      setError(true);
-      toast.error('Failed to load feed'); 
-    }
-    finally { setFetching(false); }
-  };
-
-  useEffect(() => { setPage(1); fetchPosts(1, catFilter, useRec); }, [catFilter, useRec]); // eslint-disable-line
-
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleDelete = (postId) => setPosts(prev => prev.filter(p => p.post_id !== postId));
 
   return (

@@ -1,33 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
-import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { SkelExplore, SkelFeed } from '../components/Skeleton.jsx';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
+
+// ── Module-level in-memory cache (no sessionStorage quota risk) ───────────────
+let exploreCache = null;
+
 const Explore = () => {
-  const [categories, setCategories]       = useState([]);
-  const [selected, setSelected]           = useState(null);
-  const [posts, setPosts]                 = useState([]);
-  const [interests, setInterests]         = useState([]);
-  const [loadingCats, setLoadingCats]     = useState(true);
-  const [loadingPosts, setLoadingPosts]   = useState(false);
-  const [errorCats, setErrorCats]         = useState(false);
-  const [errorPosts, setErrorPosts]       = useState(false);
+  // ── Refs (ALL before any early return) ──────────────────────────────────────
+  const stateRef         = useRef();
+  const pendingScrollRef = useRef(null);
+
+  // Determine return-visit once at mount.
+  const isReturnVisit = useRef(
+    sessionStorage.getItem('returning_from_post') === 'true' && exploreCache !== null
+  ).current;
+
+  // ── State (ALL before any early return) ─────────────────────────────────────
+  const [categories,      setCategories]      = useState(isReturnVisit ? exploreCache.categories : []);
+  const [selected,        setSelected]        = useState(isReturnVisit ? exploreCache.selected   : null);
+  const [posts,           setPosts]           = useState(isReturnVisit ? exploreCache.posts      : []);
+  const [interests,       setInterests]       = useState(isReturnVisit ? exploreCache.interests  : []);
+  const [loadingCats,     setLoadingCats]     = useState(!isReturnVisit);
+  const [loadingPosts,    setLoadingPosts]    = useState(false);
+  const [errorCats,       setErrorCats]       = useState(false);
+  const [errorPosts,      setErrorPosts]      = useState(false);
   const [savingInterests, setSavingInterests] = useState(false);
-  const [activeTab, setActiveTab]         = useState('recommended');
+  const [activeTab,       setActiveTab]       = useState(isReturnVisit ? exploreCache.activeTab : 'recommended');
 
-  // 🚀 SEO CONTENT FOR GOOGLE
-  if (isPrerender) {
-    return (
-      <div>
-        <h1>Explore What Actually Matters on OurGuided</h1>
-        <p>Real talk, life hacks, loopholes, experiments, and honest opinions — shared by real people, for real people.</p>
-      </div>
-    );
-  }
+  stateRef.current = { categories, selected, posts, interests, activeTab };
 
+  // ── Functions (defined before effects that call them) ────────────────────────
   const load = async () => {
     setLoadingCats(true);
     setErrorCats(false);
@@ -42,16 +48,13 @@ const Explore = () => {
         const cat = catRes.data.find(c => c.name === n);
         return cat ? cat.category_id : null;
       }).filter(Boolean));
-    } catch { 
+    } catch {
       setErrorCats(true);
-      toast.error('Failed to load explore'); 
+      toast.error('Failed to load explore');
+    } finally {
+      setLoadingCats(false);
     }
-    finally { setLoadingCats(false); }
   };
-
-  useEffect(() => {
-    load();
-  }, []);
 
   const loadCategory = async (catName) => {
     setSelected(catName);
@@ -61,11 +64,12 @@ const Explore = () => {
     try {
       const { data } = await API.get(`/posts/feed?category=${encodeURIComponent(catName)}`);
       setPosts(data);
-    } catch { 
+    } catch {
       setErrorPosts(true);
-      toast.error('Failed to load category'); 
+      toast.error('Failed to load category');
+    } finally {
+      setLoadingPosts(false);
     }
-    finally { setLoadingPosts(false); }
   };
 
   const loadRecommended = async () => {
@@ -76,11 +80,12 @@ const Explore = () => {
     try {
       const { data } = await API.get('/categories/recommended');
       setPosts(data.posts || []);
-    } catch { 
+    } catch {
       setErrorPosts(true);
-      toast.error('Failed to load recommendations'); 
+      toast.error('Failed to load recommendations');
+    } finally {
+      setLoadingPosts(false);
     }
-    finally { setLoadingPosts(false); }
   };
 
   const toggleInterest = (catId) => {
@@ -97,6 +102,57 @@ const Explore = () => {
     } catch { toast.error('Failed to save interests'); }
     finally { setSavingInterests(false); }
   };
+
+  // ── Effects (ALL before any early return) ───────────────────────────────────
+
+  // Mount: restore from cache or fresh load
+  useEffect(() => {
+    if (isReturnVisit) {
+      sessionStorage.removeItem('returning_from_post');
+      const savedScroll = sessionStorage.getItem('explore_scroll');
+      if (savedScroll) pendingScrollRef.current = parseInt(savedScroll, 10);
+      return; // Posts already in state from cache; [posts] effect will scroll
+    }
+    exploreCache = null; // clear stale cache on fresh visit
+    load();
+  }, []); // eslint-disable-line
+
+  // Scroll restoration: fires AFTER posts are rendered into the DOM.
+  // Double-rAF ensures the browser has finished layout and paint.
+  useEffect(() => {
+    if (pendingScrollRef.current !== null && posts.length > 0) {
+      const target = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: target, behavior: 'instant' });
+        });
+      });
+    }
+  }, [posts]);
+
+  // Continuously track scroll position + save to in-memory cache on unmount
+  useEffect(() => {
+    const handleScroll = () => {
+      sessionStorage.setItem('explore_scroll', window.scrollY.toString());
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      // Save to in-memory module cache (no sessionStorage quota risk)
+      exploreCache = stateRef.current;
+    };
+  }, []);
+
+  // ── Early returns (AFTER all hooks — Rules of Hooks satisfied) ───────────────
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Explore What Actually Matters on OurGuided</h1>
+        <p>Real talk, life hacks, loopholes, experiments, and honest opinions — shared by real people, for real people.</p>
+      </div>
+    );
+  }
 
   if (loadingCats) return <SkelExplore />;
 
