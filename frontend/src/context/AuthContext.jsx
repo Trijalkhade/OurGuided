@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import axios from 'axios';
 import { io as socketIO } from 'socket.io-client';
 import { getDeviceId } from '../utils/device';
+import * as cache from '../utils/cache';
 
 const AuthContext = createContext(null);
 
@@ -51,6 +52,15 @@ export const AuthProvider = ({ children }) => {
           setUser(data);
           localStorage.setItem('user', JSON.stringify(data));
           connectSocket();
+
+          // Warm caches in background — instant navigation for the user
+          Promise.allSettled([
+            API.get('/recommendations/feed?page=1').then(r => cache.set('feed::rec', { posts: r.data.posts, page: 1, catFilter: '', hasMore: r.data.has_more, useRec: true }, 'feed')),
+            API.get('/categories').then(r => cache.set('explore:categories', r.data, 'explore_categories')),
+            API.get(`/users/${data.user_id}`).then(r => cache.set(`profile:${data.user_id}`, r.data, 'profile_own')),
+            API.get('/notifications/settings').then(r => cache.set('notifications:settings', r.data, 'notifications')),
+            API.get('/connections/my-connections').then(r => cache.set('connections:list', r.data, 'connections')),
+          ]);
         }
       } catch {
         localStorage.removeItem('user');
@@ -90,6 +100,7 @@ export const AuthProvider = ({ children }) => {
     disconnectSocket();
     try { await API.post('/auth/logout'); } catch { /* ignore */ }
     localStorage.removeItem('user');
+    cache.clear(); // Clear all cached data on logout
     setUser(null);
   };
 

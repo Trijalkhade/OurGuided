@@ -4,39 +4,53 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiCheck, FiX, FiShield } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import * as cache from '../utils/cache';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
 const Moderation = () => {
   const { user }          = useAuth();
-  const [posts, setPosts] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+
+  const cachedQueue   = cache.get('moderation:queue');
+  const cachedProfile = cache.get(`profile:${user.user_id}`);
+
+  const [posts, setPosts] = useState(cachedQueue ? cachedQueue.data : []);
+  const [profile, setProfile] = useState(cachedProfile ? cachedProfile.data : null);
+  const [loading, setLoading] = useState(!cachedQueue || !cachedProfile);
 
   useEffect(() => {
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
         const [pRes, uRes] = await Promise.all([
           API.get('/posts/pending'),
-          API.get(`/users/${user.user_id}`),
+          cachedProfile && !cachedProfile.stale
+            ? Promise.resolve({ data: cachedProfile.data })
+            : API.get(`/users/${user.user_id}`),
         ]);
         setPosts(pRes.data);
         setProfile(uRes.data);
+        cache.set('moderation:queue', pRes.data, 'moderation');
+        cache.set(`profile:${user.user_id}`, uRes.data, 'profile_own');
       } catch (err) {
         if (err.response?.status === 403) {
           setProfile({ is_expert: false });
         } else {
-          toast.error('Failed to load moderation queue');
+          if (!silent) toast.error('Failed to load moderation queue');
         }
       } finally { setLoading(false); }
     };
-    load();
+    if (cachedQueue && cachedProfile) {
+      load(true); // silent revalidate
+    } else {
+      load();
+    }
   }, [user]);
 
   const approve = async (postId) => {
     try {
       await API.post(`/posts/${postId}/approve`);
       setPosts(prev => prev.filter(p => p.post_id !== postId));
+      cache.invalidate('moderation:queue');
       toast.success('Post approved and published');
     } catch { toast.error('Failed to approve'); }
   };
@@ -46,6 +60,7 @@ const Moderation = () => {
     try {
       await API.delete(`/posts/${postId}/reject`);
       setPosts(prev => prev.filter(p => p.post_id !== postId));
+      cache.invalidate('moderation:queue');
       toast.success('Post rejected');
     } catch { toast.error('Failed to reject'); }
   };

@@ -5,13 +5,17 @@ import toast from 'react-hot-toast';
 import useFeedback from '../utils/useFeedback';
 import { SkelConnections } from '../components/Skeleton.jsx';
 import AvatarWithFallback from '../components/Avatar.jsx';
+import * as cache from '../utils/cache';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Connections = () => {
-  const [connections, setConnections] = useState([]);
-  const [requests, setRequests] = useState([]);
+  const cachedConns = cache.get('connections:list');
+  const cachedReqs  = cache.get('connections:requests');
+
+  const [connections, setConnections] = useState(cachedConns ? cachedConns.data : []);
+  const [requests, setRequests] = useState(cachedReqs ? cachedReqs.data : []);
   const [activeTab, setActiveTab] = useState('connections');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedConns);
   const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
   // 🚀 SEO CONTENT FOR GOOGLE
@@ -25,14 +29,19 @@ const Connections = () => {
   }
 
   useEffect(() => {
-    fetchConnections();
+    if (cachedConns) {
+      // Show cached data instantly, revalidate silently
+      fetchConnections(true);
+    } else {
+      fetchConnections();
+    }
 
-    const onUpdated = () => fetchConnections();
+    const onUpdated = () => fetchConnections(true);
     window.addEventListener('connectionsUpdated', onUpdated);
     return () => window.removeEventListener('connectionsUpdated', onUpdated);
   }, []);
 
-  const fetchConnections = async () => {
+  const fetchConnections = async (silent = false) => {
     try {
       const [connRes, reqRes] = await Promise.all([
         API.get('/connections/my-connections'),
@@ -40,8 +49,10 @@ const Connections = () => {
       ]);
       setConnections(connRes.data);
       setRequests(reqRes.data);
+      cache.set('connections:list', connRes.data, 'connections');
+      cache.set('connections:requests', reqRes.data, 'connections');
     } catch (err) {
-      toast.error('Failed to load connections');
+      if (!silent) toast.error('Failed to load connections');
     } finally {
       setLoading(false);
     }
@@ -69,13 +80,15 @@ const Connections = () => {
         setConnections(prev => [newConn, ...prev]);
         setRequests(prev => prev.filter(r => r.connection_id !== connectionId));
         setActiveTab('connections');
+        cache.invalidatePrefix('connections');
         // notify other components/pages to refresh their connections list
         window.dispatchEvent(new Event('connectionsUpdated'));
         return;
       }
 
       // fallback: refetch lists
-      fetchConnections();
+      cache.invalidatePrefix('connections');
+      fetchConnections(true);
       window.dispatchEvent(new Event('connectionsUpdated'));
     } catch (err) {
       onError();
@@ -91,7 +104,8 @@ const Connections = () => {
       await API.delete(`/connections/reject/${connectionId}`);
       onDeleteSuccess(); // Scrape sound for reject
       toast.success('Request rejected');
-      fetchConnections();
+      cache.invalidatePrefix('connections');
+      fetchConnections(true);
       window.dispatchEvent(new Event('connectionsUpdated'));
     } catch (err) {
       onError();
@@ -106,7 +120,8 @@ const Connections = () => {
         await API.delete(`/connections/remove/${userId}`);
         onDeleteSuccess(); // Scrape sound for remove
         toast.success('Connection removed');
-        fetchConnections();
+        cache.invalidatePrefix('connections');
+        fetchConnections(true);
         window.dispatchEvent(new Event('connectionsUpdated'));
       } catch (err) {
         onError();

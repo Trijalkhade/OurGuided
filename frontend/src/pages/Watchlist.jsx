@@ -4,23 +4,34 @@ import PostCard from '../components/PostCard.jsx';
 import toast from 'react-hot-toast';
 import { FiBookmark } from 'react-icons/fi';
 import { SkelWatchlist } from '../components/Skeleton.jsx';
+import * as cache from '../utils/cache';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const Watchlist = () => {
-  const [posts, setPosts]     = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = cache.get('watchlist');
+  const [posts, setPosts]     = useState(cached ? cached.data : []);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
         const { data } = await API.get('/posts/watchlist');
         setPosts(data);
-      } catch { toast.error('Failed to load watchlist'); }
+        cache.set('watchlist', data, 'watchlist');
+      } catch { if (!silent) toast.error('Failed to load watchlist'); }
       finally { setLoading(false); }
     };
-    load();
+    if (cached) {
+      load(true); // silent revalidate
+    } else {
+      load();
+    }
   }, []);
 
-  const handleRemove = (postId) => setPosts(prev => prev.filter(p => p.post_id !== postId));
+  const handleRemove = (postId) => {
+    setPosts(prev => prev.filter(p => p.post_id !== postId));
+    cache.invalidate('watchlist');
+  };
 
   if (loading) return <SkelWatchlist />;
 

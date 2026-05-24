@@ -7,6 +7,7 @@ import ImageModal from '../components/ImageModal';
 import { LikersModal } from '../components/PostAnalytics';
 import toast from 'react-hot-toast';
 import AvatarWithFallback from '../components/Avatar.jsx';
+import * as cache from '../utils/cache';
 
 function getEmbedUrl(url) {
   if (!url) return null;
@@ -28,14 +29,17 @@ const PostDetail = () => {
   const { user }  = useAuth();
   const navigate  = useNavigate();
 
-  const [post, setPost]             = useState(null);
-  const [loading, setLoading]       = useState(true);
+  // Try cache for this post
+  const cachedPost = cache.get(`post:${id}`);
+
+  const [post, setPost]             = useState(cachedPost ? cachedPost.data : null);
+  const [loading, setLoading]       = useState(!cachedPost);
   const [comment, setComment]       = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [liked, setLiked]           = useState(false);
-  const [likeCount, setLikeCount]   = useState(0);
+  const [liked, setLiked]           = useState(cachedPost ? Number(cachedPost.data?.user_liked) > 0 : false);
+  const [likeCount, setLikeCount]   = useState(cachedPost ? Number(cachedPost.data?.like_count) : 0);
   const [liking, setLiking]         = useState(false);
-  const [saved, setSaved]           = useState(false);
+  const [saved, setSaved]           = useState(cachedPost ? Boolean(cachedPost.data?.user_saved) : false);
   const [showLikers, setShowLikers] = useState(false);
 
   /* Lightbox */
@@ -43,19 +47,24 @@ const PostDetail = () => {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
-    const fetchPost = async () => {
-      setLoading(true);
+    const fetchPost = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const { data } = await API.get(`/posts/${id}`);
-        if (!data) { toast.error('Post not found'); return; }
+        if (!data) { if (!silent) toast.error('Post not found'); return; }
         setPost(data);
         setLiked(Number(data.user_liked) > 0);
         setLikeCount(Number(data.like_count));
         setSaved(Boolean(data.user_saved));
-      } catch { toast.error('Post not found'); }
+        cache.set(`post:${id}`, data, 'post_detail');
+      } catch { if (!silent) toast.error('Post not found'); }
       finally { setLoading(false); }
     };
-    fetchPost();
+    if (cachedPost) {
+      fetchPost(true); // silent revalidate to get fresh comments
+    } else {
+      fetchPost();
+    }
   }, [id]);
 
   const handleLike = async () => {
@@ -65,6 +74,8 @@ const PostDetail = () => {
       const { data } = await API.post(`/posts/${id}/like`);
       setLiked(data.liked);
       setLikeCount(prev => data.liked ? prev + 1 : Math.max(prev - 1, 0));
+      // Update cache in-place
+      cache.update(`post:${id}`, p => p ? { ...p, user_liked: data.liked ? 1 : 0, like_count: data.liked ? Number(p.like_count) + 1 : Math.max(Number(p.like_count) - 1, 0) } : p);
     } catch { toast.error('Failed to update like'); }
     finally { setLiking(false); }
   };
@@ -73,6 +84,8 @@ const PostDetail = () => {
     try {
       const { data } = await API.post(`/posts/${id}/watchlist`);
       setSaved(data.saved);
+      cache.invalidate('watchlist');
+      cache.update(`post:${id}`, p => p ? { ...p, user_saved: data.saved } : p);
       toast.success(data.saved ? 'Saved to watchlist' : 'Removed from watchlist');
     } catch { toast.error('Failed to save'); }
   };
@@ -85,6 +98,7 @@ const PostDetail = () => {
       await API.post(`/posts/${id}/comment`, { content: comment });
       const { data } = await API.get(`/posts/${id}`);
       setPost(data);
+      cache.set(`post:${id}`, data, 'post_detail');
       setComment('');
       toast.success('Comment added');
     } catch { toast.error('Failed to comment'); }

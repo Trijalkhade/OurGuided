@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiTrash2, FiPlus, FiPhone } from 'react-icons/fi';
+import * as cache from '../utils/cache';
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const EditProfile = () => {
   const { user }          = useAuth();
@@ -26,6 +27,22 @@ const EditProfile = () => {
   const [phoneLoading, setPhoneLoading] = useState(false);
 
   useEffect(() => {
+    // Try cache for instant pre-fill
+    const cached = cache.get(`profile:${user.user_id}`);
+    if (cached) {
+      const d = cached.data;
+      setProfile({
+        bio:         d.bio         || '',
+        first_name:  d.first_name  || '',
+        middle_name: d.middle_name || '',
+        last_name:   d.last_name   || '',
+        dob:         d.dob ? d.dob.split('T')[0] : '',
+        photo:       d.photo       || null,
+      });
+      setPhones(d.phones || []);
+      setFetchLoading(false);
+    }
+
     const load = async () => {
       try {
         const { data } = await API.get(`/users/${user.user_id}`);
@@ -38,7 +55,8 @@ const EditProfile = () => {
           photo:       data.photo       || null,
         });
         setPhones(data.phones || []);
-      } catch { toast.error('Failed to load profile'); }
+        cache.set(`profile:${user.user_id}`, data, 'profile_own');
+      } catch { if (!cached) toast.error('Failed to load profile'); }
       finally  { setFetchLoading(false); }
     };
     load();
@@ -57,6 +75,8 @@ const EditProfile = () => {
       if (profile.dob)                    fd.append('dob',   profile.dob);
       if (profile.photo instanceof File)  fd.append('photo', profile.photo);
       await API.put('/users/profile/update', fd);
+      cache.invalidate(`profile:${user.user_id}`);
+      cache.invalidate(`profile:posts:${user.user_id}`);
       toast.success('Profile updated!');
       navigate(`/profile/${user.user_id}`);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }

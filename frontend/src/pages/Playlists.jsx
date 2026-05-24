@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { FiPlus, FiTrash2, FiX, FiLock, FiGlobe } from 'react-icons/fi';
 import useFeedback from '../utils/useFeedback';
 import PostCard from '../components/PostCard.jsx';
+import * as cache from '../utils/cache';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 /* ── Create Playlist Modal ── */
 const CreateModal = ({ onClose, onCreated }) => {
@@ -19,6 +21,7 @@ const CreateModal = ({ onClose, onCreated }) => {
       await API.post('/playlists', form);
       onCreateSuccess(); // Chime sound + success vibration
       toast.success('Playlist created!');
+      cache.invalidate('playlists:list');
       onCreated();
       onClose();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
@@ -64,6 +67,8 @@ const PlaylistDetail = ({ playlist, onBack, onUpdated }) => {
       await API.delete(`/playlists/${playlist.playlist_id}/remove/${postId}`);
       setPosts(prev => prev.filter(p => p.post_id !== postId));
       toast.success('Removed from playlist');
+      cache.invalidate(`playlists:detail:${playlist.playlist_id}`);
+      cache.invalidate('playlists:list');
       onUpdated();
     } catch { toast.error('Failed to remove'); }
   };
@@ -107,24 +112,44 @@ import { SkelPlaylists } from '../components/Skeleton.jsx';
 
 const Playlists = () => {
   const { onDeleteSuccess } = useFeedback();
-  const [playlists, setPlaylists]   = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const cached = cache.get('playlists:list');
+  const [playlists, setPlaylists]   = useState(cached ? cached.data : []);
+  const [loading, setLoading]       = useState(!cached);
   const [showCreate, setShowCreate] = useState(false);
   const [active, setActive]         = useState(null); // selected playlist detail
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = async (silent = false) => {
     try {
       const { data } = await API.get('/playlists');
       setPlaylists(data);
-    } catch { toast.error('Failed to load playlists'); }
+      cache.set('playlists:list', data, 'playlists');
+    } catch { if (!silent) toast.error('Failed to load playlists'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchPlaylists(); }, []);
+  useEffect(() => {
+    if (cached) {
+      fetchPlaylists(true); // silent revalidate
+    } else {
+      fetchPlaylists();
+    }
+  }, []);
 
   const openPlaylist = async (pl) => {
+    // Check cache first
+    const cachedDetail = cache.get(`playlists:detail:${pl.playlist_id}`);
+    if (cachedDetail) {
+      setActive(cachedDetail.data);
+      // Revalidate in background
+      API.get(`/playlists/${pl.playlist_id}`).then(({ data }) => {
+        cache.set(`playlists:detail:${pl.playlist_id}`, data, 'playlists');
+        setActive(data);
+      }).catch(() => {});
+      return;
+    }
     try {
       const { data } = await API.get(`/playlists/${pl.playlist_id}`);
+      cache.set(`playlists:detail:${pl.playlist_id}`, data, 'playlists');
       setActive(data);
     } catch { toast.error('Failed to open playlist'); }
   };
@@ -135,6 +160,8 @@ const Playlists = () => {
       await API.delete(`/playlists/${id}`);
       onDeleteSuccess(); // Delete sound
       setPlaylists(prev => prev.filter(p => p.playlist_id !== id));
+      cache.invalidate('playlists:list');
+      cache.invalidate(`playlists:detail:${id}`);
       toast.success('Playlist deleted');
     } catch { toast.error('Failed to delete'); }
   };
@@ -146,7 +173,7 @@ const Playlists = () => {
       <PlaylistDetail
         playlist={active}
         onBack={() => setActive(null)}
-        onUpdated={fetchPlaylists}
+        onUpdated={() => fetchPlaylists(true)}
       />
     </div>
   );
@@ -199,7 +226,7 @@ const Playlists = () => {
         </div>
       )}
 
-      {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={fetchPlaylists} />}
+      {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={() => fetchPlaylists(true)} />}
     </div>
   );
 };

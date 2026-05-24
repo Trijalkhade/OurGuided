@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiClock, FiBarChart2, FiRefreshCw, FiSquare, FiTrendingUp, FiZap, FiAward } from 'react-icons/fi';
+import * as cache from '../utils/cache';
 
 const fmt  = (n, d = 2) => Number(n || 0).toFixed(d);
 const fmtK = (n) => {
@@ -160,12 +161,20 @@ const KnowledgeLineChart = ({ data, year }) => {
 import { SkelStudy } from '../components/Skeleton.jsx';
 
 const UsageTracker = () => {
-  const [status,    setStatus]    = useState(null);
-  const [history,   setHistory]   = useState([]);
-  const [sessions,  setSessions]  = useState([]);
-  const [chart,     setChart]     = useState(null);
+  // Try to restore from cache
+  const cachedStatus   = cache.get('study:status');
+  const cachedHistory  = cache.get('study:history');
+  const cachedSessions = cache.get('study:sessions');
+  const cachedChart    = cache.get('study:chart:' + new Date().getFullYear());
+
+  const hasCachedData = cachedStatus !== null;
+
+  const [status,    setStatus]    = useState(cachedStatus ? cachedStatus.data : null);
+  const [history,   setHistory]   = useState(cachedHistory ? cachedHistory.data : []);
+  const [sessions,  setSessions]  = useState(cachedSessions ? cachedSessions.data : []);
+  const [chart,     setChart]     = useState(cachedChart ? cachedChart.data : null);
   const [elapsed,   setElapsed]   = useState(0);
-  const [loading,   setLoading]   = useState(true);
+  const [loading,   setLoading]   = useState(!hasCachedData);
   const [actLoad,   setActLoad]   = useState(false);
   const [activeTab, setActiveTab] = useState('annual');
   const tickRef = useRef(null);
@@ -178,7 +187,7 @@ const UsageTracker = () => {
   }, []);
   const stopTick = useCallback(() => { clearInterval(tickRef.current); setElapsed(0); }, []);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (silent = false) => {
     try {
       const year = new Date().getFullYear();
       const results = await Promise.allSettled([
@@ -190,18 +199,34 @@ const UsageTracker = () => {
       const [stRes, histRes, sessRes, chartRes] = results;
       if (stRes.status === 'fulfilled') {
         setStatus(stRes.value.data);
+        cache.set('study:status', stRes.value.data, 'study_status');
         if (stRes.value.data.active_session) startTick(stRes.value.data.active_session.start_time);
         else stopTick();
       }
-      if (histRes.status === 'fulfilled')  setHistory(histRes.value.data);
-      if (sessRes.status === 'fulfilled')  setSessions(sessRes.value.data);
-      if (chartRes.status === 'fulfilled') setChart(chartRes.value.data);
-    } catch { toast.error('Failed to load usage data'); }
+      if (histRes.status === 'fulfilled') {
+        setHistory(histRes.value.data);
+        cache.set('study:history', histRes.value.data, 'study_chart');
+      }
+      if (sessRes.status === 'fulfilled') {
+        setSessions(sessRes.value.data);
+        cache.set('study:sessions', sessRes.value.data, 'study_chart');
+      }
+      if (chartRes.status === 'fulfilled') {
+        setChart(chartRes.value.data);
+        cache.set(`study:chart:${year}`, chartRes.value.data, 'study_chart');
+      }
+    } catch { if (!silent) toast.error('Failed to load usage data'); }
     finally  { setLoading(false); }
   }, [startTick, stopTick]);
 
   useEffect(() => {
-    fetchAll();
+    if (hasCachedData) {
+      // Start tick if there's an active session in cached data
+      if (cachedStatus?.data?.active_session) startTick(cachedStatus.data.active_session.start_time);
+      fetchAll(true); // silent revalidate
+    } else {
+      fetchAll();
+    }
     return () => clearInterval(tickRef.current);
   }, [fetchAll]);
 
@@ -210,7 +235,8 @@ const UsageTracker = () => {
     try {
       await API.post('/study/stop');
       toast.success('Session ended. Knowledge recorded!');
-      await fetchAll();
+      cache.invalidatePrefix('study');
+      await fetchAll(true);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setActLoad(false); }
   };
@@ -233,7 +259,7 @@ const UsageTracker = () => {
               <FiSquare size={14}/> End Session ({formatDuration(elapsed)})
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={fetchAll} title="Refresh" style={{ width: 'auto' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} title="Refresh" style={{ width: 'auto' }}>
             <FiRefreshCw size={14}/>
           </button>
         </div>

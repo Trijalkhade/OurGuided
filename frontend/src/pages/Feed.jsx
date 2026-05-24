@@ -6,6 +6,7 @@ import useFeedback from '../utils/useFeedback';
 import { SkelFeed } from '../components/Skeleton.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import * as cache from '../utils/cache';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
@@ -13,10 +14,6 @@ const CATEGORIES = [
   'Real Talk', 'Experiments & Ideas', 'Loopholes & Fixes', 'Life Hacks',
   'Youth & Education', 'Health & Body', 'Earth & Hands', 'Economy & Power',
 ];
-
-// ── Module-level in-memory cache (no sessionStorage quota risk) ───────────────
-// This survives React navigation within the same browser tab session.
-let feedCache = null;
 
 /* ── CreatePost ──────────────────────────────────────────────────────────────── */
 const CreatePost = ({ onPostCreated }) => {
@@ -56,6 +53,8 @@ const CreatePost = ({ onPostCreated }) => {
       setVideoUrl(''); setVideoFile(null); setCategory(''); setIsAnon(false); setShowExtra(false);
       onCreateSuccess();
       toast.success('Post created!');
+      // Invalidate all feed caches so fresh data is fetched
+      cache.invalidatePrefix('feed');
       onPostCreated && onPostCreated();
     } catch (err) {
       onError();
@@ -122,6 +121,10 @@ const CreatePost = ({ onPostCreated }) => {
 };
 
 /* ── Feed ────────────────────────────────────────────────────────────────────── */
+
+// Helper to build cache key for feed state
+const feedCacheKey = (cat, rec) => `feed:${cat || ''}:${rec ? 'rec' : 'latest'}`;
+
 const Feed = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -131,25 +134,38 @@ const Feed = () => {
   const pendingScrollRef  = useRef(null);
   const isInitialMount    = useRef(true);
 
-  // Determine return-visit once at mount. useRef ensures it's stable across re-renders.
-  const isReturnVisit = useRef(
-    sessionStorage.getItem('returning_from_post') === 'true' && feedCache !== null
+  // Check for return visit + try cache
+  const isReturning = useRef(
+    sessionStorage.getItem('returning_from_post') === 'true'
   ).current;
 
+  // Try to restore from cache
+  const cachedEntry = useRef(null);
+  if (isReturning) {
+    // Look for any feed cache entry — try to find one that matches
+    const savedCat = sessionStorage.getItem('feed_catFilter') || '';
+    const savedRec = sessionStorage.getItem('feed_useRec') !== 'false';
+    const key = feedCacheKey(savedCat, savedRec);
+    const hit = cache.get(key);
+    if (hit) cachedEntry.current = { ...hit.data, catFilter: savedCat, useRec: savedRec };
+  }
+
+  const hasCachedData = cachedEntry.current !== null;
+
   // ── State (ALL before any early return) ─────────────────────────────────────
-  const [posts,     setPosts]     = useState(isReturnVisit ? feedCache.posts     : []);
-  const [page,      setPage]      = useState(isReturnVisit ? feedCache.page       : 1);
-  const [catFilter, setCatFilter] = useState(isReturnVisit ? feedCache.catFilter  : '');
-  const [hasMore,   setHasMore]   = useState(isReturnVisit ? feedCache.hasMore    : true);
-  const [useRec,    setUseRec]    = useState(isReturnVisit ? feedCache.useRec     : true);
-  const [fetching,  setFetching]  = useState(!isReturnVisit);
+  const [posts,     setPosts]     = useState(hasCachedData ? cachedEntry.current.posts     : []);
+  const [page,      setPage]      = useState(hasCachedData ? cachedEntry.current.page      : 1);
+  const [catFilter, setCatFilter] = useState(hasCachedData ? cachedEntry.current.catFilter : '');
+  const [hasMore,   setHasMore]   = useState(hasCachedData ? cachedEntry.current.hasMore   : true);
+  const [useRec,    setUseRec]    = useState(hasCachedData ? cachedEntry.current.useRec    : true);
+  const [fetching,  setFetching]  = useState(!hasCachedData);
   const [error,     setError]     = useState(false);
 
   stateRef.current = { posts, page, catFilter, hasMore, useRec };
 
   // ── fetchPosts (defined before effects that call it) ────────────────────────
-  const fetchPosts = async (p = 1, cat = catFilter, rec = useRec) => {
-    setFetching(true);
+  const fetchPosts = async (p = 1, cat = catFilter, rec = useRec, silent = false) => {
+    if (!silent) setFetching(true);
     setError(false);
     try {
       let data;
@@ -166,10 +182,13 @@ const Feed = () => {
         setHasMore(data.length === 10);
         setPosts(prev => p === 1 ? data : [...prev, ...data]);
       }
+      // Update cache after successful fetch
+      const key = feedCacheKey(cat, rec);
+      cache.set(key, { posts: p === 1 ? data : stateRef.current.posts, page: p, catFilter: cat, hasMore: stateRef.current.hasMore, useRec: rec }, 'feed');
     } catch (err) {
       console.error(err);
       setError(true);
-      toast.error('Failed to load feed');
+      if (!silent) toast.error('Failed to load feed');
     } finally {
       setFetching(false);
     }
@@ -184,13 +203,26 @@ const Feed = () => {
 
   // Mount: restore from cache or do a fresh fetch
   useEffect(() => {
-    if (isReturnVisit) {
+    if (isReturning && hasCachedData) {
       sessionStorage.removeItem('returning_from_post');
       const savedScroll = sessionStorage.getItem('feed_scroll');
       if (savedScroll) pendingScrollRef.current = parseInt(savedScroll, 10);
-      return; // Posts are already in state from cache; [posts] effect will scroll
+      // Silently revalidate in the background
+      fetchPosts(stateRef.current.page, stateRef.current.catFilter, stateRef.current.useRec, true);
+      return;
     }
-    feedCache = null; // clear stale cache on a fresh visit
+    // Fresh visit — check if we have cache from prefetch
+    const key = feedCacheKey(catFilter, useRec);
+    const prefetched = cache.get(key);
+    if (prefetched && !prefetched.stale) {
+      setPosts(prefetched.data.posts || []);
+      setPage(prefetched.data.page || 1);
+      setHasMore(prefetched.data.hasMore ?? true);
+      setFetching(false);
+      // Still revalidate silently
+      fetchPosts(1, catFilter, useRec, true);
+      return;
+    }
     fetchPosts(1, catFilter, useRec);
   }, []); // eslint-disable-line
 
@@ -201,7 +233,18 @@ const Feed = () => {
       return;
     }
     setPage(1);
-    fetchPosts(1, catFilter, useRec);
+    // Check cache for the new filter
+    const key = feedCacheKey(catFilter, useRec);
+    const hit = cache.get(key);
+    if (hit) {
+      setPosts(hit.data.posts || []);
+      setHasMore(hit.data.hasMore ?? true);
+      setFetching(false);
+      // Revalidate silently
+      fetchPosts(1, catFilter, useRec, true);
+    } else {
+      fetchPosts(1, catFilter, useRec);
+    }
   }, [catFilter, useRec]); // eslint-disable-line
 
   // Scroll restoration: fires AFTER posts are rendered into the DOM.
@@ -218,7 +261,7 @@ const Feed = () => {
     }
   }, [posts]);
 
-  // Continuously track scroll position + save posts to in-memory cache on unmount
+  // Continuously track scroll position + save to cache on unmount
   useEffect(() => {
     const handleScroll = () => {
       sessionStorage.setItem('feed_scroll', window.scrollY.toString());
@@ -226,8 +269,13 @@ const Feed = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      // Save to in-memory module cache (no sessionStorage quota risk)
-      feedCache = stateRef.current;
+      // Save current state to cache
+      const s = stateRef.current;
+      const key = feedCacheKey(s.catFilter, s.useRec);
+      cache.set(key, s, 'feed');
+      // Also save filter state for return-visit key lookup
+      sessionStorage.setItem('feed_catFilter', s.catFilter);
+      sessionStorage.setItem('feed_useRec', String(s.useRec));
     };
   }, []);
 

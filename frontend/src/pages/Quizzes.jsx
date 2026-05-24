@@ -3,6 +3,7 @@ import { useAuth, API } from '../context/AuthContext';
 import useFeedback from '../utils/useFeedback';
 import toast from 'react-hot-toast';
 import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight } from 'react-icons/fi';
+import * as cache from '../utils/cache';
 
 /* ── Create Quiz Modal ─────────────────────────────────────────────────── */
 const CreateQuizModal = ({ onClose, onCreated }) => {
@@ -45,6 +46,7 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
       await API.post('/quizzes', { ...form, questions });
       onCreateSuccess(); // Beep + chime on quiz published
       toast.success('Quiz created and published!');
+      cache.invalidatePrefix('quizzes');
       onCreated();
       onClose();
     } catch(err) { 
@@ -159,6 +161,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
       setResults(data);
       onCelebration(); // Celebration feedback on quiz completion
       toast.success(`Quiz completed! You scored ${data.percentage}%`);
+      cache.invalidatePrefix('quizzes');
       onCompleted?.(data);
       // fetch leaderboard in background
       try {
@@ -318,27 +321,47 @@ const Quizzes = () => {
 
   const CATS = ['Real Talk', 'Experiments & Ideas', 'Loopholes & Fixes', 'Life Hacks', 'Youth & Education', 'Health & Body', 'Earth & Hands', 'Economy & Power'];
 
-  const fetchAll = async () => {
-    setLoading(true);
-    setError(false);
+  const quizCacheKey = `quizzes:${catFilter}:${diffFilter}`;
+
+  const fetchAll = async (silent = false) => {
+    if (!silent) { setLoading(true); setError(false); }
     try {
       const params = new URLSearchParams();
       if (catFilter)  params.set('category', catFilter);
       if (diffFilter) params.set('difficulty', diffFilter);
+
+      // Try to get profile from cache
+      const cachedProfile = cache.get(`profile:${user.user_id}`);
+
       const [qRes, pRes] = await Promise.all([
         API.get(`/quizzes?${params}`),
-        API.get(`/users/${user.user_id}`),
+        cachedProfile && !cachedProfile.stale
+          ? Promise.resolve({ data: cachedProfile.data })
+          : API.get(`/users/${user.user_id}`),
       ]);
       setQuizzes(qRes.data);
       setProfile(pRes.data);
+      cache.set(quizCacheKey, qRes.data, 'quizzes');
+      cache.set(`profile:${user.user_id}`, pRes.data, 'profile_own');
     } catch { 
-      setError(true);
-      toast.error('Failed to load quizzes'); 
+      if (!silent) { setError(true); toast.error('Failed to load quizzes'); }
     }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, [catFilter, diffFilter]);
+  useEffect(() => {
+    // Check cache for quizzes
+    const cachedQuizzes = cache.get(quizCacheKey);
+    const cachedProfile = cache.get(`profile:${user.user_id}`);
+    if (cachedQuizzes && cachedProfile) {
+      setQuizzes(cachedQuizzes.data);
+      setProfile(cachedProfile.data);
+      setLoading(false);
+      fetchAll(true); // silent revalidate
+    } else {
+      fetchAll();
+    }
+  }, [catFilter, diffFilter]);
 
   const openQuiz = async (quiz) => {
     try {
@@ -415,7 +438,7 @@ const Quizzes = () => {
         <div className="empty-state">
           <h3>Failed to load quizzes</h3>
           <p>Please try again later.</p>
-          <button className="btn btn-secondary btn-sm" onClick={fetchAll} style={{ marginTop: '1rem' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} style={{ marginTop: '1rem' }}>
             Try Again
           </button>
         </div>
@@ -449,12 +472,12 @@ const Quizzes = () => {
         </div>
       )}
 
-      {showCreate && <CreateQuizModal onClose={() => setShowCreate(false)} onCreated={fetchAll} />}
+      {showCreate && <CreateQuizModal onClose={() => setShowCreate(false)} onCreated={() => fetchAll(true)} />}
       {activeQuiz && (
         <TakeQuizModal
           quiz={activeQuiz}
           onClose={() => setActiveQuiz(null)}
-          onCompleted={() => { setActiveQuiz(null); fetchAll(); }}
+          onCompleted={() => { setActiveQuiz(null); fetchAll(true); }}
         />
       )}
     </div>

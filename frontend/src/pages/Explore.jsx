@@ -3,86 +3,116 @@ import { API } from '../context/AuthContext';
 import PostCard from '../components/PostCard.jsx';
 import toast from 'react-hot-toast';
 import { SkelExplore, SkelFeed } from '../components/Skeleton.jsx';
+import * as cache from '../utils/cache';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
-
-// ── Module-level in-memory cache (no sessionStorage quota risk) ───────────────
-let exploreCache = null;
 
 const Explore = () => {
   // ── Refs (ALL before any early return) ──────────────────────────────────────
   const stateRef         = useRef();
   const pendingScrollRef = useRef(null);
 
-  // Determine return-visit once at mount.
-  const isReturnVisit = useRef(
-    sessionStorage.getItem('returning_from_post') === 'true' && exploreCache !== null
+  // Check for return visit
+  const isReturning = useRef(
+    sessionStorage.getItem('returning_from_post') === 'true'
   ).current;
 
+  // Try to restore categories from cache
+  const cachedCats = useRef(cache.get('explore:categories')).current;
+  const cachedRec  = useRef(cache.get('explore:recommended')).current;
+  const cachedInterests = useRef(cache.get('explore:interests')).current;
+  const cachedTab  = useRef(isReturning ? sessionStorage.getItem('explore_activeTab') : null).current;
+  const cachedSelected = useRef(isReturning ? sessionStorage.getItem('explore_selected') : null).current;
+
+  // For category tab on return, try to get cached category posts
+  const cachedCatPosts = useRef(
+    cachedSelected ? cache.get(`explore:category:${cachedSelected}`) : null
+  ).current;
+
+  const hasCategories = cachedCats !== null;
+  const hasPosts = cachedTab === 'category' && cachedCatPosts
+    ? true
+    : cachedRec !== null;
+
   // ── State (ALL before any early return) ─────────────────────────────────────
-  const [categories,      setCategories]      = useState(isReturnVisit ? exploreCache.categories : []);
-  const [selected,        setSelected]        = useState(isReturnVisit ? exploreCache.selected   : null);
-  const [posts,           setPosts]           = useState(isReturnVisit ? exploreCache.posts      : []);
-  const [interests,       setInterests]       = useState(isReturnVisit ? exploreCache.interests  : []);
-  const [loadingCats,     setLoadingCats]     = useState(!isReturnVisit);
+  const [categories,      setCategories]      = useState(hasCategories ? cachedCats.data : []);
+  const [selected,        setSelected]        = useState(cachedSelected || null);
+  const [posts,           setPosts]           = useState(
+    cachedTab === 'category' && cachedCatPosts
+      ? cachedCatPosts.data
+      : cachedRec ? (cachedRec.data.posts || cachedRec.data) : []
+  );
+  const [interests,       setInterests]       = useState(cachedInterests ? cachedInterests.data : []);
+  const [loadingCats,     setLoadingCats]     = useState(!hasCategories);
   const [loadingPosts,    setLoadingPosts]    = useState(false);
   const [errorCats,       setErrorCats]       = useState(false);
   const [errorPosts,      setErrorPosts]      = useState(false);
   const [savingInterests, setSavingInterests] = useState(false);
-  const [activeTab,       setActiveTab]       = useState(isReturnVisit ? exploreCache.activeTab : 'recommended');
+  const [activeTab,       setActiveTab]       = useState(cachedTab || 'recommended');
 
   stateRef.current = { categories, selected, posts, interests, activeTab };
 
   // ── Functions (defined before effects that call them) ────────────────────────
-  const load = async () => {
-    setLoadingCats(true);
-    setErrorCats(false);
+  const load = async (silent = false) => {
+    if (!silent) { setLoadingCats(true); setErrorCats(false); }
     try {
       const [catRes, recRes] = await Promise.all([
         API.get('/categories'),
         API.get('/categories/recommended'),
       ]);
       setCategories(catRes.data);
-      setPosts(recRes.data.posts || []);
-      setInterests((recRes.data.interests || []).map(n => {
+      cache.set('explore:categories', catRes.data, 'explore_categories');
+
+      const recPosts = recRes.data.posts || [];
+      const recInterests = (recRes.data.interests || []).map(n => {
         const cat = catRes.data.find(c => c.name === n);
         return cat ? cat.category_id : null;
-      }).filter(Boolean));
+      }).filter(Boolean);
+
+      setPosts(recPosts);
+      setInterests(recInterests);
+      cache.set('explore:recommended', recRes.data, 'explore_recommended');
+      cache.set('explore:interests', recInterests, 'explore_recommended');
     } catch {
-      setErrorCats(true);
-      toast.error('Failed to load explore');
+      if (!silent) { setErrorCats(true); toast.error('Failed to load explore'); }
     } finally {
       setLoadingCats(false);
     }
   };
 
-  const loadCategory = async (catName) => {
+  const loadCategory = async (catName, silent = false) => {
     setSelected(catName);
     setActiveTab('category');
-    setLoadingPosts(true);
-    setErrorPosts(false);
+    if (!silent) { setLoadingPosts(true); setErrorPosts(false); }
+
+    // Show cached category posts instantly if available
+    const catHit = cache.get(`explore:category:${catName}`);
+    if (catHit && !silent) {
+      setPosts(catHit.data);
+      setLoadingPosts(false);
+    }
+
     try {
       const { data } = await API.get(`/posts/feed?category=${encodeURIComponent(catName)}`);
       setPosts(data);
+      cache.set(`explore:category:${catName}`, data, 'explore_category');
     } catch {
-      setErrorPosts(true);
-      toast.error('Failed to load category');
+      if (!silent) { setErrorPosts(true); toast.error('Failed to load category'); }
     } finally {
       setLoadingPosts(false);
     }
   };
 
-  const loadRecommended = async () => {
+  const loadRecommended = async (silent = false) => {
     setSelected(null);
     setActiveTab('recommended');
-    setLoadingPosts(true);
-    setErrorPosts(false);
+    if (!silent) { setLoadingPosts(true); setErrorPosts(false); }
     try {
       const { data } = await API.get('/categories/recommended');
       setPosts(data.posts || []);
+      cache.set('explore:recommended', data, 'explore_recommended');
     } catch {
-      setErrorPosts(true);
-      toast.error('Failed to load recommendations');
+      if (!silent) { setErrorPosts(true); toast.error('Failed to load recommendations'); }
     } finally {
       setLoadingPosts(false);
     }
@@ -98,6 +128,7 @@ const Explore = () => {
     try {
       await API.post('/categories/interests', { category_ids: interests });
       toast.success('Interests updated! Recommendations refreshed.');
+      cache.invalidate('explore:recommended');
       await loadRecommended();
     } catch { toast.error('Failed to save interests'); }
     finally { setSavingInterests(false); }
@@ -107,18 +138,25 @@ const Explore = () => {
 
   // Mount: restore from cache or fresh load
   useEffect(() => {
-    if (isReturnVisit) {
+    if (isReturning) {
       sessionStorage.removeItem('returning_from_post');
       const savedScroll = sessionStorage.getItem('explore_scroll');
       if (savedScroll) pendingScrollRef.current = parseInt(savedScroll, 10);
-      return; // Posts already in state from cache; [posts] effect will scroll
+      // Silently revalidate
+      if (hasCategories) load(true);
+      return;
     }
-    exploreCache = null; // clear stale cache on fresh visit
+    // Fresh visit — if we have cached categories, show them instantly
+    if (hasCategories && hasPosts) {
+      setLoadingCats(false);
+      // Silently revalidate
+      load(true);
+      return;
+    }
     load();
   }, []); // eslint-disable-line
 
   // Scroll restoration: fires AFTER posts are rendered into the DOM.
-  // Double-rAF ensures the browser has finished layout and paint.
   useEffect(() => {
     if (pendingScrollRef.current !== null && posts.length > 0) {
       const target = pendingScrollRef.current;
@@ -131,7 +169,7 @@ const Explore = () => {
     }
   }, [posts]);
 
-  // Continuously track scroll position + save to in-memory cache on unmount
+  // Continuously track scroll position + save to cache on unmount
   useEffect(() => {
     const handleScroll = () => {
       sessionStorage.setItem('explore_scroll', window.scrollY.toString());
@@ -139,8 +177,11 @@ const Explore = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      // Save to in-memory module cache (no sessionStorage quota risk)
-      exploreCache = stateRef.current;
+      // Save active tab and selected category for return visit
+      const s = stateRef.current;
+      sessionStorage.setItem('explore_activeTab', s.activeTab);
+      if (s.selected) sessionStorage.setItem('explore_selected', s.selected);
+      else sessionStorage.removeItem('explore_selected');
     };
   }, []);
 
@@ -161,7 +202,7 @@ const Explore = () => {
       <div className="empty-state" style={{ marginTop: '5rem' }}>
         <h3>Failed to load Explore</h3>
         <p>Something went wrong while fetching categories.</p>
-        <button className="btn btn-primary" onClick={load} style={{ width: 'auto', marginTop: '1rem' }}>
+        <button className="btn btn-primary" onClick={() => load()} style={{ width: 'auto', marginTop: '1rem' }}>
           Try Again
         </button>
       </div>
@@ -216,7 +257,7 @@ const Explore = () => {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: '1rem' }}>
-        <button className={`tab ${activeTab === 'recommended' ? 'active' : ''}`} onClick={loadRecommended}>
+        <button className={`tab ${activeTab === 'recommended' ? 'active' : ''}`} onClick={() => loadRecommended()}>
           ✨ Recommended
         </button>
         {selected && (

@@ -12,6 +12,8 @@ import {
 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
+import * as cache from '../utils/cache';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 /*
  * Profile Page
@@ -29,16 +31,23 @@ const Profile = () => {
   const { user }  = useAuth();
   const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
-  const [profile, setProfile]         = useState(null);
-  const [posts, setPosts]             = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const isOwn = String(user?.user_id) === id;
+  const cacheKey = `profile:${id}`;
+  const postsCacheKey = `profile:posts:${id}`;
+  const connCacheKey = `profile:conn:${id}`;
+
+  // Try to restore from cache
+  const cachedProfile = cache.get(cacheKey);
+  const cachedPosts   = cache.get(postsCacheKey);
+
+  const [profile, setProfile]         = useState(cachedProfile ? cachedProfile.data : null);
+  const [posts, setPosts]             = useState(cachedPosts ? cachedPosts.data : []);
+  const [loading, setLoading]         = useState(!cachedProfile);
   const [activeTab, setActiveTab]     = useState('posts');
   const [newSkill, setNewSkill]       = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('none');
   const [connectionLoading, setConnectionLoading] = useState(false);
-
-  const isOwn = String(user?.user_id) === id;
 
   // 🚀 SEO CONTENT FOR GOOGLE
   if (isPrerender) {
@@ -50,28 +59,38 @@ const Profile = () => {
     );
   }
 
-  const fetchProfile = async () => {
-    setLoading(true);
+  const fetchProfile = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data }      = await API.get(`/users/${id}`);
       const { data: postsData } = await API.get(`/posts/user/${id}`);
       setProfile(data);
       setPosts(postsData);
+      cache.set(cacheKey, data, isOwn ? 'profile_own' : 'profile_other');
+      cache.set(postsCacheKey, postsData, isOwn ? 'profile_own' : 'profile_other');
 
       if (!isOwn) {
         const { data: connData } = await API.get(`/connections/status/${id}`);
         setConnectionStatus(connData.status);
+        cache.set(connCacheKey, connData.status, 'profile_other');
       }
     } catch {
-      toast.error('Failed to load profile');
+      if (!silent) toast.error('Failed to load profile');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProfile();
-    const onConnUpdated = () => fetchProfile();
+    // If we have cached data, show it instantly then revalidate
+    if (cachedProfile) {
+      const cachedConn = cache.get(connCacheKey);
+      if (cachedConn && !isOwn) setConnectionStatus(cachedConn.data);
+      fetchProfile(true); // silent revalidate
+    } else {
+      fetchProfile();
+    }
+    const onConnUpdated = () => fetchProfile(true);
     window.addEventListener('connectionsUpdated', onConnUpdated);
     return () => window.removeEventListener('connectionsUpdated', onConnUpdated);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +107,7 @@ const Profile = () => {
       setShowSkillInput(false);
       onSuccess();
       toast.success('Skill added!');
+      cache.invalidate(cacheKey);
     } catch { 
       onError();
       toast.error('Failed to add skill'); 
@@ -101,6 +121,7 @@ const Profile = () => {
       setProfile(prev => ({ ...prev, skills: prev.skills.filter(s => s.skill_id !== skillId) }));
       onDeleteSuccess(); // delete_sound.mp4 only (no haptic)
       toast.success('Skill removed');
+      cache.invalidate(cacheKey);
     } catch { 
       onError();
       toast.error('Failed to remove skill'); 
@@ -116,6 +137,7 @@ const Profile = () => {
       setConnectionStatus('pending_sent');
       onAcceptConnection(); // Beep + chime on request sent
       toast.success('Connection request sent!');
+      cache.invalidatePrefix('connections');
     } catch (err) { 
       onError();
       toast.error(err.response?.data?.message || 'Failed to send request'); 
@@ -132,6 +154,7 @@ const Profile = () => {
       setConnectionStatus('none');
       onDeleteSuccess(); // Scrape sound for remove
       toast.success('Connection removed');
+      cache.invalidatePrefix('connections');
     } catch { 
       onError();
       toast.error('Failed to remove connection'); 

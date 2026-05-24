@@ -4,6 +4,7 @@ import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiZap, FiCalendar, FiStar } from 'react-icons/fi';
+import * as cache from '../utils/cache';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
@@ -13,8 +14,9 @@ import { SkelLeaderboard } from '../components/Skeleton.jsx';
 
 const Leaderboard = () => {
   const { user }          = useAuth();
-  const [leaders, setLeaders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = cache.get('leaderboard');
+  const [leaders, setLeaders] = useState(cached ? cached.data : []);
+  const [loading, setLoading] = useState(!cached);
 
   // 🚀 SEO CONTENT FOR GOOGLE
   if (isPrerender) {
@@ -27,14 +29,19 @@ const Leaderboard = () => {
   }
 
   useEffect(() => {
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
         const { data } = await API.get('/users/leaderboard');
         setLeaders(data);
-      } catch { toast.error('Failed to load leaderboard'); }
+        cache.set('leaderboard', data, 'leaderboard');
+      } catch { if (!silent) toast.error('Failed to load leaderboard'); }
       finally { setLoading(false); }
     };
-    load();
+    if (cached) {
+      load(true); // silent revalidate
+    } else {
+      load();
+    }
   }, []);
 
   if (loading) return <SkelLeaderboard />;

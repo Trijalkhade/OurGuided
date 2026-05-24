@@ -3,6 +3,7 @@ import { API } from '../context/AuthContext';
 import { FiBell, FiMail, FiMessageSquare, FiShield, FiStar, FiZap, FiBook, FiTrash2, FiChevronDown } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import useFeedback from '../utils/useFeedback';
+import * as cache from '../utils/cache';
 
 const Toggle = ({ checked, onChange, onToggle }) => (
   <div className={`switch ${checked ? 'on' : 'off'}`} onClick={() => {
@@ -17,12 +18,17 @@ import { SkelNotifications } from '../components/Skeleton.jsx';
 
 const Notifications = () => {
   const { onTap, onSuccess } = useFeedback();
-  const [settings, setSettings]         = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [total, setTotal]               = useState(0);
+
+  // Try cache
+  const cachedSettings = cache.get('notifications:settings');
+  const cachedNotifs   = cache.get('notifications:list');
+
+  const [settings, setSettings]         = useState(cachedSettings ? cachedSettings.data : null);
+  const [notifications, setNotifications] = useState(cachedNotifs ? cachedNotifs.data.notifications || cachedNotifs.data : []);
+  const [total, setTotal]               = useState(cachedNotifs ? (cachedNotifs.data.total || 0) : 0);
+  const [hasMore, setHasMore]           = useState(cachedNotifs ? (cachedNotifs.data.has_more || false) : false);
   const [page, setPage]                 = useState(1);
-  const [hasMore, setHasMore]           = useState(false);
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]           = useState(!cachedSettings);
   const [saving, setSaving]             = useState(false);
   const [activeTab, setActiveTab]       = useState('settings');
 
@@ -33,19 +39,25 @@ const Notifications = () => {
       setNotifications(prev => append ? [...prev, ...list] : list);
       setTotal(data.total || 0);
       setHasMore(data.has_more || false);
+      cache.set('notifications:list', data, 'notifications');
     } catch { toast.error('Failed to load notifications'); }
   };
 
   useEffect(() => {
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
         const [sRes] = await Promise.all([API.get('/notifications/settings')]);
         setSettings(sRes.data);
+        cache.set('notifications:settings', sRes.data, 'notifications');
         await fetchNotifications(1);
-      } catch { toast.error('Failed to load'); }
+      } catch { if (!silent) toast.error('Failed to load'); }
       finally { setLoading(false); }
     };
-    load();
+    if (cachedSettings) {
+      load(true); // silent revalidate
+    } else {
+      load();
+    }
   }, []);
 
   const loadMore = async () => {
@@ -59,6 +71,7 @@ const Notifications = () => {
       onTap(); // Soft tap vibration + click sound
       await API.post('/notifications/mark-read');
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      cache.invalidate('notifications:list');
       toast.success('All marked as read');
     } catch { toast.error('Failed'); }
   };
@@ -68,6 +81,7 @@ const Notifications = () => {
       await API.delete(`/notifications/${id}`);
       setNotifications(prev => prev.filter(n => n.notification_id !== id));
       setTotal(prev => prev - 1);
+      cache.invalidate('notifications:list');
     } catch { toast.error('Failed to delete'); }
   };
 
@@ -76,6 +90,7 @@ const Notifications = () => {
     try {
       await API.put('/notifications/settings', settings);
       onSuccess(); // Chime sound + success vibration
+      cache.invalidate('notifications:settings');
       toast.success('Settings saved!');
     } catch { toast.error('Failed to save'); }
     finally { setSaving(false); }
@@ -107,8 +122,8 @@ const Notifications = () => {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
-        <button className={`tab ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
+        <button className={`tab ${activeTab === 'settings' ? 'active' : ''}`} style={{ flex: 1 }} onClick={() => setActiveTab('settings')}>Settings</button>
+        <button className={`tab ${activeTab === 'inbox' ? 'active' : ''}`} style={{ flex: 1 }} onClick={() => setActiveTab('inbox')}>
           Inbox {unread > 0 && <span className="notif-badge">{unread}</span>}
         </button>
       </div>
