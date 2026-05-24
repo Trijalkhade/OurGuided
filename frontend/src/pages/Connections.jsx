@@ -18,16 +18,6 @@ const Connections = () => {
   const [loading, setLoading] = useState(!cachedConns);
   const { onTap, onSuccess, onError, onAcceptConnection, onDeleteSuccess } = useFeedback();
 
-  // 🚀 SEO CONTENT FOR GOOGLE
-  if (isPrerender) {
-    return (
-      <div>
-        <h1>Build Real Connections on OurGuided</h1>
-        <p>Connect with people who think clearly, speak honestly, and share things that actually matter in real life.</p>
-      </div>
-    );
-  }
-
   useEffect(() => {
     if (cachedConns) {
       // Show cached data instantly, revalidate silently
@@ -40,6 +30,16 @@ const Connections = () => {
     window.addEventListener('connectionsUpdated', onUpdated);
     return () => window.removeEventListener('connectionsUpdated', onUpdated);
   }, []);
+
+  // ── Early returns (AFTER all hooks) ──────────────────────────────────────
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Build Real Connections on OurGuided</h1>
+        <p>Connect with people who think clearly, speak honestly, and share things that actually matter in real life.</p>
+      </div>
+    );
+  }
 
   const fetchConnections = async (silent = false) => {
     try {

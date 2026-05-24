@@ -18,16 +18,6 @@ const Leaderboard = () => {
   const [leaders, setLeaders] = useState(cached ? cached.data : []);
   const [loading, setLoading] = useState(!cached);
 
-  // 🚀 SEO CONTENT FOR GOOGLE
-  if (isPrerender) {
-    return (
-      <div>
-        <h1>Most Active Voices on OurGuided</h1>
-        <p>The people contributing the most real knowledge, honest opinions, and practical wisdom to the OurGuided community.</p>
-      </div>
-    );
-  }
-
   useEffect(() => {
     const load = async (silent = false) => {
       try {
@@ -43,6 +33,16 @@ const Leaderboard = () => {
       load();
     }
   }, []);
+
+  // ── Early returns (AFTER all hooks) ──────────────────────────────────────
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>Most Active Voices on OurGuided</h1>
+        <p>The people contributing the most real knowledge, honest opinions, and practical wisdom to the OurGuided community.</p>
+      </div>
+    );
+  }
 
   if (loading) return <SkelLeaderboard />;
 

@@ -49,16 +49,6 @@ const Profile = () => {
   const [connectionStatus, setConnectionStatus] = useState('none');
   const [connectionLoading, setConnectionLoading] = useState(false);
 
-  // 🚀 SEO CONTENT FOR GOOGLE
-  if (isPrerender) {
-    return (
-      <div>
-        <h1>People on OurGuided — Real Voices, Real Experience</h1>
-        <p>Profiles of students, professionals, creators, and everyday people sharing what they actually know — not what looks good on a resume.</p>
-      </div>
-    );
-  }
-
   const fetchProfile = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -95,6 +85,16 @@ const Profile = () => {
     return () => window.removeEventListener('connectionsUpdated', onConnUpdated);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isOwn]);
+
+  // ── Early returns (AFTER all hooks) ──────────────────────────────────────
+  if (isPrerender) {
+    return (
+      <div>
+        <h1>People on OurGuided — Real Voices, Real Experience</h1>
+        <p>Profiles of students, professionals, creators, and everyday people sharing what they actually know — not what looks good on a resume.</p>
+      </div>
+    );
+  }
 
   /* Skills */
   const addSkill = async () => {
