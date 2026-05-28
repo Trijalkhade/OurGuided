@@ -217,9 +217,91 @@ router.post('/:id/submit', auth, async (req, res) => {
     }
 
     await conn.commit();
-    res.json({ attempt_id: ar.insertId, score, total_points: total, percentage: pct, results });
+
+    // Build full answer sheet for immediate review
+    const [reviewQuestions] = await db.execute(
+      'SELECT question_id, question_text, points, sort_order FROM quiz_questions WHERE quiz_id=? ORDER BY sort_order',
+      [quizId]);
+    const review = [];
+    for (const rq of reviewQuestions) {
+      const [opts] = await db.execute(
+        'SELECT option_id, option_text, is_correct, sort_order FROM quiz_options WHERE question_id=? ORDER BY sort_order',
+        [rq.question_id]);
+      const userAnswer = answers.find(a => Number(a.question_id) === Number(rq.question_id));
+      const userOptionId = userAnswer ? Number(userAnswer.option_id) : null;
+      review.push({
+        question_id: rq.question_id,
+        question_text: rq.question_text,
+        points: rq.points,
+        options: opts.map(o => ({
+          option_id: o.option_id,
+          option_text: o.option_text,
+          is_correct: !!o.is_correct,
+          user_selected: o.option_id === userOptionId,
+        })),
+      });
+    }
+
+    conn.release();
+    res.json({ attempt_id: ar.insertId, score, total_points: total, percentage: pct, results, review });
   } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
+});
+
+/* ── GET /:id/review/:attemptId — full answer sheet for a past attempt ── */
+router.get('/:id/review/:attemptId', auth, async (req, res) => {
+  const userId    = req.user.user_id;
+  const quizId    = req.params.id;
+  const attemptId = req.params.attemptId;
+
+  try {
+    // Verify attempt belongs to requesting user
+    const [[attempt]] = await db.execute(
+      'SELECT attempt_id, score, total_points, percentage, completed_at FROM quiz_attempts WHERE attempt_id=? AND quiz_id=? AND user_id=?',
+      [attemptId, quizId, userId]);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+    // Fetch quiz title
+    const [[quiz]] = await db.execute('SELECT title FROM quizzes WHERE quiz_id=?', [quizId]);
+
+    // Fetch all questions with options, annotated with user's selections
+    const [questions] = await db.execute(
+      'SELECT question_id, question_text, points, sort_order FROM quiz_questions WHERE quiz_id=? ORDER BY sort_order',
+      [quizId]);
+
+    const review = [];
+    for (const q of questions) {
+      const [opts] = await db.execute(
+        'SELECT option_id, option_text, is_correct, sort_order FROM quiz_options WHERE question_id=? ORDER BY sort_order',
+        [q.question_id]);
+      const [[userAns]] = await db.execute(
+        'SELECT option_id FROM quiz_attempt_answers WHERE attempt_id=? AND question_id=?',
+        [attemptId, q.question_id]);
+      const userOptionId = userAns ? userAns.option_id : null;
+
+      review.push({
+        question_id: q.question_id,
+        question_text: q.question_text,
+        points: q.points,
+        options: opts.map(o => ({
+          option_id: o.option_id,
+          option_text: o.option_text,
+          is_correct: !!o.is_correct,
+          user_selected: o.option_id === userOptionId,
+        })),
+      });
+    }
+
+    res.json({
+      attempt_id: attempt.attempt_id,
+      quiz_title: quiz?.title || 'Quiz',
+      score: attempt.score,
+      total_points: attempt.total_points,
+      percentage: attempt.percentage,
+      completed_at: attempt.completed_at,
+      review,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 /* ── DELETE /:id — delete own quiz ── */

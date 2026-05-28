@@ -2,10 +2,106 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import useFeedback from '../utils/useFeedback';
 import toast from 'react-hot-toast';
-import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight } from 'react-icons/fi';
+import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight, FiEye } from 'react-icons/fi';
 import * as cache from '../utils/cache';
 
-/* ── Create Quiz Modal ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════
+   ANSWER SHEET MODAL — full review of quiz attempt
+   Green ✓  = correct answer
+   Blue dot = user's selection
+   Red ✗    = wrong selection
+═══════════════════════════════════════════════════════════════ */
+const AnswerSheetModal = ({ quizTitle, score, totalPoints, percentage, review, onClose }) => {
+  return (
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal answer-sheet-modal">
+        {/* Header with score ring */}
+        <div className="modal-header">
+          <h3>{quizTitle || 'Answer Sheet'}</h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><FiX /></button>
+        </div>
+
+        {/* Score summary */}
+        <div className="answer-sheet-score">
+          <div className="quiz-score-ring">
+            <svg width={110} height={110}>
+              <circle cx={55} cy={55} r={45} fill="none" stroke="var(--border)" strokeWidth={8} />
+              <circle cx={55} cy={55} r={45} fill="none"
+                stroke={percentage >= 70 ? 'var(--success)' : percentage >= 40 ? '#f59e0b' : 'var(--danger)'}
+                strokeWidth={8}
+                strokeDasharray={`${2*Math.PI*45 * percentage / 100} ${2*Math.PI*45}`}
+                strokeLinecap="round"
+                transform="rotate(-90 55 55)" />
+              <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle"
+                fill="var(--text)" fontSize={20} fontWeight={800}>{percentage}%</text>
+              <text x="50%" y="64%" textAnchor="middle" dominantBaseline="middle"
+                fill="var(--text3)" fontSize={10}>{score}/{totalPoints}</text>
+            </svg>
+          </div>
+          <div className="answer-sheet-score-label">
+            {percentage >= 70 ? '🎉 Great job!' : percentage >= 40 ? '📚 Keep learning!' : '💪 Try again!'}
+          </div>
+        </div>
+
+        <div className="divider" />
+
+        {/* Questions list */}
+        <div className="answer-sheet-questions">
+          {review.map((q, idx) => {
+            const userOpt = q.options.find(o => o.user_selected);
+            const isCorrect = userOpt && userOpt.is_correct;
+
+            return (
+              <div key={q.question_id} className="answer-q-card">
+                <div className="answer-q-header">
+                  <span className={`answer-q-num ${isCorrect ? 'correct' : 'wrong'}`}>
+                    {isCorrect ? <FiCheck size={12} /> : <FiX size={12} />}
+                    Q{idx + 1}
+                  </span>
+                  <span className="answer-q-pts">{q.points} pt{q.points > 1 ? 's' : ''}</span>
+                </div>
+                <div className="answer-q-text">{q.question_text}</div>
+                <div className="answer-opts">
+                  {q.options.map(opt => {
+                    let cls = 'answer-opt';
+                    if (opt.is_correct && opt.user_selected) cls += ' correct selected';
+                    else if (opt.is_correct) cls += ' correct';
+                    else if (opt.user_selected) cls += ' wrong-selected';
+
+                    return (
+                      <div key={opt.option_id} className={cls}>
+                        <span className="answer-opt-indicator">
+                          {opt.is_correct && opt.user_selected && <FiCheck size={14} />}
+                          {opt.is_correct && !opt.user_selected && <FiCheck size={14} />}
+                          {!opt.is_correct && opt.user_selected && <FiX size={14} />}
+                          {!opt.is_correct && !opt.user_selected && <span className="answer-opt-dot" />}
+                        </span>
+                        <span className="answer-opt-text">{opt.option_text}</span>
+                        {opt.is_correct && <span className="answer-opt-label correct-label">Correct</span>}
+                        {opt.user_selected && !opt.is_correct && <span className="answer-opt-label your-label">Your answer</span>}
+                        {opt.is_correct && opt.user_selected && <span className="answer-opt-label your-label" style={{marginLeft: '.25rem'}}>✓ You</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <button className="btn btn-primary" style={{ marginTop: '1.25rem' }} onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CREATE QUIZ MODAL
+═══════════════════════════════════════════════════════════════ */
 const CreateQuizModal = ({ onClose, onCreated }) => {
   const { onTap, onSuccess, onError, onCreateSuccess } = useFeedback();
   const [form, setForm] = useState({ title: '', description: '', category: '', difficulty: 'Beginner' });
@@ -134,15 +230,16 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
   );
 };
 
-/* ── Take Quiz Modal ─────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════
+   TAKE QUIZ MODAL — now opens answer sheet after submission
+═══════════════════════════════════════════════════════════════ */
 const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   const { onTap, onSuccess, onError, onCelebration } = useFeedback();
   const [answers, setAnswers]       = useState({});
   const [results, setResults]       = useState(null);
   const [loading, setLoading]       = useState(false);
   const [current, setCurrent]       = useState(0);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [showLB, setShowLB]         = useState(false);
 
   const selectAnswer = (qId, optId) => {
     onTap(); // Haptic feedback on selection
@@ -163,11 +260,6 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
       toast.success(`Quiz completed! You scored ${data.percentage}%`);
       cache.invalidatePrefix('quizzes');
       onCompleted?.(data);
-      // fetch leaderboard in background
-      try {
-        const { data: lb } = await API.get(`/quizzes/${quiz.quiz_id}/leaderboard`);
-        setLeaderboard(lb);
-      } catch {}
     } catch(err) { 
       onError();
       toast.error(err.response?.data?.message || 'Failed to submit'); 
@@ -177,6 +269,20 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
 
   const q = quiz.questions[current];
   const total = quiz.questions.length;
+
+  // If we have results with review data, show AnswerSheetModal
+  if (results && results.review) {
+    return (
+      <AnswerSheetModal
+        quizTitle={quiz.title}
+        score={results.score}
+        totalPoints={results.total_points}
+        percentage={results.percentage}
+        review={results.review}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && !results && onClose()}>
@@ -231,7 +337,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
             </div>
           </>
         ) : (
-          /* Results view */
+          /* Fallback results if review somehow missing */
           <div className="quiz-results">
             <div className="quiz-score-ring">
               <svg width={140} height={140}>
@@ -254,45 +360,6 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
             <p style={{ textAlign:'center', color:'var(--text2)', fontSize:'0.9rem' }}>
               You got <strong>{results.score}</strong> out of <strong>{results.total_points}</strong> points
             </p>
-
-            {/* Per-question feedback */}
-            <div className="quiz-feedback" style={{ marginTop: '1.5rem' }}>
-              {quiz.questions.map((q, i) => {
-                const res = results.results?.find(r => Number(r.question_id) === Number(q.question_id));
-                return (
-                  <div key={q.question_id} className={`quiz-feedback-row ${res?.is_correct ? 'correct' : 'wrong'}`}>
-                    {res?.is_correct ? <FiCheck color="var(--success)" /> : <FiX color="var(--danger)" />}
-                    <span>{q.question_text}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {leaderboard.length > 0 && (
-              <div style={{ marginTop: '1.25rem' }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  style={{ width: '100%', marginBottom: '0.6rem' }}
-                  onClick={() => setShowLB(v => !v)}
-                >
-                  🏆 {showLB ? 'Hide' : 'Show'} Leaderboard ({leaderboard.length})
-                </button>
-                {showLB && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 240, overflowY: 'auto' }}>
-                    {leaderboard.map((entry, idx) => (
-                      <div key={entry.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', background: 'var(--bg2)', borderRadius: 8, fontSize: '0.85rem' }}>
-                        <span style={{ fontFamily: 'Space Mono, monospace', fontWeight: 700, color: idx === 0 ? 'var(--medal-gold)' : idx === 1 ? 'var(--medal-silver)' : idx === 2 ? 'var(--medal-bronze)' : 'var(--text3)', minWidth: 20 }}>
-                          #{idx + 1}
-                        </span>
-                        <span style={{ flex: 1, fontWeight: 600 }}>{entry.first_name || entry.username}</span>
-                        <span style={{ fontFamily: 'Space Mono, monospace', color: 'var(--accent2)', fontWeight: 700 }}>{entry.best_pct}%</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             <button className="btn btn-primary" style={{ marginTop: '1.5rem' }} onClick={onClose}>
               Done
             </button>
@@ -303,11 +370,15 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   );
 };
 
-/* ── Main Quizzes Page ───────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN QUIZZES PAGE
+═══════════════════════════════════════════════════════════════ */
 import { SkelQuizzes } from '../components/Skeleton.jsx';
 
 const Quizzes = () => {
   const { user } = useAuth();
+  const { onTap } = useFeedback();
   const [quizzes, setQuizzes]       = useState([]);
   const [profile, setProfile]       = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -318,6 +389,9 @@ const Quizzes = () => {
   const [catFilter, setCatFilter]   = useState('');
   const [diffFilter, setDiffFilter] = useState('');
   const [activeTab, setActiveTab]   = useState('all');
+  // State for viewing past answer sheets
+  const [reviewData, setReviewData] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(null); // quiz_id being loaded
 
   const CATS = ['Real Talk', 'Experiments & Ideas', 'Loopholes & Fixes', 'Life Hacks', 'Youth & Education', 'Health & Body', 'Earth & Hands', 'Economy & Power'];
 
@@ -369,6 +443,26 @@ const Quizzes = () => {
       setQuizDetail(data);
       setActiveQuiz(data);
     } catch { toast.error('Failed to load quiz'); }
+  };
+
+  /* Fetch answer sheet for a past attempt */
+  const viewAnswerSheet = async (quiz) => {
+    onTap();
+    setReviewLoading(quiz.quiz_id);
+    try {
+      // First fetch the quiz detail to get the attempt_id
+      const { data: quizData } = await API.get(`/quizzes/${quiz.quiz_id}`);
+      if (!quizData.user_attempt?.attempt_id) {
+        toast.error('No attempt found for this quiz');
+        setReviewLoading(null);
+        return;
+      }
+      const { data } = await API.get(`/quizzes/${quiz.quiz_id}/review/${quizData.user_attempt.attempt_id}`);
+      setReviewData(data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load answer sheet');
+    }
+    setReviewLoading(null);
   };
 
   const myQuizzes = quizzes.filter(q => q.creator === user.username);
@@ -463,9 +557,21 @@ const Quizzes = () => {
                   <span>{quiz.attempt_count} attempts</span>
                   <span>by <strong>{quiz.first_name || quiz.creator}</strong> {quiz.is_expert ? '⭐' : ''}</span>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => openQuiz(quiz)}>
-                  {Number(quiz.user_attempted) > 0 ? 'Retake' : 'Start'} <FiChevronRight size={14} />
-                </button>
+                <div className="quiz-card-actions">
+                  {Number(quiz.user_attempted) > 0 && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => viewAnswerSheet(quiz)}
+                      disabled={reviewLoading === quiz.quiz_id}
+                    >
+                      <FiEye size={13} />
+                      {reviewLoading === quiz.quiz_id ? 'Loading…' : 'Answers'}
+                    </button>
+                  )}
+                  <button className="btn btn-primary btn-sm" onClick={() => openQuiz(quiz)}>
+                    {Number(quiz.user_attempted) > 0 ? 'Retake' : 'Start'} <FiChevronRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -478,6 +584,18 @@ const Quizzes = () => {
           quiz={activeQuiz}
           onClose={() => setActiveQuiz(null)}
           onCompleted={() => { setActiveQuiz(null); fetchAll(true); }}
+        />
+      )}
+
+      {/* Answer sheet modal for past attempts */}
+      {reviewData && (
+        <AnswerSheetModal
+          quizTitle={reviewData.quiz_title}
+          score={reviewData.score}
+          totalPoints={reviewData.total_points}
+          percentage={Number(reviewData.percentage)}
+          review={reviewData.review}
+          onClose={() => setReviewData(null)}
         />
       )}
     </div>
