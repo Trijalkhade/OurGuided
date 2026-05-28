@@ -48,3 +48,23 @@
 .mobile-nav-item.logout {
   color: var(--danger);
 }
+
+/* Notification badge on mobile bell */
+.mobile-bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 10px;
+  font-size: .5rem;
+  font-weight: 700;
+  padding: 0 3px;
+  min-width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  border: 1.5px solid var(--bg2);
+}

@@ -161,9 +161,22 @@ router.post('/login', async (req, res) => {
 // Get current user (validate token)
 router.get('/me', auth, async (req, res) => {
   try {
-    const [rows] = await db.execute('SELECT public_id AS user_id, username, email FROM users WHERE user_id = ?', [req.user.user_id]);
-    if (!rows.length) return res.status(404).json({ message: 'User not found' });
-    res.json(rows[0]);
+    const [[user]] = await db.execute(
+      `SELECT u.public_id AS user_id, u.username, u.email,
+              ui.first_name, ui.last_name, ui.photo, ui.photo_url
+       FROM users u
+       LEFT JOIN user_info ui ON u.user_id = ui.user_id
+       WHERE u.user_id = ?`,
+      [req.user.user_id]
+    );
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Format photo: S3 URL takes priority, then binary blob
+    const { formatPhoto } = require('../utils/dbHelpers');
+    user.photo = formatPhoto(user.photo, user.photo_url);
+    delete user.photo_url;
+
+    res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

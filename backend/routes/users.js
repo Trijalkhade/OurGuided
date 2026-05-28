@@ -271,4 +271,54 @@ router.post('/request-expert', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+/* ── DELETE /account — permanently delete user account ── */
+router.delete('/account', auth, async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ message: 'Password is required to delete your account' });
+
+  const bcrypt = require('bcryptjs');
+  let conn;
+  try {
+    const userId = req.user.user_id;
+
+    // Verify password
+    const [[user]] = await db.execute('SELECT password FROM users WHERE user_id=?', [userId]);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(403).json({ message: 'Incorrect password' });
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    // Delete all user-related data
+    await conn.execute('DELETE FROM user_phone WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_skills WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_certifications WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_education WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_interests WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM notifications WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM study_streak WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM study_sessions WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM connections WHERE requester_id=? OR receiver_id=?', [userId, userId]);
+    await conn.execute('DELETE FROM user_watch WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM likes WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM comments WHERE user_id=?', [userId]);
+    await conn.execute('UPDATE posts SET is_deleted=TRUE WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_profile WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM user_info WHERE user_id=?', [userId]);
+    await conn.execute('DELETE FROM users WHERE user_id=?', [userId]);
+
+    await conn.commit();
+
+    // Clear session cookie
+    res.clearCookie('token');
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    await conn?.rollback();
+    res.status(500).json({ message: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 module.exports = router;
