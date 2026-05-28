@@ -5,6 +5,7 @@ import { FiHeart, FiSend, FiBookmark, FiEyeOff, FiArrowLeft } from 'react-icons/
 import { formatDistanceToNow } from 'date-fns';
 import ImageModal from '../components/ImageModal';
 import { LikersModal } from '../components/PostAnalytics';
+import { renderLinkedContent } from '../utils/linkify.jsx';
 import toast from 'react-hot-toast';
 import AvatarWithFallback from '../components/Avatar.jsx';
 import * as cache from '../utils/cache';
@@ -186,7 +187,7 @@ const PostDetail = () => {
         {post.category && <span className="post-category-tag">{post.category}</span>}
 
         {post.content && (
-          <div className="post-content" style={{ fontSize: '1rem', lineHeight: 1.7 }}>{post.content}</div>
+          <div className="post-content" style={{ fontSize: '1rem', lineHeight: 1.7 }}>{renderLinkedContent(post.content)}</div>
         )}
 
         {post.tags && (

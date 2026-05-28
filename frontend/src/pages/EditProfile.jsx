@@ -13,6 +13,12 @@ const EditProfile = () => {
 
   const [activeTab,    setActiveTab]    = useState(defaultTab);
   const [loading,      setLoading]      = useState(false);
+
+  // Reactively update tab when URL search params change
+  useEffect(() => {
+    const tab = searchParams.get('tab') || 'profile';
+    setActiveTab(tab);
+  }, [searchParams]);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [dragActive,   setDragActive]   = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);

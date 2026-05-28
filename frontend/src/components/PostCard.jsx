@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 import useFeedback from '../utils/useFeedback';
+import { renderLinkedContent } from '../utils/linkify.jsx';
 import ImageModal from './ImageModal';
 import { LikersModal, CommentsModal } from './PostAnalytics';
 import toast from 'react-hot-toast';
@@ -213,7 +214,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
         </div>
 
         {post.category && <span className="post-category-tag">{post.category}</span>}
-        {post.content && <div className="post-content">{post.content}</div>}
+        {post.content && <div className="post-content">{renderLinkedContent(post.content)}</div>}
 
         {post.tags && (
           <div className="post-tags">

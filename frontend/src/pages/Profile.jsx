@@ -8,7 +8,7 @@ import { SkelProfile } from '../components/Skeleton.jsx';
 import AvatarWithFallback from '../components/Avatar.jsx';
 import {
   FiEdit, FiAward, FiBook, FiCode,
-  FiUserPlus, FiUserCheck, FiUserX
+  FiUserPlus, FiUserCheck, FiUserX, FiPhone
 } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -244,6 +244,24 @@ const Profile = () => {
           <div className="profile-badges">
             {String(profile.badges).split(',').map(b => b.trim()).filter(Boolean).map(b => (
               <span key={b} className="badge">🏅 {b}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Phone numbers — visible publicly */}
+        {profile.phones && profile.phones.length > 0 && (
+          <div className="profile-phones">
+            <div className="profile-phones-title">
+              <FiPhone size={11} /> Contact
+            </div>
+            {profile.phones.map(p => (
+              <div key={p.phone_id} className="profile-phone-item">
+                <FiPhone size={14} className="profile-phone-icon" />
+                <div>
+                  <div className="profile-phone-number">{p.phone_no}</div>
+                  {p.about && <div className="profile-phone-label">{p.about}</div>}
+                </div>
+              </div>
             ))}
           </div>
         )}

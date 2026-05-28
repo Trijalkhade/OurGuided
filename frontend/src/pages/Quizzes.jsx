@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import useFeedback from '../utils/useFeedback';
 import toast from 'react-hot-toast';
-import { FiPlus, FiCheck, FiX, FiAward, FiTrash2, FiChevronRight, FiEye } from 'react-icons/fi';
+import { FiPlus, FiCheck, FiX, FiTrash2, FiChevronRight, FiEye, FiAlertTriangle, FiSend } from 'react-icons/fi';
 import * as cache from '../utils/cache';
 
 
@@ -240,9 +240,10 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   const [results, setResults]       = useState(null);
   const [loading, setLoading]       = useState(false);
   const [current, setCurrent]       = useState(0);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const selectAnswer = (qId, optId) => {
-    onTap(); // Haptic feedback on selection
+    onTap();
     setAnswers(prev => ({ ...prev, [qId]: optId }));
   };
 
@@ -256,7 +257,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
       const payload = Object.entries(answers).map(([question_id, option_id]) => ({ question_id, option_id }));
       const { data } = await API.post(`/quizzes/${quiz.quiz_id}/submit`, { answers: payload });
       setResults(data);
-      onCelebration(); // Celebration feedback on quiz completion
+      onCelebration();
       toast.success(`Quiz completed! You scored ${data.percentage}%`);
       cache.invalidatePrefix('quizzes');
       onCompleted?.(data);
@@ -267,8 +268,42 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
     finally { setLoading(false); }
   };
 
+  /* Submit with partial answers (for exit confirmation) */
+  const handleSubmitPartial = async () => {
+    onTap();
+    setShowExitConfirm(false);
+    setLoading(true);
+    try {
+      const payload = Object.entries(answers).map(([question_id, option_id]) => ({ question_id, option_id }));
+      const { data } = await API.post(`/quizzes/${quiz.quiz_id}/submit`, { answers: payload });
+      setResults(data);
+      onCelebration();
+      toast.success(`Quiz submitted! You scored ${data.percentage}%`);
+      cache.invalidatePrefix('quizzes');
+      onCompleted?.(data);
+    } catch(err) {
+      onError();
+      toast.error(err.response?.data?.message || 'Failed to submit');
+    }
+    finally { setLoading(false); }
+  };
+
+  /* X button handler — show confirmation if questions are unanswered */
+  const handleAttemptClose = () => {
+    const answered = Object.keys(answers).length;
+    if (answered === 0) {
+      // No answers given, safe to close directly
+      onClose();
+      return;
+    }
+    // Some answers exist — show confirmation popup
+    setShowExitConfirm(true);
+  };
+
   const q = quiz.questions[current];
   const total = quiz.questions.length;
+  const answeredCount = Object.keys(answers).length;
+  const allAnswered = answeredCount === total;
 
   // If we have results with review data, show AnswerSheetModal
   if (results && results.review) {
@@ -285,88 +320,125 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && !results && onClose()}>
-      <div className="modal" style={{ maxWidth: 600 }}>
-        {!results ? (
-          <>
-            <div className="modal-header">
-              <div>
-                <h3 style={{ fontSize: '1rem' }}>{quiz.title}</h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>
-                  Question {current+1} of {total}
-                </span>
+    <>
+      {/* Quiz modal — overlay click does NOT close */}
+      <div className="modal-overlay">
+        <div className="modal" style={{ maxWidth: 600 }}>
+          {!results ? (
+            <>
+              <div className="modal-header">
+                <div>
+                  <h3 style={{ fontSize: '1rem' }}>{quiz.title}</h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>
+                    Question {current+1} of {total}
+                  </span>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={handleAttemptClose}><FiX /></button>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={onClose}><FiX /></button>
-            </div>
 
-            {/* Progress bar */}
-            <div className="quiz-progress">
-              <div className="quiz-progress-fill" style={{ width: `${((current+1)/total)*100}%` }} />
-            </div>
+              {/* Progress bar */}
+              <div className="quiz-progress">
+                <div className="quiz-progress-fill" style={{ width: `${((current+1)/total)*100}%` }} />
+              </div>
 
-            <div className="quiz-question-text">{q.question_text}</div>
+              <div className="quiz-question-text">{q.question_text}</div>
 
-            <div className="quiz-options">
-              {q.options.map(opt => (
-                <button key={opt.option_id}
-                  className={`quiz-option ${answers[q.question_id] === opt.option_id ? 'selected' : ''}`}
-                  onClick={() => selectAnswer(q.question_id, opt.option_id)}>
-                  {opt.option_text}
-                </button>
-              ))}
-            </div>
+              <div className="quiz-options">
+                {q.options.map(opt => (
+                  <button key={opt.option_id}
+                    className={`quiz-option ${answers[q.question_id] === opt.option_id ? 'selected' : ''}`}
+                    onClick={() => selectAnswer(q.question_id, opt.option_id)}>
+                    {opt.option_text}
+                  </button>
+                ))}
+              </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-              {current > 0 && (
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setCurrent(c => c-1)}>
-                  ← Back
-                </button>
-              )}
-              {current < total - 1 ? (
-                <button className="btn btn-primary" style={{ flex: 1 }}
-                  onClick={() => setCurrent(c => c+1)}
-                  disabled={!answers[q.question_id]}>
-                  Next →
-                </button>
-              ) : (
-                <button className="btn btn-primary" style={{ flex: 1 }}
-                  onClick={handleSubmit} disabled={loading || !answers[q.question_id]}>
-                  {loading ? 'Submitting…' : 'Submit Quiz'}
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+                {current > 0 && (
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setCurrent(c => c-1)}>
+                    ← Back
+                  </button>
+                )}
+                {current < total - 1 ? (
+                  <button className="btn btn-primary" style={{ flex: 1 }}
+                    onClick={() => setCurrent(c => c+1)}
+                    disabled={!answers[q.question_id]}>
+                    Next →
+                  </button>
+                ) : (
+                  <button className="btn btn-primary" style={{ flex: 1 }}
+                    onClick={handleSubmit} disabled={loading || !answers[q.question_id]}>
+                    {loading ? 'Submitting…' : 'Submit Quiz'}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Fallback results if review somehow missing */
+            <div className="quiz-results">
+              <div className="quiz-score-ring">
+                <svg width={140} height={140}>
+                  <circle cx={70} cy={70} r={58} fill="none" stroke="var(--border)" strokeWidth={10} />
+                  <circle cx={70} cy={70} r={58} fill="none"
+                    stroke={results.percentage >= 70 ? 'var(--success)' : results.percentage >= 40 ? '#f59e0b' : 'var(--danger)'}
+                    strokeWidth={10}
+                    strokeDasharray={`${2*Math.PI*58 * results.percentage / 100} ${2*Math.PI*58}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 70 70)" />
+                  <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle"
+                    fill="var(--text)" fontSize={24} fontWeight={800}>{results.percentage}%</text>
+                  <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle"
+                    fill="var(--text3)" fontSize={11}>score</text>
+                </svg>
+              </div>
+              <h3 style={{ textAlign:'center', margin: '1rem 0 0.25rem' }}>
+                {results.percentage >= 70 ? '🎉 Great job!' : results.percentage >= 40 ? '📚 Keep learning!' : '💪 Try again!'}
+              </h3>
+              <p style={{ textAlign:'center', color:'var(--text2)', fontSize:'0.9rem' }}>
+                You got <strong>{results.score}</strong> out of <strong>{results.total_points}</strong> points
+              </p>
+              <button className="btn btn-primary" style={{ marginTop: '1.5rem' }} onClick={onClose}>
+                Done
+              </button>
             </div>
-          </>
-        ) : (
-          /* Fallback results if review somehow missing */
-          <div className="quiz-results">
-            <div className="quiz-score-ring">
-              <svg width={140} height={140}>
-                <circle cx={70} cy={70} r={58} fill="none" stroke="var(--border)" strokeWidth={10} />
-                <circle cx={70} cy={70} r={58} fill="none"
-                  stroke={results.percentage >= 70 ? 'var(--success)' : results.percentage >= 40 ? '#f59e0b' : 'var(--danger)'}
-                  strokeWidth={10}
-                  strokeDasharray={`${2*Math.PI*58 * results.percentage / 100} ${2*Math.PI*58}`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 70 70)" />
-                <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle"
-                  fill="var(--text)" fontSize={24} fontWeight={800}>{results.percentage}%</text>
-                <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle"
-                  fill="var(--text3)" fontSize={11}>score</text>
-              </svg>
-            </div>
-            <h3 style={{ textAlign:'center', margin: '1rem 0 0.25rem' }}>
-              {results.percentage >= 70 ? '🎉 Great job!' : results.percentage >= 40 ? '📚 Keep learning!' : '💪 Try again!'}
-            </h3>
-            <p style={{ textAlign:'center', color:'var(--text2)', fontSize:'0.9rem' }}>
-              You got <strong>{results.score}</strong> out of <strong>{results.total_points}</strong> points
-            </p>
-            <button className="btn btn-primary" style={{ marginTop: '1.5rem' }} onClick={onClose}>
-              Done
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* ── Exit Confirmation Popup ── */}
+      {showExitConfirm && (
+        <div className="quiz-exit-overlay">
+          <div className="quiz-exit-card">
+            <div className="quiz-exit-icon">
+              <FiAlertTriangle size={26} />
+            </div>
+            <div className="quiz-exit-title">
+              {allAnswered ? 'Submit your quiz?' : 'Leave this quiz?'}
+            </div>
+            <div className="quiz-exit-desc">
+              {allAnswered ? (
+                <>You've answered all <strong>{total}</strong> questions. Would you like to submit?</>
+              ) : (
+                <>You've answered <strong>{answeredCount}</strong> of <strong>{total}</strong> questions. Unanswered questions will be marked wrong.</>
+              )}
+            </div>
+            <div className="quiz-exit-actions">
+              {answeredCount > 0 && (
+                <button className="quiz-exit-btn submit" onClick={handleSubmitPartial}>
+                  <FiSend size={15} /> Submit ({answeredCount}/{total} answered)
+                </button>
+              )}
+              <button className="quiz-exit-btn close-quiz" onClick={() => { setShowExitConfirm(false); onClose(); }}>
+                <FiX size={15} /> Discard & Close
+              </button>
+              <button className="quiz-exit-btn cancel" onClick={() => setShowExitConfirm(false)}>
+                Continue Quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -380,7 +452,6 @@ const Quizzes = () => {
   const { user } = useAuth();
   const { onTap } = useFeedback();
   const [quizzes, setQuizzes]       = useState([]);
-  const [profile, setProfile]       = useState(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -404,19 +475,9 @@ const Quizzes = () => {
       if (catFilter)  params.set('category', catFilter);
       if (diffFilter) params.set('difficulty', diffFilter);
 
-      // Try to get profile from cache
-      const cachedProfile = cache.get(`profile:${user.user_id}`);
-
-      const [qRes, pRes] = await Promise.all([
-        API.get(`/quizzes?${params}`),
-        cachedProfile && !cachedProfile.stale
-          ? Promise.resolve({ data: cachedProfile.data })
-          : API.get(`/users/${user.user_id}`),
-      ]);
-      setQuizzes(qRes.data);
-      setProfile(pRes.data);
-      cache.set(quizCacheKey, qRes.data, 'quizzes');
-      cache.set(`profile:${user.user_id}`, pRes.data, 'profile_own');
+      const { data } = await API.get(`/quizzes?${params}`);
+      setQuizzes(data);
+      cache.set(quizCacheKey, data, 'quizzes');
     } catch { 
       if (!silent) { setError(true); toast.error('Failed to load quizzes'); }
     }
@@ -426,10 +487,8 @@ const Quizzes = () => {
   useEffect(() => {
     // Check cache for quizzes
     const cachedQuizzes = cache.get(quizCacheKey);
-    const cachedProfile = cache.get(`profile:${user.user_id}`);
-    if (cachedQuizzes && cachedProfile) {
+    if (cachedQuizzes) {
       setQuizzes(cachedQuizzes.data);
-      setProfile(cachedProfile.data);
       setLoading(false);
       fetchAll(true); // silent revalidate
     } else {
@@ -476,32 +535,12 @@ const Quizzes = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div className="page-header" style={{ marginBottom: 0 }}>
           <h2>Quizzes</h2>
-          <p>Challenge what you know · Only experts can create quizzes</p>
+          <p>Challenge what you know · Create and share quizzes</p>
         </div>
-        {profile?.is_expert && (
-          <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-            <FiPlus /> Create Quiz
-          </button>
-        )}
+        <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
+          <FiPlus /> Create Quiz
+        </button>
       </div>
-
-      {/* Expert badge / request */}
-      {!profile?.is_expert && (
-        <div className="expert-banner">
-          <FiAward size={20} />
-          <div>
-            <strong>Become an Expert</strong>
-            <p>Earn 100+ points through the Usage Tracker to unlock quiz creation.</p>
-          </div>
-          <span className="expert-pts">{Math.min(Number(profile?.total_knowledge || 0).toFixed(1), 100)} / 100 pts</span>
-        </div>
-      )}
-      {profile?.is_expert && (
-        <div className="expert-banner success">
-          <FiAward size={20} />
-          <strong>Verified Expert — You can create quizzes!</strong>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="quiz-filters">
@@ -520,11 +559,9 @@ const Quizzes = () => {
         <button className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
           All Quizzes ({quizzes.length})
         </button>
-        {profile?.is_expert && (
-          <button className={`tab ${activeTab === 'my' ? 'active' : ''}`} onClick={() => setActiveTab('my')}>
-            My Quizzes ({myQuizzes.length})
-          </button>
-        )}
+        <button className={`tab ${activeTab === 'my' ? 'active' : ''}`} onClick={() => setActiveTab('my')}>
+          My Quizzes ({myQuizzes.length})
+        </button>
       </div>
 
       {/* Quiz List */}

@@ -2030,3 +2030,184 @@
   display: flex;
   gap: 0.5rem;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   QUIZ EXIT CONFIRMATION POPUP
+═══════════════════════════════════════════════════════════════ */
+.quiz-exit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(5, 9, 22, .55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: qe-fade .18s ease;
+}
+
+@keyframes qe-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.quiz-exit-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 2rem 2.2rem;
+  max-width: 380px;
+  width: 92vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  text-align: center;
+  animation: qe-scale .22s ease;
+}
+
+@keyframes qe-scale {
+  from { transform: scale(.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.quiz-exit-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, .12);
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  font-size: 1.5rem;
+}
+
+.quiz-exit-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: .45rem;
+}
+
+.quiz-exit-desc {
+  font-size: .84rem;
+  color: var(--text3);
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+
+.quiz-exit-desc strong {
+  color: var(--text2);
+  font-weight: 700;
+}
+
+.quiz-exit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.quiz-exit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  padding: .7rem 1rem;
+  border-radius: var(--r);
+  font-size: .88rem;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all var(--t);
+  font-family: inherit;
+}
+
+.quiz-exit-btn.submit {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.quiz-exit-btn.submit:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.quiz-exit-btn.close-quiz {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.quiz-exit-btn.close-quiz:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.quiz-exit-btn.cancel {
+  background: var(--bg3);
+  color: var(--text2);
+  border-color: var(--border);
+}
+
+.quiz-exit-btn.cancel:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE PHONE CONTACT SECTION
+═══════════════════════════════════════════════════════════════ */
+.profile-phones {
+  margin-top: .75rem;
+  padding: .6rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.profile-phones-title {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .72rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: .55rem;
+}
+
+.profile-phone-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .7rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  margin-bottom: .35rem;
+  transition: border-color var(--t);
+}
+
+.profile-phone-item:hover {
+  border-color: var(--accent);
+}
+
+.profile-phone-icon {
+  color: var(--accent2);
+  flex-shrink: 0;
+}
+
+.profile-phone-number {
+  font-weight: 600;
+  font-size: .88rem;
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.profile-phone-label {
+  font-size: .72rem;
+  color: var(--text3);
+  margin-top: .1rem;
+}
+

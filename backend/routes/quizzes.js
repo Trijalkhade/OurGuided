@@ -95,11 +95,6 @@ router.post('/', auth, globalActionLimiter, async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    // Verify expert
-    const [[profile]] = await conn.execute('SELECT is_expert FROM user_profile WHERE user_id=?', [userId]);
-    if (!profile?.is_expert)
-      return res.status(403).json({ message: 'Only verified experts can create quizzes' });
-
     await conn.beginTransaction();
     const [r] = await conn.execute(
       'INSERT INTO quizzes (creator_id,title,description,category,difficulty,is_published) VALUES (?,?,?,?,?,TRUE)',
