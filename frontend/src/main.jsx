@@ -12,6 +12,7 @@ import "./styles/modals.css";
 import "./styles/components.css";
 import "./styles/mobile.css";
 import "./styles/responsive.css";
+import "./styles/landing.css";
 
 const rootElement = document.getElementById("root");
 

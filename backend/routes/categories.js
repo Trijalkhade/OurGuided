@@ -4,6 +4,17 @@ const db      = require('../db');
 const auth    = require('../middleware/auth');
 const { buildPostSelect, processImages } = require('../utils/dbHelpers');
 
+/* ── GET /public — public category list (no auth) ── */
+router.get('/public', async (req, res) => {
+  try {
+    const [cats] = await db.execute(
+      `SELECT c.category_id, c.name, c.icon, c.description,
+              (SELECT COUNT(*) FROM posts p WHERE p.category=c.name AND p.is_pending=FALSE AND p.is_deleted=FALSE) AS post_count
+       FROM categories c ORDER BY c.category_id`);
+    res.json(cats);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 /* ── GET / — list all categories with post counts ── */
 router.get('/', auth, async (req, res) => {
   try {

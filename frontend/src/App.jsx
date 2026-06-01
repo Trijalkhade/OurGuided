@@ -4,11 +4,15 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { AuthGateProvider } from './context/AuthGateContext';
 
 // Eager imports — needed on first render
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LandingPage from './pages/LandingPage';
 import Layout from './components/Layout';
+import PublicLayout from './components/PublicLayout';
+import AuthGateModal from './components/AuthGateModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy imports — loaded on-demand when user navigates
@@ -28,6 +32,7 @@ const Moderation = lazy(() => import('./pages/Moderation'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const PublicFeed = lazy(() => import('./pages/PublicFeed'));
 
 
 const LoadingScreen = () => (
@@ -51,6 +56,13 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/feed" replace />;
 };
 
+/* Landing route: shows landing for guests, redirects logged-in users to feed */
+const LandingRoute = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  return user ? <Navigate to="/feed" replace /> : <LandingPage />;
+};
+
 const AppContent = () => {
   const { theme } = useTheme();
 
@@ -66,14 +78,26 @@ const AppContent = () => {
           }
         }}
       />
+      {/* Auth Gate Modal — available everywhere */}
+      <AuthGateModal />
       <Routes>
+        {/* Landing page — value-first entry point */}
+        <Route path="/" element={<LandingRoute />} />
+
+        {/* Public browse mode — unauthenticated feed */}
+        <Route element={<PublicLayout />}>
+          <Route path="/browse" element={<PublicFeed />} />
+        </Route>
+
+        {/* Auth pages */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/cookies" element={<CookiePolicy />} />
+
+        {/* Authenticated app */}
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route index element={<Navigate to="/feed" />} />
           <Route path="feed" element={<Feed />} />
           <Route path="explore" element={<Explore />} />
           <Route path="quizzes" element={<Quizzes />} />
@@ -96,15 +120,17 @@ const AppContent = () => {
 const App = () => (
   <ThemeProvider>
     <AuthProvider>
-      <FeedbackProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <Suspense fallback={<LoadingScreen />}>
-              <AppContent />
-            </Suspense>
-          </ErrorBoundary>
-        </BrowserRouter>
-      </FeedbackProvider>
+      <AuthGateProvider>
+        <FeedbackProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen />}>
+                <AppContent />
+              </Suspense>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </FeedbackProvider>
+      </AuthGateProvider>
     </AuthProvider>
   </ThemeProvider>
 );

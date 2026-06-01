@@ -38,6 +38,7 @@
       "/",
       "/login",
       "/register",
+      "/browse",
       "/explore",
       "/feed",
       "/leaderboard",

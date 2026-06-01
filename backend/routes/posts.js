@@ -12,6 +12,10 @@ function haltOnTimeout(req, res, next) {
   if (!req.timedout) next();
 }
 
+/* ── PUBLIC ROUTES (no auth) ── */
+router.get('/public',       postController.getPublicFeed);
+router.get('/public/stats', postController.getPublicStats);
+
 /* ── POST ROUTES ── */
 
 router.get('/feed',        auth, postController.getFeed);

@@ -524,3 +524,68 @@ exports.getPostLikers = async (req, res) => {
     if (conn) conn.release();
   }
 };
+
+/* ── Public Feed (No Auth) ───────────────────────────────────────────────── */
+exports.getPublicFeed = async (req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const [posts] = await conn.query(
+      `SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
+              p.text AS content, p.post_date, p.category,
+              p.media_type, p.small_img, p.image_url, p.video_url AS video, p.is_anonymous,
+              GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
+              u.username,
+              COALESCE(ui.first_name,'') AS first_name,
+              COALESCE(ui.last_name,'')  AS last_name,
+              COALESCE(ui.photo,'')      AS photo,
+              ui.photo_url,
+              (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
+              0 AS user_liked,
+              (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
+              0 AS user_saved
+       FROM posts p
+       INNER JOIN users u     ON p.user_id  = u.user_id
+       LEFT  JOIN user_info ui ON p.user_id = ui.user_id
+       LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
+       WHERE p.is_deleted = FALSE AND p.is_pending = FALSE
+       GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 10`
+    );
+
+    await batchExtraImages(conn, posts);
+    posts.forEach(p => {
+      processImages(p);
+      // Strip author info for anonymous posts
+      if (p.is_anonymous) {
+        p.username = 'Anonymous';
+        p.first_name = '';
+        p.last_name = '';
+        p.photo = null;
+      }
+    });
+    res.json(posts);
+  } catch (err) {
+    console.error('PUBLIC FEED ERROR:', err.message);
+    res.status(500).json({ message: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+/* ── Public Stats (No Auth) ──────────────────────────────────────────────── */
+exports.getPublicStats = async (req, res) => {
+  try {
+    const [[{ postCount }]] = await db.execute(
+      'SELECT COUNT(*) as postCount FROM posts WHERE is_deleted = FALSE AND is_pending = FALSE'
+    );
+    const [[{ userCount }]] = await db.execute(
+      'SELECT COUNT(*) as userCount FROM users'
+    );
+    const [[{ quizCount }]] = await db.execute(
+      'SELECT COUNT(*) as quizCount FROM quizzes WHERE is_deleted = FALSE AND is_published = TRUE'
+    );
+    res.json({ posts: postCount, users: userCount, quizzes: quizCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

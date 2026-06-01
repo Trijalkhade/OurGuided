@@ -4,6 +4,7 @@ import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiLis
 import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
+import { useAuthGate } from '../context/AuthGateContext';
 import useFeedback from '../utils/useFeedback';
 import { renderLinkedContent } from '../utils/linkify.jsx';
 import ImageModal from './ImageModal';
@@ -98,9 +99,10 @@ const PlaylistModal = ({ postId, onClose }) => {
 };
 
 /* ── PostCard ──────────────────────────────────────────────────── */
-const PostCard = ({ post, onDelete, onUnsave }) => {
+const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
   const { user }  = useAuth();
   const navigate  = useNavigate();
+  const { requireAuth } = useAuthGate();
   const { onTap, onSuccess, onLikeSuccess, onDeleteSuccess } = useFeedback();
 
   const [liked,      setLiked]      = useState(Number(post.user_liked) > 0);
@@ -120,6 +122,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   ];
 
   const handleLike = async () => {
+    if (readOnly) { requireAuth('like this post'); return; }
     onTap();
     try {
       const { data } = await API.post(`/posts/${post.post_id}/like`);
@@ -132,6 +135,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
   };
 
   const handleSave = async () => {
+    if (readOnly) { requireAuth('save this post'); return; }
     onTap();
     try {
       const { data } = await API.post(`/posts/${post.post_id}/watchlist`);
@@ -265,17 +269,28 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
 
           {/* Split comment button: left=navigate to post, right=quick preview modal */}
           <div className="action-btn action-btn-split">
-            <Link
-              to={`/post/${post.post_id}`}
-              className="icon-part"
-              aria-label="Go to comments"
-              title="View full post"
-            >
-              <FiMessageCircle size={15}/>
-            </Link>
+            {readOnly ? (
+              <button
+                className="icon-part"
+                onClick={() => requireAuth('comment on this post')}
+                aria-label="Go to comments"
+                title="View full post"
+              >
+                <FiMessageCircle size={15}/>
+              </button>
+            ) : (
+              <Link
+                to={`/post/${post.post_id}`}
+                className="icon-part"
+                aria-label="Go to comments"
+                title="View full post"
+              >
+                <FiMessageCircle size={15}/>
+              </Link>
+            )}
             <button
               className="count-part"
-              onClick={() => setShowComments(true)}
+              onClick={() => readOnly ? requireAuth('view comments') : setShowComments(true)}
               title={`${commentCount} comment${commentCount !== 1 ? 's' : ''} — quick preview`}
               aria-label="Preview comments"
             >
@@ -286,7 +301,7 @@ const PostCard = ({ post, onDelete, onUnsave }) => {
           <div className="post-actions-right">
             <button
               className="action-btn"
-              onClick={() => setShowPlaylistModal(true)}
+              onClick={() => readOnly ? requireAuth('add to playlist') : setShowPlaylistModal(true)}
               title="Add to playlist"
               aria-label="Add to playlist"
             >
