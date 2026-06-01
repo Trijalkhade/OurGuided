@@ -81,16 +81,15 @@ const LandingPage = () => {
       {/* ── Rewards CTA ──────────────────────────────────── */}
       <section className="landing-rewards">
         <h2 className="landing-rewards-title">
-          🏆 Top voices win real rewards
+          Real talk. Real rewards. Real competition.
         </h2>
         <p className="landing-rewards-sub">
-          The best contributors on OurGuided don't just earn respect — they win
-          actual prizes. Climb the leaderboard, share quality content, and unlock:
+          Your voice has value. Prove it. Top voices earn recognition & rewards. Climb the leaderboard, share quality content, and unlock:
         </p>
         <div className="rewards-badges">
-          <span className="reward-badge">💰 Cash Prizes</span>
-          <span className="reward-badge">🎧 Earbuds</span>
-          <span className="reward-badge">📱 iPhones</span>
+          <span className="reward-badge">💸 Cash Prizes</span>
+          <span className="reward-badge">ᖰ ᖳ Airpods</span>
+          <span className="reward-badge"> iPhones</span>
           <span className="reward-badge">🎁 And more</span>
         </div>
         <button
@@ -154,20 +153,40 @@ const LandingPage = () => {
 
 /* ── Interactive Feature Bubbles ──────────────────────────────── */
 const BUBBLE_DATA = [
-  { emoji: '💰', text: 'Win real cash & prizes', color: 'rgba(245, 158, 11, 0.25)', border: 'rgba(245, 158, 11, 0.5)' },
-  { emoji: '🧠', text: 'Actually learn something', color: 'rgba(124, 58, 237, 0.25)', border: 'rgba(124, 58, 237, 0.5)' },
-  { emoji: '🚫', text: 'No doomscrolling', color: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.45)' },
-  { emoji: '💬', text: 'Real opinions only', color: 'rgba(59, 91, 250, 0.25)', border: 'rgba(59, 91, 250, 0.5)' },
-  { emoji: '🏆', text: 'Leaderboard → iPhones', color: 'rgba(16, 185, 129, 0.25)', border: 'rgba(16, 185, 129, 0.5)' },
-  { emoji: '🔥', text: 'NEET paper leaked?', color: 'rgba(251, 146, 60, 0.25)', border: 'rgba(251, 146, 60, 0.5)' },
-  { emoji: '⚡', text: 'Build, don\'t watch', color: 'rgba(6, 182, 212, 0.25)', border: 'rgba(6, 182, 212, 0.5)' },
-  { emoji: '🎯', text: 'Knowledge > Clout', color: 'rgba(168, 85, 247, 0.25)', border: 'rgba(168, 85, 247, 0.5)' },
-  { emoji: '🛡️', text: 'Zero algorithm bs', color: 'rgba(99, 102, 241, 0.2)', border: 'rgba(99, 102, 241, 0.45)' },
-  { emoji: '🧪', text: 'Quiz battles', color: 'rgba(236, 72, 153, 0.25)', border: 'rgba(236, 72, 153, 0.5)' },
-  { emoji: '👥', text: 'Meet real pros', color: 'rgba(34, 211, 238, 0.2)', border: 'rgba(34, 211, 238, 0.45)' },
-  { emoji: '📈', text: 'Your feed = growth', color: 'rgba(74, 222, 128, 0.2)', border: 'rgba(74, 222, 128, 0.45)' },
-  { emoji: '🎧', text: 'Win earbuds too', color: 'rgba(192, 132, 252, 0.25)', border: 'rgba(192, 132, 252, 0.5)' },
-  { emoji: '🗣️', text: 'Question everything', color: 'rgba(251, 191, 36, 0.2)', border: 'rgba(251, 191, 36, 0.45)' },
+  // Real Talk / Authenticity Layer
+  { text: 'Build, don\'t watch', color: 'rgba(245, 158, 11, 0.25)', border: 'rgba(245, 158, 11, 0.5)' },
+  { text: 'No doomscrolling', color: 'rgba(124, 58, 237, 0.25)', border: 'rgba(124, 58, 237, 0.5)' },
+  { text: 'Your feed = growth', color: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.45)' },
+  { text: 'Actually learn something', color: 'rgba(59, 91, 250, 0.25)', border: 'rgba(59, 91, 250, 0.5)' },
+  { text: 'Knowledge > Clout', color: 'rgba(16, 185, 129, 0.25)', border: 'rgba(16, 185, 129, 0.5)' },
+  { text: 'Question everything', color: 'rgba(251, 146, 60, 0.25)', border: 'rgba(251, 146, 60, 0.5)' },
+  { text: 'Real opinions only', color: 'rgba(6, 182, 212, 0.25)', border: 'rgba(6, 182, 212, 0.5)' },
+  { text: 'Zero algorithm bs', color: 'rgba(168, 85, 247, 0.25)', border: 'rgba(168, 85, 247, 0.5)' },
+  { text: 'Meet real pros', color: 'rgba(99, 102, 241, 0.2)', border: 'rgba(99, 102, 241, 0.45)' },
+
+  // Gamification / Reward Layer
+  { text: 'Win AirPods, not by chance', color: 'rgba(236, 72, 153, 0.25)', border: 'rgba(236, 72, 153, 0.5)' },
+  { text: 'Top the leaderboard, get rewards', color: 'rgba(34, 211, 238, 0.2)', border: 'rgba(34, 211, 238, 0.45)' },
+  { text: 'Compete on what you know', color: 'rgba(74, 222, 128, 0.2)', border: 'rgba(74, 222, 128, 0.45)' },
+  { text: 'Your insights earn rewards', color: 'rgba(192, 132, 252, 0.25)', border: 'rgba(192, 132, 252, 0.5)' },
+  { text: 'Exclusive access for top voices', color: 'rgba(251, 191, 36, 0.2)', border: 'rgba(251, 191, 36, 0.45)' },
+  { text: 'Rank up, unlock rewards', color: 'rgba(245, 158, 11, 0.25)', border: 'rgba(245, 158, 11, 0.5)' },
+  { text: 'Best contributors win big', color: 'rgba(124, 58, 237, 0.25)', border: 'rgba(124, 58, 237, 0.5)' },
+  { text: '50k in prizes up for grabs', color: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.45)' },
+  { text: 'First to 100 posts wins', color: 'rgba(59, 91, 250, 0.25)', border: 'rgba(59, 91, 250, 0.5)' },
+
+  // Marketing / FOMO Layer
+  { text: '1% of voices dominate the feed', color: 'rgba(16, 185, 129, 0.25)', border: 'rgba(16, 185, 129, 0.5)' },
+  { text: 'Create once, earn forever', color: 'rgba(251, 146, 60, 0.25)', border: 'rgba(251, 146, 60, 0.5)' },
+  { text: 'Compete against the nation', color: 'rgba(6, 182, 212, 0.25)', border: 'rgba(6, 182, 212, 0.5)' },
+  { text: 'Your hot take could win you ₹50k', color: 'rgba(168, 85, 247, 0.25)', border: 'rgba(168, 85, 247, 0.5)' },
+  { text: 'Early contributors get extra points', color: 'rgba(99, 102, 241, 0.2)', border: 'rgba(99, 102, 241, 0.45)' },
+  { text: 'Verified experts get special badges', color: 'rgba(236, 72, 153, 0.25)', border: 'rgba(236, 72, 153, 0.5)' },
+  { text: 'Top 10 get featured, top 100 get paid', color: 'rgba(34, 211, 238, 0.2)', border: 'rgba(34, 211, 238, 0.45)' },
+  { text: 'Go viral, get verified', color: 'rgba(74, 222, 128, 0.2)', border: 'rgba(74, 222, 128, 0.45)' },
+  { text: 'Spot the loopholes', color: 'rgba(192, 132, 252, 0.25)', border: 'rgba(192, 132, 252, 0.5)' },
+  { text: 'Call the BS', color: 'rgba(251, 191, 36, 0.2)', border: 'rgba(251, 191, 36, 0.45)' },
+  { text: 'No sugar-coating', color: 'rgba(245, 158, 11, 0.25)', border: 'rgba(245, 158, 11, 0.5)' },
 ];
 
 const FeatureBubbles = () => {
@@ -217,7 +236,7 @@ const FeatureBubbles = () => {
         const dx = b.x + b.width / 2 - mx;
         const dy = b.y + b.height / 2 - my;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const repelRadius = 150;
+        const repelRadius = 120;
 
         if (dist < repelRadius && dist > 1) {
           const force = (repelRadius - dist) / repelRadius * 2.5;
@@ -251,7 +270,15 @@ const FeatureBubbles = () => {
         b.vx += (Math.random() - 0.5) * 0.06;
         b.vy += (Math.random() - 0.5) * 0.06;
 
-        // Boundary bounce
+        // Wall repulsion (keep away from edges)
+        const wallMargin = 35;
+        const forceMult = 0.01;
+        if (b.x < wallMargin) b.vx += (wallMargin - b.x) * forceMult;
+        if (b.x + b.width > cw - wallMargin) b.vx -= (b.x + b.width - (cw - wallMargin)) * forceMult;
+        if (b.y < wallMargin) b.vy += (wallMargin - b.y) * forceMult;
+        if (b.y + b.height > ch - wallMargin) b.vy -= (b.y + b.height - (ch - wallMargin)) * forceMult;
+
+        // Hard Boundary bounce (fallback)
         if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx) * 0.5; }
         if (b.x + b.width > cw) { b.x = cw - b.width; b.vx = -Math.abs(b.vx) * 0.5; }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy) * 0.5; }
@@ -323,7 +350,6 @@ const FeatureBubbles = () => {
             borderColor: b.border,
           }}
         >
-          <span className="bubble-emoji">{b.emoji}</span>
           <span className="bubble-text">{b.text}</span>
         </div>
       ))}
