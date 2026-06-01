@@ -364,10 +364,21 @@ const PublicFeedPreview = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('/api/posts/public')
-      .then(res => setPosts(res.data.slice(0, 5)))
-      .catch(() => { })
-      .finally(() => setLoading(false));
+    // Delay fetching posts so the main page (and heavy bubble physics) renders instantly first
+    const timer = setTimeout(() => {
+      axios.get('/api/posts/public')
+        .then(res => {
+          // Only show pure text posts to keep the feed clean
+          const textOnlyPosts = res.data.filter(
+            post => post.media_type !== 'image' && post.media_type !== 'video' && !post.image && !post.video
+          );
+          setPosts(textOnlyPosts.slice(0, 5));
+        })
+        .catch(() => { })
+        .finally(() => setLoading(false));
+    }, 600); // 600ms artificial delay
+
+    return () => clearTimeout(timer);
   }, []);
 
   if (loading) {
@@ -410,81 +421,42 @@ const PreviewCard = ({ post }) => {
       background: 'rgba(255,255,255,0.04)',
       border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 16,
-      overflow: 'hidden',
+      padding: '1.25rem 1.5rem',
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
     }}>
-      {/* Header + text */}
-      <div style={{ padding: '1.25rem 1.5rem 0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--gradient-start), var(--gradient-end))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0,
-          }}>
-            {post.is_anonymous ? '?' : (displayName[0] || '?').toUpperCase()}
-          </div>
-          <div>
-            <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{displayName}</div>
-            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.72rem' }}>
-              {post.category || 'Post'}
-            </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'linear-gradient(135deg, var(--gradient-start), var(--gradient-end))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0,
+        }}>
+          {post.is_anonymous ? '?' : (displayName[0] || '?').toUpperCase()}
+        </div>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{displayName}</div>
+          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.72rem' }}>
+            {post.category || 'Post'}
           </div>
         </div>
-        {post.content && (
-          <div style={{
-            color: 'rgba(255,255,255,0.7)',
-            fontSize: '0.88rem',
-            lineHeight: 1.6,
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
-            {post.content}
-          </div>
-        )}
       </div>
-
-      {/* Image */}
-      {post.media_type === 'image' && post.image && (
-        <img
-          src={post.image}
-          alt="Post media"
-          loading="lazy"
-          style={{
-            width: '100%',
-            maxHeight: 300,
-            objectFit: 'cover',
-            display: 'block',
-          }}
-        />
+      {post.content && (
+        <div style={{
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: '0.88rem',
+          lineHeight: 1.6,
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          marginBottom: '0.75rem',
+        }}>
+          {post.content}
+        </div>
       )}
-
-      {/* Video */}
-      {post.media_type === 'video' && post.video && (
-        post.video.match(/\.(mp4|webm|mov|m4v)(\?|$)/i) ? (
-          <video
-            controls
-            style={{ width: '100%', maxHeight: 300, display: 'block', background: '#000' }}
-          >
-            <source src={post.video} />
-          </video>
-        ) : (
-          <iframe
-            src={post.video}
-            title="Embedded video"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ width: '100%', height: 240, border: 'none', display: 'block' }}
-          />
-        )
-      )}
-
-      {/* Footer */}
       <div style={{
-        display: 'flex', gap: '1.2rem', padding: '0.65rem 1.5rem',
+        display: 'flex', gap: '1.2rem',
         color: 'rgba(255,255,255,0.35)', fontSize: '0.78rem',
       }}>
         <span>❤️ {post.like_count || 0}</span>
