@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth, API } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PostCard from '../components/PostCard.jsx';
 import useFeedback from '../utils/useFeedback';
+import useEngagementTracker from '../utils/useEngagementTracker';
 import { SkelFeed } from '../components/Skeleton.jsx';
 import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -291,6 +292,22 @@ const Feed = () => {
 
   if (!user) return null;
 
+  // ── Engagement tracker ──────────────────────────────────────────────────────
+  const { registerPost, registerVideo, unregisterPost } = useEngagementTracker();
+
+  // Track locally hidden (reported) posts
+  const [hiddenPostIds, setHiddenPostIds] = useState(new Set());
+  const handleReport = useCallback((postId) => {
+    setHiddenPostIds(prev => {
+      const next = new Set(prev);
+      next.add(postId);
+      return next;
+    });
+  }, []);
+
+  // Filter out hidden posts
+  const visiblePosts = posts.filter(p => !hiddenPostIds.has(p.post_id));
+
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleDelete = (postId) => setPosts(prev => prev.filter(p => p.post_id !== postId));
 
@@ -339,15 +356,22 @@ const Feed = () => {
             Try Again
           </button>
         </div>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <div className="empty-state">
           <h3>No posts yet</h3>
           <p>Be the first to share something!</p>
         </div>
       ) : (
         <>
-          {posts.map(post => (
-            <PostCard key={post.post_id} post={post} onDelete={handleDelete} />
+          {visiblePosts.map(post => (
+            <PostCard
+              key={post.post_id}
+              post={post}
+              onDelete={handleDelete}
+              onReport={handleReport}
+              postRef={registerPost}
+              videoRef={registerVideo}
+            />
           ))}
           {hasMore && (
             <button className="btn btn-secondary" style={{ width: '100%', marginTop: '1rem' }}

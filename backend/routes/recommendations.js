@@ -167,6 +167,8 @@ function clusterUsers(users, k = 5) {
    XGBoost-Lite (Gradient Boosted Decision Trees Mock)
    In a production system, you would train a model offline and load
    the tree structure here. This is a pre-trained mock ensemble.
+   
+   Updated: Now includes trees 6–11 for engagement signals.
 ══════════════════════════════════════════════════════════════════ */
 function xgboostPredict(features) {
   let logOdds = 0.0; // Base prediction (logit)
@@ -205,14 +207,74 @@ function xgboostPredict(features) {
     logOdds += 0.5;
   }
 
+  // ── NEW: Engagement Signal Trees ──────────────────────────────
+
+  // Tree 6: Watch Time — mild positive at 10s, strong at 30s
+  if (features.watchTimeSeconds > 30) {
+    logOdds += 1.0;
+  } else if (features.watchTimeSeconds > 10) {
+    logOdds += 0.6;
+  }
+
+  // Tree 7: Impression without engagement (shown but not liked = implicit negative)
+  if (features.wasImpressed && !features.wasLiked && features.watchTimeSeconds < 5) {
+    logOdds -= 0.3;
+  }
+
+  // Tree 8: Scroll Depth (deep read = positive)
+  if (features.scrollDepthPct > 75) {
+    logOdds += 0.6;
+  }
+
+  // Tree 9: Video Completion & Share (strongest positive signals)
+  if (features.videoCompletionPct > 80) {
+    logOdds += 1.0;
+  }
+  if (features.hasShared) {
+    logOdds += 2.0;
+  }
+
+  // Tree 10: Profile Click & Repeat View
+  if (features.hasProfileClick) {
+    logOdds += 0.8;
+  }
+  if (features.repeatViewCount >= 3) {
+    logOdds += 1.2;
+  } else if (features.repeatViewCount >= 2) {
+    logOdds += 0.5;
+  }
+
+  // Tree 11: Comment Length, Device & Time Bucket
+  if (features.commentLengthAboveAvg) {
+    logOdds += 0.5;
+  }
+  if (features.deviceTypeMatch) {
+    logOdds += 0.2;
+  }
+  if (features.timeBucketMatch) {
+    logOdds += 0.2;
+  }
+
   // Convert log odds to probability (Sigmoid function)
   return 1 / (1 + Math.exp(-logOdds));
 }
 
 /* ══════════════════════════════════════════════════════════════════
    FEATURE EXTRACTION & SCORING (ML Pipeline Stage 2)
+   engagementData = {
+     watchTimes: Map<postId, seconds>,
+     impressions: Map<postId, { device_type, time_bucket }>,
+     scrollDepths: Map<postId, depthPct>,
+     videoCompletions: Map<postId, completionPct>,
+     shares: Set<postId>,
+     profileClicks: Set<postId>,
+     repeatViews: Map<postId, viewCount>,
+     commentLengths: Map<category, avgLength>,
+     userTimeBucket: string,        // current time bucket
+     userDeviceType: string         // current device type
+   }
 ══════════════════════════════════════════════════════════════════ */
-function extractFeaturesAndScore(post, uVec, connectedUsers) {
+function extractFeaturesAndScore(post, uVec, connectedUsers, engagementData) {
   const postTags = (post.tags || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
   const postCat  = (post.category || '').toLowerCase();
   
@@ -246,6 +308,31 @@ function extractFeaturesAndScore(post, uVec, connectedUsers) {
   if (uVec.knowledge > 100 && postTags.includes('advanced')) difficultyMatch = true;
   if (uVec.knowledge < 20  && postTags.includes('beginner')) difficultyMatch = true;
 
+  // ── NEW: Engagement Features ──────────────────────────────────
+  const pid = post.post_id;
+  const watchTimeSeconds    = engagementData.watchTimes?.get(pid) || 0;
+  const wasImpressed        = engagementData.impressions?.has(pid) || false;
+  const wasLiked            = Number(post.user_liked) > 0;
+  const scrollDepthPct      = engagementData.scrollDepths?.get(pid) || 0;
+  const videoCompletionPct  = engagementData.videoCompletions?.get(pid) || 0;
+  const hasShared           = engagementData.shares?.has(pid) || false;
+  const hasProfileClick     = engagementData.profileClicks?.has(pid) || false;
+  const repeatViewCount     = engagementData.repeatViews?.get(pid) || 0;
+
+  // Comment length: check if user's avg comment length in this category is above global avg
+  const userCatAvg  = engagementData.commentLengths?.get(postCat) || 0;
+  const globalAvg   = 50; // reasonable baseline chars
+  const commentLengthAboveAvg = userCatAvg > globalAvg;
+
+  // Device type match: does the post's media type suit the user's device?
+  const userDevice = engagementData.userDeviceType || 'desktop';
+  const postIsVideo = post.media_type === 'video';
+  const deviceTypeMatch = (postIsVideo && userDevice === 'mobile') || (!postIsVideo && userDevice === 'desktop');
+
+  // Time bucket match: does the impression time bucket for similar posts match current?
+  const impData = engagementData.impressions?.get(pid);
+  const timeBucketMatch = impData ? (impData.time_bucket === engagementData.userTimeBucket) : false;
+
   const features = {
     categoryMatch,
     tagSkillOverlap,
@@ -253,7 +340,19 @@ function extractFeaturesAndScore(post, uVec, connectedUsers) {
     ageHours,
     isConnection,
     isColdStart,
-    difficultyMatch
+    difficultyMatch,
+    // New engagement features
+    watchTimeSeconds,
+    wasImpressed,
+    wasLiked,
+    scrollDepthPct,
+    videoCompletionPct,
+    hasShared,
+    hasProfileClick,
+    repeatViewCount,
+    commentLengthAboveAvg,
+    deviceTypeMatch,
+    timeBucketMatch
   };
 
   return xgboostPredict(features);
@@ -284,16 +383,20 @@ router.get('/feed', auth, async (req, res) => {
     );
     const connectedUsers = new Set(conns.map(c => c.uid));
 
-    // FETCH CANDIDATES: Latest + Collaborative Filtering
+    // FETCH CANDIDATES: Latest + Collaborative Filtering (exclude hidden/reported)
     const [candidateIds] = await conn.query(`
-      (SELECT post_id FROM posts WHERE is_pending=FALSE AND is_deleted=FALSE ORDER BY post_date DESC LIMIT 300)
+      (SELECT post_id FROM posts WHERE is_pending=FALSE AND is_deleted=FALSE
+       AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=posts.post_id AND user_id=? AND is_hidden=TRUE)
+       ORDER BY post_date DESC LIMIT 300)
       UNION
       (SELECT p.post_id FROM posts p JOIN likes l ON p.post_id=l.post_id 
        WHERE l.user_id IN (
          SELECT l2.user_id FROM likes l1 JOIN likes l2 ON l1.post_id=l2.post_id 
          WHERE l1.user_id=? AND l2.user_id!=?
-       ) AND p.is_pending=FALSE AND p.is_deleted=FALSE LIMIT 200)
-    `, [userId, userId]);
+       ) AND p.is_pending=FALSE AND p.is_deleted=FALSE
+       AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=p.post_id AND user_id=? AND is_hidden=TRUE)
+       LIMIT 200)
+    `, [userId, userId, userId, userId]);
     
     if (candidateIds.length === 0) {
       return res.json({ posts: [], has_more: false });
@@ -302,7 +405,7 @@ router.get('/feed', auth, async (req, res) => {
     const ids = candidateIds.map(c => c.post_id);
     const [candidates] = await conn.query(
       `${buildPostSelect(userId)}
-       WHERE p.post_id IN (${ids.join(',')})
+       WHERE p.post_id IN (${ids.join(',')}) AND pr_hide.report_id IS NULL
        GROUP BY p.post_id`
     );
 
@@ -325,9 +428,60 @@ router.get('/feed', auth, async (req, res) => {
       }
     }
 
+    // ── FETCH ENGAGEMENT DATA for scoring ──────────────────────────
+    const engagementData = {
+      watchTimes: new Map(),
+      impressions: new Map(),
+      scrollDepths: new Map(),
+      videoCompletions: new Map(),
+      shares: new Set(),
+      profileClicks: new Set(),
+      repeatViews: new Map(),
+      commentLengths: new Map(),
+      userDeviceType: 'desktop',
+      userTimeBucket: 'morning'
+    };
+
+    if (ids.length > 0) {
+      const ph = ids.map(() => '?').join(',');
+      const baseParams = [userId, ...ids];
+
+      const [
+        [wtRows], [impRows], [sdRows], [vcRows], [shRows], [pcRows], [rvRows], [clRows]
+      ] = await Promise.all([
+        conn.query(`SELECT post_id, seconds FROM post_watch_time WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT post_id, device_type, time_bucket FROM post_impressions WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT post_id, depth_pct FROM post_scroll_depth WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT post_id, completion_pct FROM post_video_completion WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT DISTINCT post_id FROM post_shares WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT post_id FROM post_profile_clicks WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT post_id, view_count FROM post_repeat_views WHERE user_id=? AND post_id IN (${ph})`, baseParams),
+        conn.query(`SELECT p.category, AVG(CHAR_LENGTH(c.content)) AS avg_len FROM comments c JOIN posts p ON c.post_id=p.post_id WHERE c.user_id=? AND c.is_deleted=FALSE AND p.category IS NOT NULL GROUP BY p.category`, [userId])
+      ]);
+
+      for (const r of wtRows)  engagementData.watchTimes.set(r.post_id, r.seconds);
+      for (const r of impRows) engagementData.impressions.set(r.post_id, { device_type: r.device_type, time_bucket: r.time_bucket });
+      for (const r of sdRows)  engagementData.scrollDepths.set(r.post_id, r.depth_pct);
+      for (const r of vcRows)  engagementData.videoCompletions.set(r.post_id, r.completion_pct);
+      for (const r of shRows)  engagementData.shares.add(r.post_id);
+      for (const r of pcRows)  engagementData.profileClicks.add(r.post_id);
+      for (const r of rvRows)  engagementData.repeatViews.set(r.post_id, r.view_count);
+      for (const r of clRows)  engagementData.commentLengths.set((r.category || '').toLowerCase(), parseFloat(r.avg_len) || 0);
+
+      // Detect current user's device & time bucket from request
+      const ua = req.headers['user-agent'] || '';
+      if (/mobile|android|iphone|ipod/i.test(ua)) engagementData.userDeviceType = 'mobile';
+      else if (/ipad|tablet/i.test(ua)) engagementData.userDeviceType = 'tablet';
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12)       engagementData.userTimeBucket = 'morning';
+      else if (hour >= 12 && hour < 17)  engagementData.userTimeBucket = 'afternoon';
+      else if (hour >= 17 && hour < 21)  engagementData.userTimeBucket = 'evening';
+      else                               engagementData.userTimeBucket = 'night';
+    }
+
     // SCORE & RANK (must happen before processImages swaps IDs to UUIDs,
     // because scoring checks connectedUsers set of integer IDs)
-    const scored = candidates.map(p => ({ ...p, _score: extractFeaturesAndScore(p, uVec, connectedUsers) }));
+    const scored = candidates.map(p => ({ ...p, _score: extractFeaturesAndScore(p, uVec, connectedUsers, engagementData) }));
     scored.sort((a, b) => b._score - a._score || new Date(b.post_date) - new Date(a.post_date));
 
     // RE-RANKING: Diversity & Anti-Fatigue (also uses integer user_id)

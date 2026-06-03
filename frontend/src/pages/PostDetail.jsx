@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { API, useAuth } from '../context/AuthContext';
-import { FiHeart, FiSend, FiBookmark, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
+import { FiHeart, FiSend, FiBookmark, FiEyeOff, FiArrowLeft, FiShare2, FiFlag } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import ImageModal from '../components/ImageModal';
 import { LikersModal } from '../components/PostAnalytics';
 import { renderLinkedContent } from '../utils/linkify.jsx';
+import useEngagementTracker from '../utils/useEngagementTracker';
 import toast from 'react-hot-toast';
 import AvatarWithFallback from '../components/Avatar.jsx';
 import * as cache from '../utils/cache';
@@ -47,6 +48,11 @@ const PostDetail = () => {
   const [lightboxOpen, setLightboxOpen]   = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  /* Engagement tracking */
+  const { registerPost, registerVideo } = useEngagementTracker();
+  const postCardRef = useRef(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+
   useEffect(() => {
     const fetchPost = async (silent = false) => {
       if (!silent) setLoading(true);
@@ -67,6 +73,20 @@ const PostDetail = () => {
       fetchPost();
     }
   }, [id]);
+
+  // Record repeat view + register for engagement tracking
+  useEffect(() => {
+    if (id) {
+      API.post('/engagement/repeat-view', { postId: id }).catch(() => {});
+    }
+  }, [id]);
+
+  // Register post element for engagement tracking once loaded
+  useEffect(() => {
+    if (post && postCardRef.current) {
+      registerPost(id, postCardRef.current);
+    }
+  }, [post, id, registerPost]);
 
   const handleLike = async () => {
     if (liking) return;
@@ -89,6 +109,44 @@ const PostDetail = () => {
       cache.update(`post:${id}`, p => p ? { ...p, user_saved: data.saved } : p);
       toast.success(data.saved ? 'Saved to watchlist' : 'Removed from watchlist');
     } catch { toast.error('Failed to save'); }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/post/${id}`;
+    let method = 'copy_link';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Check this out on OurGuided', url: shareUrl });
+        method = 'web_share';
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Link copied!');
+      }
+      API.post('/engagement/share', { postId: id, method }).catch(() => {});
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Link copied!');
+        API.post('/engagement/share', { postId: id, method: 'copy_link' }).catch(() => {});
+      }
+    }
+  };
+
+  const handleProfileClick = useCallback(() => {
+    if (post?.user_id) {
+      API.post('/engagement/profile-click', {
+        postId: id,
+        authorId: post.user_id
+      }).catch(() => {});
+    }
+  }, [id, post?.user_id]);
+
+  const handleReport = async (reason) => {
+    try {
+      await API.post('/engagement/report', { postId: id, reason });
+      toast.success('Post hidden from your feed');
+      navigate('/feed');
+    } catch { toast.error('Failed to report'); }
   };
 
   const handleComment = async (e) => {
@@ -159,14 +217,14 @@ const PostDetail = () => {
           <FiArrowLeft size={14} /> Back
         </button>
       </div>
-      <div className="post-card" style={{ marginBottom: '1.5rem' }}>
+      <div className="post-card" style={{ marginBottom: '1.5rem' }} ref={postCardRef}>
 
         {/* Header */}
         <div className="post-header">
           {post.is_anonymous && !isOwn ? (
             <div className="avatar">?</div>
           ) : (
-            <Link to={`/profile/${post.user_id}`}>
+            <Link to={`/profile/${post.user_id}`} onClick={handleProfileClick}>
               <AvatarWithFallback photo={post.photo} username={displayName} />
             </Link>
           )}
@@ -176,7 +234,7 @@ const PostDetail = () => {
                 Anonymous <span className="anon-label"><FiEyeOff size={10} /> hidden</span>
               </div>
             ) : (
-              <Link to={`/profile/${post.user_id}`} className="post-user-name">{displayName}</Link>
+              <Link to={`/profile/${post.user_id}`} className="post-user-name" onClick={handleProfileClick}>{displayName}</Link>
             )}
             <div className="post-date">
               {post.post_date ? formatDistanceToNow(new Date(post.post_date), { addSuffix: true }) : ''}
@@ -227,7 +285,8 @@ const PostDetail = () => {
         {/* Video */}
         {post.media_type === 'video' && post.video && (
           post.video.endsWith('.mp4') || post.video.endsWith('.webm') ? (
-            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 400 }}>
+            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 400 }}
+              ref={el => { if (el) registerVideo(id, el); }}>
               <source src={post.video} />
             </video>
           ) : (
@@ -263,12 +322,42 @@ const PostDetail = () => {
             {post.comments?.length || 0} comment{(post.comments?.length || 0) !== 1 ? 's' : ''}
           </span>
           <div className="post-actions-right">
+            <button className="action-btn" onClick={handleShare} title="Share post" aria-label="Share post">
+              <FiShare2 size={15} />
+            </button>
             <button className={`action-btn${saved ? ' saved' : ''}`} onClick={handleSave} title="Save to watchlist">
               <FiBookmark size={15} />
             </button>
+            {!isOwn && (
+              <button className="action-btn" onClick={() => setShowReportModal(true)} title="Report / Hide" aria-label="Report or hide post">
+                <FiFlag size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowReportModal(false)}>
+          <div className="modal" style={{ maxWidth: 340 }}>
+            <div className="modal-header">
+              <h3><FiFlag size={15} style={{ marginRight: 6 }}/>Report / Hide Post</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowReportModal(false)}>✕</button>
+            </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text3)', marginBottom: '0.6rem' }}>
+              This post will be hidden from your feed.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              {['not_interested', 'spam', 'offensive', 'misleading', 'other'].map(r => (
+                <button key={r} onClick={() => handleReport(r)} className="report-reason-btn">
+                  {r === 'not_interested' ? '😐 Not interested' : r === 'spam' ? '🚫 Spam' : r === 'offensive' ? '⚠️ Offensive' : r === 'misleading' ? '🤔 Misleading' : '📝 Other'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments */}
       <div className="info-card">

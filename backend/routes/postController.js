@@ -41,7 +41,7 @@ exports.getFeed = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    let where = 'WHERE p.is_deleted = FALSE AND p.is_pending = FALSE';
+    let where = 'WHERE p.is_deleted = FALSE AND p.is_pending = FALSE AND pr_hide.report_id IS NULL';
     const params = [];
     if (cat) { where += ' AND p.category = ?'; params.push(cat); }
 
@@ -159,7 +159,7 @@ exports.searchPosts = async (req, res) => {
     conn = await db.getConnection();
     const [posts] = await conn.query(
       `${buildPostSelect(userId)}
-       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE
+       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE AND pr_hide.report_id IS NULL
          AND (p.text LIKE ? OR pt.tag LIKE ? OR p.category LIKE ?)
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
       [like, like, like]);

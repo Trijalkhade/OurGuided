@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiList, FiX } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiBookmark, FiTrash2, FiEyeOff, FiPlus, FiList, FiX, FiShare2, FiFlag } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
@@ -98,12 +98,70 @@ const PlaylistModal = ({ postId, onClose }) => {
   );
 };
 
+/* ── Report Modal ──────────────────────────────────────────────── */
+const REPORT_REASONS = [
+  { value: 'not_interested', label: 'Not interested', icon: '😐' },
+  { value: 'spam', label: 'Spam', icon: '🚫' },
+  { value: 'offensive', label: 'Offensive content', icon: '⚠️' },
+  { value: 'misleading', label: 'Misleading', icon: '🤔' },
+  { value: 'other', label: 'Other', icon: '📝' },
+];
+
+const ReportModal = ({ postId, onClose, onReport }) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleReport = async (reason) => {
+    setSubmitting(true);
+    try {
+      await API.post('/engagement/report', { postId, reason });
+      toast.success('Post hidden from your feed');
+      if (onReport) onReport(postId);
+      onClose();
+    } catch {
+      toast.error('Failed to report');
+    } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 340 }}>
+        <div className="modal-header">
+          <h3><FiFlag size={15} style={{ marginRight: 6 }}/>Report / Hide Post</h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close"><FiX/></button>
+        </div>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text3)', marginBottom: '0.6rem' }}>
+          This post will be hidden from your feed.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+          {REPORT_REASONS.map(r => (
+            <button
+              key={r.value}
+              onClick={() => handleReport(r.value)}
+              disabled={submitting}
+              className="report-reason-btn"
+            >
+              <span>{r.icon}</span> {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── PostCard ──────────────────────────────────────────────────── */
-const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
+const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readOnly = false }) => {
   const { user }  = useAuth();
   const navigate  = useNavigate();
   const { requireAuth } = useAuthGate();
   const { onTap, onSuccess, onLikeSuccess, onDeleteSuccess } = useFeedback();
+  const cardRef = useRef(null);
 
   const [liked,      setLiked]      = useState(Number(post.user_liked) > 0);
   const [likeCount,  setLikeCount]  = useState(Number(post.like_count) || 0);
@@ -112,9 +170,17 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showLikers,   setShowLikers]   = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const [lightboxOpen,  setLightboxOpen]  = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Forward card ref to parent for engagement tracking
+  useEffect(() => {
+    if (cardRef.current && postRef) {
+      postRef(post.post_id, cardRef.current);
+    }
+  }, [post.post_id, postRef]);
 
   const allImages = [
     ...(post.image ? [post.image] : []),
@@ -157,6 +223,41 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
     } catch { toast.error('Failed to delete'); }
   };
 
+  // ── Share handler ──
+  const handleShare = async () => {
+    if (readOnly) { requireAuth('share this post'); return; }
+    const shareUrl = `${window.location.origin}/post/${post.post_id}`;
+    let method = 'copy_link';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Check this out on OurGuided', url: shareUrl });
+        method = 'web_share';
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Link copied!');
+      }
+      // Record share event (fire-and-forget)
+      API.post('/engagement/share', { postId: post.post_id, method }).catch(() => {});
+    } catch (err) {
+      // User cancelled share dialog — not an error
+      if (err.name !== 'AbortError') {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Link copied!');
+        API.post('/engagement/share', { postId: post.post_id, method: 'copy_link' }).catch(() => {});
+      }
+    }
+  };
+
+  // ── Profile click tracker ──
+  const handleProfileClick = useCallback(() => {
+    if (!readOnly && post.user_id) {
+      API.post('/engagement/profile-click', {
+        postId: post.post_id,
+        authorId: post.user_id
+      }).catch(() => {});
+    }
+  }, [post.post_id, post.user_id, readOnly]);
+
   const isOwn = user?.user_id === post.user_id;
   const displayName = post.is_anonymous && !isOwn
     ? 'Anonymous'
@@ -191,12 +292,12 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
 
   return (
     <>
-      <div className="post-card">
+      <div className="post-card" ref={cardRef}>
         <div className="post-header">
           {post.is_anonymous && !isOwn ? (
             <AvatarWithFallback photo={null} username="?" />
           ) : (
-            <Link to={`/profile/${post.user_id}`}>
+            <Link to={`/profile/${post.user_id}`} onClick={handleProfileClick}>
               <AvatarWithFallback photo={post.photo} username={displayName} />
             </Link>
           )}
@@ -206,7 +307,7 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
                 Anonymous <span className="anon-label"><FiEyeOff size={10}/> hidden</span>
               </div>
             ) : (
-              <Link to={`/profile/${post.user_id}`} className="post-user-name">{displayName}</Link>
+              <Link to={`/profile/${post.user_id}`} className="post-user-name" onClick={handleProfileClick}>{displayName}</Link>
             )}
             <div className="post-date">{timeAgo}</div>
           </div>
@@ -236,7 +337,8 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
         )}
         {post.media_type === 'video' && post.video && (
           post.video.match(/\.(mp4|webm|mov|m4v)(\?|$)/i) ? (
-            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 420 }}>
+            <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 420 }}
+              ref={el => { if (el && videoRef) videoRef(post.post_id, el); }}>
               <source src={post.video}/>
             </video>
           ) : (
@@ -301,6 +403,14 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
           <div className="post-actions-right">
             <button
               className="action-btn"
+              onClick={handleShare}
+              title="Share post"
+              aria-label="Share post"
+            >
+              <FiShare2 size={15}/>
+            </button>
+            <button
+              className="action-btn"
               onClick={() => readOnly ? requireAuth('add to playlist') : setShowPlaylistModal(true)}
               title="Add to playlist"
               aria-label="Add to playlist"
@@ -315,6 +425,16 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
             >
               <FiBookmark size={15}/>
             </button>
+            {!isOwn && !readOnly && (
+              <button
+                className="action-btn"
+                onClick={() => setShowReportModal(true)}
+                title="Report / Hide post"
+                aria-label="Report or hide post"
+              >
+                <FiFlag size={14}/>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -333,6 +453,13 @@ const PostCard = ({ post, onDelete, onUnsave, readOnly = false }) => {
           postId={post.post_id}
           commentCount={commentCount}
           onClose={() => setShowComments(false)}
+        />
+      )}
+      {showReportModal && (
+        <ReportModal
+          postId={post.post_id}
+          onClose={() => setShowReportModal(false)}
+          onReport={onReport}
         />
       )}
     </>

@@ -1016,6 +1016,37 @@ img {
   background: var(--border);
 }
 
+/* ── Report / Hide Modal ── */
+.report-reason-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: var(--bg3);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text2);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--t);
+  text-align: left;
+}
+
+.report-reason-btn:hover {
+  border-color: var(--accent);
+  background: var(--accentbg);
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+.report-reason-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* About Modal */
 .about-modal {
   position: relative;

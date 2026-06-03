@@ -97,6 +97,7 @@ app.use('/api/playlists', require('./routes/playlists'));
 app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/search', require('./routes/search'));
+app.use('/api/engagement', require('./routes/engagement'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
 

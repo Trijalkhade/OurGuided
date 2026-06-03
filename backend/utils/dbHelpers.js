@@ -49,6 +49,8 @@ exports.processImages = (post) => {
 
 // Shared SQL for fetching posts with embedded counts
 // Now selects public_ids alongside internal IDs for API responses
+// Includes LEFT JOIN on post_reports so callers can filter hidden posts
+// with: AND pr_hide.report_id IS NULL
 exports.buildPostSelect = (userId) => {
   return `
     SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
@@ -67,7 +69,8 @@ exports.buildPostSelect = (userId) => {
     FROM posts p
     INNER JOIN users u     ON p.user_id  = u.user_id
     LEFT  JOIN user_info ui ON p.user_id = ui.user_id
-    LEFT  JOIN post_tags pt ON p.post_id = pt.post_id`;
+    LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
+    LEFT  JOIN post_reports pr_hide ON pr_hide.post_id = p.post_id AND pr_hide.user_id = ${Number(userId)} AND pr_hide.is_hidden = TRUE`;
 };
 
 // ── UUID Resolvers ──────────────────────────────────────────────────────────
