@@ -1,0 +1,37 @@
+site: ourguided.tech
+
+name: Ourguided Website
+
+description:
+ourguided.tech website content and services.
+
+# AI Usage Policies
+ai_crawling: disallowed
+ai_training: disallowed
+ai_summarization: allowed
+ai_indexing: allowed
+
+# Allowed AI Agents
+allowed_agents:
+Googlebot
+Bingbot
+Bravebot
+DuckDuckBot
+
+# Blocked AI Agents
+blocked_agents:
+Amazonbot
+Applebot-Extended
+Bytespider
+CCBot
+ClaudeBot
+CloudflareBrowserRenderingCrawler
+Google-Extended
+GPTBot
+meta-externalagent
+
+contact:
+https://ourguided.tech/contact
+
+sitemap:
+https://www.ourguided.tech/sitemap.xml

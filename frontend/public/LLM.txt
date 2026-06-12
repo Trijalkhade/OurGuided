@@ -1,0 +1,23 @@
+site: ourguided.tech
+name: OurGuided Real talk starts NOW!
+
+description:
+OurGuided Real talk starts NOW! provides products, services, and information at ourguided.tech.
+
+ai_usage: disallowed
+
+# Important Pages
+important_pages:
+https://ourguided.tech/
+https://ourguided.tech/about
+https://ourguided.tech/contact
+
+# Documentation
+documentation:
+https://ourguided.tech/docs
+
+contact:
+https://ourguided.tech/contact
+
+sitemap:
+https://www.ourguided.tech/sitemap.xml
