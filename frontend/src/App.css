@@ -77,10 +77,10 @@ html[data-theme="dark"] {
   --medal-silver: #94a3b8;
   --medal-bronze: #b45309;
   /* Chart/SVG colors */
-  --chart-primary: #5b7cff;
-  --chart-secondary: #06d9f5;
-  --chart-grid: #2d3748;
-  --chart-text: #7a8aae;
+  --chart-primary: #93c5fd; /* Light Blue */
+  --chart-secondary: #f87171; /* Red */
+  --chart-grid: #293652;
+  --chart-text: #9ca3af;
   /* State backgrounds */
   --success-bg: rgba(81, 216, 138, 0.15);
   --success-border: rgba(81, 216, 138, 0.4);

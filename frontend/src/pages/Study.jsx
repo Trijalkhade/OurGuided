@@ -1,16 +1,22 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { API } from '../context/AuthContext';
 import { useGrowth } from '../context/GrowthContext';
 import toast from 'react-hot-toast';
-import { FiClock, FiActivity, FiRefreshCw, FiSquare, FiTrendingUp, FiZap, FiAward, FiBarChart2 } from 'react-icons/fi';
+import {
+  FiClock, FiActivity, FiRefreshCw, FiSquare, FiTrendingUp,
+  FiZap, FiAward, FiBarChart2, FiMaximize2, FiMinimize2, FiCalendar
+} from 'react-icons/fi';
 import * as cache from '../utils/cache';
 import { SkelStudy } from '../components/Skeleton.jsx';
 import '../styles/analytics.css';
 
+/* ── Formatters ───────────────────────────────────────────────── */
 const fmt  = (n, d = 2) => Number(n || 0).toFixed(d);
 const fmtK = (n) => {
   const v = parseFloat(n || 0);
-  return v >= 1000 ? (v / 1000).toFixed(2) + 'k' : v.toFixed(2);
+  if (v >= 10000) return (v / 1000).toFixed(1) + 'k';
+  if (v >= 1000)  return (v / 1000).toFixed(2) + 'k';
+  return v.toFixed(2);
 };
 const formatDuration = (s) => {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
@@ -18,143 +24,371 @@ const formatDuration = (s) => {
     .filter(Boolean).join(':');
 };
 
-const KnowledgeLineChart = ({ data, year }) => {
-  const [hoverPoint, setHoverPoint] = useState(null);
-  
+/* ── CSS Variable Reader ──────────────────────────────────────── */
+const getCSSVar = (name) => {
+  if (typeof window === 'undefined') return '#3b5bfa';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#3b5bfa';
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   AWS-INSPIRED KNOWLEDGE CHART
+   Features:
+   - Crosshair cursor with vertical tracking line
+   - Dual data series (cumulative line + monthly bars)
+   - Legend with live statistics
+   - Toolbar with view toggles
+   - Inline stat annotations (min/max/avg)
+   ══════════════════════════════════════════════════════════════════ */
+const KnowledgeChart = ({ data, year }) => {
+  const svgRef = useRef(null);
+  const containerRef = useRef(null);
+  const [hover, setHover] = useState(null);
+  const [viewMode, setViewMode] = useState('area'); // 'area' | 'bars' | 'combined'
+  const [expanded, setExpanded] = useState(false);
+
   if (!data || !data.monthly) return null;
+
   const monthly = data.monthly;
-  const W = 620, H = 260, PL = 52, PR = 20, PT = 24, PB = 42;
+  const curMonthIdx = new Date().getMonth();
+
+  // Chart dimensions
+  const W = 700, H = expanded ? 340 : 260;
+  const PL = 55, PR = 24, PT = 20, PB = 44;
   const innerW = W - PL - PR, innerH = H - PT - PB;
-  
-  const getCSSVar = (name) => {
-    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return value || '#3b5bfa';
-  };
-  
+
+  // Colors
   const chartPrimary = getCSSVar('--chart-primary');
   const chartSecondary = getCSSVar('--chart-secondary');
   const chartGrid = getCSSVar('--chart-grid');
   const chartText = getCSSVar('--chart-text');
-  
-  const maxK = Math.max(...monthly.map(m => m.cumulative), 1);
-  const getX = (m, dFrac = 1) => PL + ((m + dFrac) / 12) * innerW;
-  const getY = (v) => PT + innerH - (v / maxK) * innerH;
+  const successColor = getCSSVar('--success');
 
-  const pathData = monthly.reduce((acc, m, i) => {
-    const x = getX(i);
-    const y = getY(m.cumulative);
-    return acc + (i === 0 ? `M${getX(-0.2)},${innerH + PT} L${getX(0,0)},${innerH + PT} L${x},${y}` : ` L${x},${y}`);
-  }, "");
+  // Data ranges
+  const maxCum = Math.max(...monthly.map(m => m.cumulative), 1);
+  const maxGain = Math.max(...monthly.map(m => m.knowledge), 1);
 
-  const areaD = `${pathData} L${getX(11)},${PT + innerH} L${getX(0,0)},${PT + innerH} Z`;
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => ({ val: maxK * p, y: PT + innerH - p * innerH }));
-  const curMonthIdx = new Date().getMonth();
+  // Coordinate helpers
+  const getX = (i) => PL + ((i + 0.5) / 12) * innerW;
+  const getY = (v) => PT + innerH - (v / maxCum) * innerH;
+  const getBarY = (v) => PT + innerH - (v / maxGain) * (innerH * 0.6);
+  const barW = (innerW / 12) * 0.45;
 
-  const dailyDots = (data.daily || []).map(d => {
-    const date = new Date(d.date);
-    const m = date.getMonth();
-    const daysInMonth = new Date(year, m + 1, 0).getDate();
-    const dFrac = date.getDate() / daysInMonth;
-    const prev = m > 0 ? monthly[m - 1].cumulative : 0;
-    const approxCum = prev + (monthly[m].knowledge * dFrac);
-    return { x: getX(m, dFrac), y: getY(approxCum), knowledge: parseFloat(d.knowledge), date: d.date };
-  });
+  // Compute statistics
+  const stats = useMemo(() => {
+    const gains = monthly.map(m => m.knowledge).filter(k => k > 0);
+    if (gains.length === 0) return { min: 0, max: 0, avg: 0, total: 0 };
+    return {
+      min: Math.min(...gains),
+      max: Math.max(...gains),
+      avg: gains.reduce((s,v) => s + v, 0) / gains.length,
+      total: gains.reduce((s,v) => s + v, 0),
+    };
+  }, [monthly]);
+
+  // Cumulative line path (smooth curve)
+  const linePath = useMemo(() => {
+    const pts = monthly.map((m, i) => ({ x: getX(i), y: getY(m.cumulative) }));
+    if (pts.length < 2) return '';
+    let d = `M${pts[0].x},${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1];
+      const curr = pts[i];
+      const cpx = (prev.x + curr.x) / 2;
+      d += ` C${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+    }
+    return d;
+  }, [monthly, W, H]);
+
+  // Area fill
+  const areaPath = useMemo(() => {
+    if (!linePath) return '';
+    const firstX = getX(0);
+    const lastX = getX(11);
+    const baseY = PT + innerH;
+    return `${linePath} L${lastX},${baseY} L${firstX},${baseY} Z`;
+  }, [linePath, innerH]);
+
+  // Y-axis ticks (cumulative)
+  const yTicks = useMemo(() => {
+    const count = 5;
+    return Array.from({ length: count + 1 }, (_, i) => {
+      const p = i / count;
+      return { val: maxCum * p, y: PT + innerH - p * innerH };
+    });
+  }, [maxCum, innerH]);
+
+  // Mouse tracking for crosshair
+  const handleMouseMove = useCallback((e) => {
+    if (!svgRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const svgWidth = rect.width;
+    const svgX = (mouseX / svgWidth) * W;
+
+    // Find nearest month
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < 12; i++) {
+      const dist = Math.abs(svgX - getX(i));
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = i;
+      }
+    }
+
+    const m = monthly[nearestIdx];
+    setHover({
+      idx: nearestIdx,
+      svgX: getX(nearestIdx),
+      screenX: mouseX,
+      screenY: e.clientY - rect.top,
+      month: m,
+    });
+  }, [monthly, W]);
+
+  const handleMouseLeave = useCallback(() => setHover(null), []);
 
   return (
-    <div style={{ position: 'relative', overflowX: 'auto', padding: '1rem 0' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 400, display: 'block', overflow: 'visible' }}>
-        <defs>
-          <linearGradient id="kGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={chartPrimary} stopOpacity="0.4"/>
-            <stop offset="100%" stopColor={chartSecondary} stopOpacity="0"/>
-          </linearGradient>
-        </defs>
-        
-        {/* Y-Axis Grid */}
-        {yTicks.map((t, i) => (
-          <g key={i}>
-            <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke={chartGrid} strokeWidth="1" strokeDasharray="4 3"/>
-            <text x={PL - 10} y={t.y + 4} textAnchor="end" fontSize="10" fill={chartText} fontFamily="var(--mono)">{fmtK(t.val)}</text>
-          </g>
-        ))}
-        
-        {/* Current Month Indicator */}
-        <line x1={getX(curMonthIdx)} y1={PT} x2={getX(curMonthIdx)} y2={PT + innerH} stroke={chartPrimary} strokeWidth="1" strokeDasharray="4 3" opacity="0.4"/>
-        
-        {/* Area & Line */}
-        <path d={areaD} fill="url(#kGrad)"/>
-        <path d={pathData} fill="none" stroke={chartPrimary} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
-        
-        {/* Daily Dots */}
-        {dailyDots.map((d, i) => (
-          <circle key={`d-${i}`} cx={d.x} cy={d.y} r="3" fill={chartSecondary} opacity="0.6"
-            onMouseEnter={() => setHoverPoint({ type: 'daily', x: d.x, y: d.y, val: `+${fmt(d.knowledge)}`, date: d.date })}
-            onMouseLeave={() => setHoverPoint(null)}
-            style={{ cursor: 'pointer', transition: 'r 0.2s' }}
-          />
-        ))}
-        
-        {/* Monthly Dots */}
-        {monthly.map((m, i) => {
-          const isHovered = hoverPoint?.type === 'monthly' && hoverPoint?.index === i;
-          return (
-            <g key={`m-${i}`} 
-               onMouseEnter={() => setHoverPoint({ type: 'monthly', index: i, x: getX(i), y: getY(m.cumulative), val: fmt(m.cumulative), label: m.label, gained: fmt(m.knowledge) })}
-               onMouseLeave={() => setHoverPoint(null)}
-               style={{ cursor: 'pointer' }}>
-              <circle cx={getX(i)} cy={getY(m.cumulative)} r={isHovered ? "7" : "5"}
-                fill="var(--bg)" stroke={chartPrimary} strokeWidth={isHovered ? "3" : "2"}
-                style={{ transition: 'all 0.2s' }} />
-              <circle cx={getX(i)} cy={getY(m.cumulative)} r="15" fill="transparent" />
-            </g>
-          );
-        })}
-        
-        {/* X-Axis Labels */}
-        {monthly.map((m, i) => (
-          <text key={`l-${i}`} x={getX(i - 0.5)} y={H - 10} textAnchor="middle" fontSize="10" fill={chartText} fontFamily="var(--mono)" fontWeight={i === curMonthIdx ? 'bold' : 'normal'}>{m.label}</text>
-        ))}
-        
-        {/* Axes Base Lines */}
-        <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
-        <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke={chartGrid} strokeWidth="1.5"/>
-      </svg>
-      
-      {/* Interactive Tooltip Overlay */}
-      {hoverPoint && (
-        <div style={{
-          position: 'absolute',
-          left: `calc(${(hoverPoint.x / W) * 100}%)`,
-          top: `calc(${(hoverPoint.y / H) * 100}%)`,
-          transform: `translate(${hoverPoint.x > W * 0.8 ? '-90%' : hoverPoint.x < W * 0.2 ? '-10%' : '-50%'}, calc(-100% - 12px))`,
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--r-sm)',
-          padding: '0.5rem 0.75rem',
-          boxShadow: 'var(--shadow)',
-          pointerEvents: 'none',
-          zIndex: 10,
-          minWidth: '100px',
-          textAlign: 'center'
-        }}>
-          {hoverPoint.type === 'monthly' ? (
-            <>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '4px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>{hoverPoint.label} {year}</div>
-              <div style={{ fontSize: '1.1rem', color: 'var(--text)', fontWeight: '800', fontFamily: 'var(--mono)' }}>{hoverPoint.val} pts</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '2px', fontWeight: '600' }}>+{hoverPoint.gained} gained</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '2px' }}>{hoverPoint.date}</div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--accent2)', fontWeight: 'bold' }}>{hoverPoint.val} pts</div>
-            </>
-          )}
+    <div className="chart-panel">
+      {/* ── Header Toolbar ── */}
+      <div className="chart-panel-header">
+        <div className="chart-panel-title">
+          <FiBarChart2 size={16} />
+          Cumulative Knowledge Trajectory — {year}
         </div>
-      )}
+        <div className="chart-toolbar">
+          {['area', 'bars', 'combined'].map(mode => (
+            <button
+              key={mode}
+              className={`chart-toolbar-btn ${viewMode === mode ? 'active' : ''}`}
+              onClick={() => setViewMode(mode)}
+            >
+              {mode === 'area' ? 'Trend' : mode === 'bars' ? 'Monthly' : 'Combined'}
+            </button>
+          ))}
+          <button
+            className="chart-toolbar-btn"
+            onClick={() => setExpanded(!expanded)}
+            title={expanded ? 'Collapse' : 'Expand'}
+          >
+            {expanded ? <FiMinimize2 size={12} /> : <FiMaximize2 size={12} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Chart Body ── */}
+      <div
+        className="chart-body"
+        ref={containerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ width: '100%', display: 'block', overflow: 'visible' }}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={chartPrimary} stopOpacity="0.25" />
+              <stop offset="80%" stopColor={chartPrimary} stopOpacity="0.03" />
+              <stop offset="100%" stopColor={chartPrimary} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={chartSecondary} stopOpacity="0.85" />
+              <stop offset="100%" stopColor={chartSecondary} stopOpacity="0.35" />
+            </linearGradient>
+          </defs>
+
+          {/* ── Horizontal Grid Lines ── */}
+          {yTicks.map((t, i) => (
+            <g key={`grid-${i}`}>
+              <line
+                x1={PL} y1={t.y} x2={W - PR} y2={t.y}
+                stroke={chartGrid} strokeWidth="1" opacity="0.6"
+              />
+              <text
+                x={PL - 8} y={t.y + 4}
+                textAnchor="end" fontSize="9.5" fill={chartText}
+                fontFamily="var(--mono)"
+              >
+                {fmtK(t.val)}
+              </text>
+            </g>
+          ))}
+
+          {/* ── X-Axis Labels ── */}
+          {monthly.map((m, i) => (
+            <text
+              key={`xl-${i}`}
+              x={getX(i)} y={H - 8}
+              textAnchor="middle" fontSize="9.5"
+              fill={i === curMonthIdx ? chartPrimary : chartText}
+              fontFamily="var(--mono)"
+              fontWeight={i === curMonthIdx ? '700' : '400'}
+            >
+              {m.label}
+            </text>
+          ))}
+
+          {/* ── Axes ── */}
+          <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke={chartGrid} strokeWidth="1" />
+          <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke={chartGrid} strokeWidth="1" />
+
+          {/* ── Monthly Gain Bars ── */}
+          {(viewMode === 'bars' || viewMode === 'combined') && monthly.map((m, i) => (
+            <rect
+              key={`bar-${i}`}
+              x={getX(i) - barW / 2}
+              y={getBarY(m.knowledge)}
+              width={barW}
+              height={PT + innerH - getBarY(m.knowledge)}
+              fill="url(#barGrad)"
+              rx="3"
+              opacity={hover?.idx === i ? 1 : 0.7}
+              style={{ transition: 'opacity 0.15s' }}
+            />
+          ))}
+
+          {/* ── Cumulative Area Fill ── */}
+          {(viewMode === 'area' || viewMode === 'combined') && areaPath && (
+            <path d={areaPath} fill="url(#areaGrad)" />
+          )}
+
+          {/* ── Cumulative Line ── */}
+          {(viewMode === 'area' || viewMode === 'combined') && linePath && (
+            <path
+              d={linePath} fill="none"
+              stroke={chartPrimary} strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+            />
+          )}
+
+          {/* ── Monthly Dots on Line ── */}
+          {(viewMode === 'area' || viewMode === 'combined') && monthly.map((m, i) => (
+            <circle
+              key={`dot-${i}`}
+              cx={getX(i)} cy={getY(m.cumulative)}
+              r={hover?.idx === i ? 5 : 3}
+              fill={hover?.idx === i ? chartPrimary : 'var(--card)'}
+              stroke={chartPrimary} strokeWidth="2"
+              style={{ transition: 'r 0.15s, fill 0.15s' }}
+            />
+          ))}
+
+          {/* ── Current Month Marker ── */}
+          <line
+            x1={getX(curMonthIdx)} y1={PT}
+            x2={getX(curMonthIdx)} y2={PT + innerH}
+            stroke={chartPrimary} strokeWidth="1"
+            strokeDasharray="3 3" opacity="0.3"
+          />
+
+          {/* ── Crosshair Vertical Line ── */}
+          {hover && (
+            <line
+              x1={hover.svgX} y1={PT}
+              x2={hover.svgX} y2={PT + innerH}
+              stroke={chartPrimary} strokeWidth="1"
+              opacity="0.5"
+            />
+          )}
+
+          {/* ── Statistics Annotations (Min / Max markers) ── */}
+          {(viewMode === 'area' || viewMode === 'combined') && stats.max > 0 && (() => {
+            const maxIdx = monthly.findIndex(m => m.cumulative === maxCum);
+            if (maxIdx < 0) return null;
+            return (
+              <g>
+                <line
+                  x1={getX(maxIdx) - 20} y1={getY(maxCum)}
+                  x2={getX(maxIdx) + 20} y2={getY(maxCum)}
+                  stroke={successColor} strokeWidth="1" strokeDasharray="4 2" opacity="0.5"
+                />
+                <text
+                  x={getX(maxIdx) + 24} y={getY(maxCum) + 3}
+                  fontSize="8.5" fill={successColor} fontFamily="var(--mono)" fontWeight="700"
+                >
+                  max {fmtK(maxCum)}
+                </text>
+              </g>
+            );
+          })()}
+        </svg>
+
+        {/* ── Crosshair Tooltip ── */}
+        {hover && (
+          <div
+            className="chart-crosshair-tooltip"
+            style={{
+              left: hover.screenX > (containerRef.current?.clientWidth || 0) * 0.7
+                ? hover.screenX - 170
+                : hover.screenX + 16,
+              top: 10,
+            }}
+          >
+            <div className="crosshair-title">{hover.month.label} {year}</div>
+            {(viewMode === 'area' || viewMode === 'combined') && (
+              <div className="crosshair-row">
+                <span className="crosshair-metric-label">
+                  <span className="crosshair-metric-swatch" style={{ background: chartPrimary }} />
+                  Cumulative
+                </span>
+                <span className="crosshair-metric-val">{fmtK(hover.month.cumulative)}</span>
+              </div>
+            )}
+            <div className="crosshair-row">
+              <span className="crosshair-metric-label">
+                <span className="crosshair-metric-swatch" style={{ background: chartSecondary }} />
+                Gained
+              </span>
+              <span className="crosshair-metric-val" style={{ color: hover.month.knowledge > 0 ? successColor : 'inherit' }}>
+                {hover.month.knowledge > 0 ? '+' : ''}{fmtK(hover.month.knowledge)}
+              </span>
+            </div>
+            <div className="crosshair-row">
+              <span className="crosshair-metric-label">Hours</span>
+              <span className="crosshair-metric-val">{fmt(hover.month.hours, 1)}h</span>
+            </div>
+            <div className="crosshair-row">
+              <span className="crosshair-metric-label">Sessions</span>
+              <span className="crosshair-metric-val">{hover.month.sessions || 0}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Legend + Statistics ── */}
+      <div className="chart-legend">
+        {(viewMode === 'area' || viewMode === 'combined') && (
+          <div className="legend-item">
+            <span className="legend-swatch" style={{ background: chartPrimary }} />
+            <span className="legend-label">Cumulative</span>
+            <span className="legend-stat">{fmtK(stats.total)} total</span>
+          </div>
+        )}
+        {(viewMode === 'bars' || viewMode === 'combined') && (
+          <div className="legend-item">
+            <span className="legend-swatch" style={{ background: chartSecondary, height: 6, borderRadius: 2 }} />
+            <span className="legend-label">Monthly Gain</span>
+          </div>
+        )}
+        <div className="legend-item" style={{ marginLeft: 'auto' }}>
+          <span className="legend-label" style={{ color: getCSSVar('--text3') }}>
+            avg: <strong style={{ color: getCSSVar('--text') }}>{fmtK(stats.avg)}</strong>
+            {' · '}min: <strong style={{ color: getCSSVar('--text') }}>{fmtK(stats.min)}</strong>
+            {' · '}max: <strong style={{ color: getCSSVar('--text') }}>{fmtK(stats.max)}</strong>
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
 
+/* ══════════════════════════════════════════════════════════════════
+   MAIN DASHBOARD COMPONENT
+   ══════════════════════════════════════════════════════════════════ */
 const UsageTracker = () => {
   const { handleGrowthAward } = useGrowth();
   const cachedStatus   = cache.get('study:status');
@@ -163,12 +397,12 @@ const UsageTracker = () => {
 
   const hasCachedData = cachedStatus !== null;
 
-  const [status,    setStatus]    = useState(cachedStatus ? cachedStatus.data : null);
-  const [sessions,  setSessions]  = useState(cachedSessions ? cachedSessions.data : []);
-  const [chart,     setChart]     = useState(cachedChart ? cachedChart.data : null);
-  const [elapsed,   setElapsed]   = useState(0);
-  const [loading,   setLoading]   = useState(!hasCachedData);
-  const [actLoad,   setActLoad]   = useState(false);
+  const [status,   setStatus]   = useState(cachedStatus ? cachedStatus.data : null);
+  const [sessions, setSessions] = useState(cachedSessions ? cachedSessions.data : []);
+  const [chart,    setChart]    = useState(cachedChart ? cachedChart.data : null);
+  const [elapsed,  setElapsed]  = useState(0);
+  const [loading,  setLoading]  = useState(!hasCachedData);
+  const [actLoad,  setActLoad]  = useState(false);
   const tickRef = useRef(null);
 
   const startTick = useCallback((startTime) => {
@@ -214,16 +448,14 @@ const UsageTracker = () => {
       fetchAll();
     }
     return () => clearInterval(tickRef.current);
-  }, [fetchAll, hasCachedData, cachedStatus]);
+  }, [fetchAll]);
 
   const handleStop = async () => {
     setActLoad(true);
     try {
       const { data } = await API.post('/study/stop');
       toast.success('Session ended. Metrics recorded.');
-      if (data?.growth) {
-        handleGrowthAward(data.growth);
-      }
+      if (data?.growth) handleGrowthAward(data.growth);
       cache.invalidatePrefix('study');
       await fetchAll(true);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to stop session'); }
@@ -236,125 +468,135 @@ const UsageTracker = () => {
   const year = new Date().getFullYear();
   const totalYearK = chart?.monthly?.reduce((s, m) => s + m.knowledge, 0) || 0;
   const totalYearHours = chart?.monthly?.reduce((s, m) => s + parseFloat(m.hours || 0), 0) || 0;
-  const bestMonth = chart?.monthly?.reduce((b, m) => m.knowledge > (b?.knowledge || 0) ? m : b, null);
-  
-  // Calculate total sessions for the year
   const totalYearSessions = chart?.monthly?.reduce((s, m) => s + (m.sessions || 0), 0) || 0;
+  const bestMonth = chart?.monthly?.reduce((b, m) => m.knowledge > (b?.knowledge || 0) ? m : b, null);
+  const maxMonthlyGain = chart?.monthly ? Math.max(...chart.monthly.map(m => m.knowledge)) : 0;
+
+  // Avg session length
+  const avgSessionH = totalYearSessions > 0 ? (totalYearHours / totalYearSessions) : 0;
 
   return (
     <div className="analytics-dashboard">
+      {/* ── Header ── */}
       <div className="analytics-header">
         <div className="analytics-title">
           <h2>Growth Analytics</h2>
-          <p>Executive performance metrics and cumulative knowledge trajectory.</p>
+          <p>Performance metrics and cumulative knowledge trajectory.</p>
         </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="analytics-header-actions">
           {isActive && (
             <div className="analytics-live-widget">
               <div className="live-indicator">
-                <div className="live-dot"></div>
-                LIVE SESSION
+                <div className="live-dot" />
+                LIVE
               </div>
               <div className="live-time">{formatDuration(elapsed)}</div>
-              <button 
-                className="btn btn-danger btn-sm" 
-                onClick={handleStop} 
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={handleStop}
                 disabled={actLoad}
-                style={{ padding: '0.35rem 0.8rem', marginLeft: '0.5rem' }}
+                style={{ padding: '0.3rem 0.7rem' }}
               >
-                {actLoad ? 'Stopping...' : 'End'}
+                <FiSquare size={11} /> {actLoad ? '...' : 'End'}
               </button>
             </div>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} title="Refresh Data">
-            <FiRefreshCw size={16}/>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} title="Refresh Data" style={{ width: 'auto' }}>
+            <FiRefreshCw size={15} />
           </button>
         </div>
       </div>
 
+      {/* ── KPI Cards ── */}
       <div className="analytics-kpi-grid">
         <div className="kpi-card">
-          <div className="kpi-icon-wrap"><FiAward /></div>
-          <div className="kpi-content">
-            <div className="kpi-label">YTD Knowledge Index</div>
-            <div className="kpi-value">{fmtK(totalYearK)}</div>
-            {bestMonth?.knowledge > 0 && (
-              <div className="kpi-sub">
-                <FiTrendingUp /> Peak: {bestMonth.label} (+{fmtK(bestMonth.knowledge)})
-              </div>
-            )}
+          <div className="kpi-label">YTD Knowledge</div>
+          <div className="kpi-value">{fmtK(totalYearK)}</div>
+          {bestMonth?.knowledge > 0 && (
+            <div className="kpi-sub">
+              <FiTrendingUp size={12} /> Peak: {bestMonth.label} (+{fmtK(bestMonth.knowledge)})
+            </div>
+          )}
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Active Hours</div>
+          <div className="kpi-value">{fmt(totalYearHours, 1)}h</div>
+          <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
+            <FiClock size={12} /> Cumulative {year}
           </div>
         </div>
-        
         <div className="kpi-card">
-          <div className="kpi-icon-wrap"><FiClock /></div>
-          <div className="kpi-content">
-            <div className="kpi-label">YTD Active Hours</div>
-            <div className="kpi-value">{fmt(totalYearHours, 1)}h</div>
-            <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
-               Cumulative engagement
-            </div>
+          <div className="kpi-label">Total Sessions</div>
+          <div className="kpi-value">{totalYearSessions}</div>
+          <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
+            <FiActivity size={12} /> Tracked logins
           </div>
         </div>
-
         <div className="kpi-card">
-          <div className="kpi-icon-wrap"><FiActivity /></div>
-          <div className="kpi-content">
-            <div className="kpi-label">YTD Sessions</div>
-            <div className="kpi-value">{totalYearSessions}</div>
-            <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
-               Total tracked logins
-            </div>
+          <div className="kpi-label">Avg Session</div>
+          <div className="kpi-value">{fmt(avgSessionH, 1)}h</div>
+          <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
+            <FiCalendar size={12} /> Per login
           </div>
         </div>
       </div>
 
-      <div className="analytics-main-grid">
-        <div className="analytics-main-col" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="analytics-panel">
-            <div className="analytics-panel-title">
-              <FiBarChart2 /> Cumulative Trajectory ({year})
-            </div>
-            {totalYearK === 0 ? (
-              <div style={{ padding: '3rem 0', textAlign: 'center', color: 'var(--text3)' }}>
-                <FiTrendingUp size={32} style={{ opacity: 0.3, margin: '0 auto 1rem' }} />
-                <h4>No data available</h4>
-                <p style={{ fontSize: '0.85rem' }}>Your growth curve will appear here once you begin studying.</p>
-              </div>
-            ) : (
-              <KnowledgeLineChart data={chart} year={year}/>
-            )}
+      {/* ── Main Chart ── */}
+      {totalYearK === 0 ? (
+        <div className="chart-panel">
+          <div className="chart-panel-header">
+            <div className="chart-panel-title"><FiBarChart2 size={16} /> Cumulative Trajectory ({year})</div>
           </div>
+          <div className="analytics-empty">
+            <FiTrendingUp size={36} />
+            <h4>No data available for {year}</h4>
+            <p>Your growth trajectory will render here once you begin studying.</p>
+          </div>
+        </div>
+      ) : (
+        <KnowledgeChart data={chart} year={year} />
+      )}
 
+      {/* ── Bottom Grid: Table + Sessions ── */}
+      <div className="analytics-main-grid">
+        {/* Monthly Performance Table */}
+        <div className="analytics-main-col">
           {chart?.monthly && totalYearK > 0 && (
             <div className="analytics-panel">
-              <div className="analytics-panel-title">
-                <FiZap /> Monthly Performance Index
+              <div className="analytics-panel-header">
+                <div className="analytics-panel-title"><FiZap size={16} /> Monthly Performance Index</div>
               </div>
               <div className="analytics-table-wrap">
                 <table className="analytics-table">
                   <thead>
                     <tr>
                       <th>Period</th>
-                      <th>Active Hours</th>
+                      <th>Hours</th>
                       <th>Sessions</th>
                       <th>Knowledge Gained</th>
-                      <th>Cumulative Net</th>
+                      <th>Cumulative</th>
                     </tr>
                   </thead>
                   <tbody>
                     {chart.monthly.map((m, i) => (
-                      <tr key={i} style={{ background: i === new Date().getMonth() ? 'var(--accentbg)' : 'transparent' }}>
+                      <tr key={i} className={i === new Date().getMonth() ? 'current-row' : ''}>
                         <td style={{ fontWeight: 600 }}>{m.label}</td>
-                        <td className="data-mono">{fmt(m.hours)}h</td>
+                        <td className="data-mono">{fmt(m.hours, 1)}h</td>
                         <td className="data-mono">{m.sessions}</td>
-                        <td className="data-mono">
-                          <span style={{ color: m.knowledge > 0 ? 'var(--success)' : 'inherit' }}>
-                            {m.knowledge > 0 ? '+' : ''}{fmtK(m.knowledge)}
-                          </span>
+                        <td>
+                          <div className="table-bar-cell">
+                            <span className={`data-mono ${m.knowledge > 0 ? 'data-positive' : ''}`}>
+                              {m.knowledge > 0 ? '+' : ''}{fmtK(m.knowledge)}
+                            </span>
+                            {maxMonthlyGain > 0 && (
+                              <span
+                                className="table-bar"
+                                style={{ width: `${Math.max((m.knowledge / maxMonthlyGain) * 60, 0)}px` }}
+                              />
+                            )}
+                          </div>
                         </td>
-                        <td className="data-highlight">{fmtK(m.cumulative)}</td>
+                        <td className="data-mono data-highlight">{fmtK(m.cumulative)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -364,14 +606,18 @@ const UsageTracker = () => {
           )}
         </div>
 
+        {/* Session Ledger */}
         <div className="analytics-side-col">
           <div className="analytics-panel" style={{ height: '100%' }}>
-            <div className="analytics-panel-title">
-              <FiClock /> Session Ledger
+            <div className="analytics-panel-header">
+              <div className="analytics-panel-title"><FiClock size={16} /> Session Ledger</div>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
+                {sessions.length} entries
+              </span>
             </div>
             {sessions.length === 0 ? (
-              <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text3)' }}>
-                <p style={{ fontSize: '0.85rem' }}>No recent sessions recorded.</p>
+              <div className="analytics-empty" style={{ padding: '2rem 1rem' }}>
+                <p style={{ fontSize: '0.82rem' }}>No recent sessions recorded.</p>
               </div>
             ) : (
               <div className="session-timeline">
@@ -389,7 +635,7 @@ const UsageTracker = () => {
                     </div>
                     <div className="session-stats">
                       <div className="session-gained">+{fmtK(s.knowledge_gained)} pts</div>
-                      <div className="session-duration">{fmt(s.hours_studied)}h</div>
+                      <div className="session-duration">{fmt(s.hours_studied, 1)}h</div>
                     </div>
                   </div>
                 ))}
