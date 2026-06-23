@@ -42,9 +42,13 @@ const getCSSVar = (name) => {
 const KnowledgeChart = ({ data, year }) => {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
+  const lineRef = useRef(null);
   const [hover, setHover] = useState(null);
   const [viewMode, setViewMode] = useState('area'); // 'area' | 'bars' | 'combined'
   const [expanded, setExpanded] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
+  const [lineLen, setLineLen] = useState(0);
+  const [lineReady, setLineReady] = useState(false);
 
   if (!data || !data.monthly) return null;
 
@@ -117,6 +121,20 @@ const KnowledgeChart = ({ data, year }) => {
     });
   }, [maxCum, innerH]);
 
+  // Measure line path length and trigger draw animation
+  useEffect(() => {
+    if (lineRef.current) {
+      const len = lineRef.current.getTotalLength();
+      setLineLen(len);
+      // Small delay to let the browser paint with dashoffset = len first
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setLineReady(true);
+        });
+      });
+    }
+  }, [linePath, animKey, viewMode]);
+
   // Mouse tracking for crosshair
   const handleMouseMove = useCallback((e) => {
     if (!svgRef.current || !containerRef.current) return;
@@ -161,7 +179,7 @@ const KnowledgeChart = ({ data, year }) => {
             <button
               key={mode}
               className={`chart-toolbar-btn ${viewMode === mode ? 'active' : ''}`}
-              onClick={() => setViewMode(mode)}
+              onClick={() => { setViewMode(mode); setAnimKey(k => k + 1); setLineReady(false); }}
             >
               {mode === 'area' ? 'Trend' : mode === 'bars' ? 'Monthly' : 'Combined'}
             </button>
@@ -237,43 +255,63 @@ const KnowledgeChart = ({ data, year }) => {
           <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke={chartGrid} strokeWidth="1" />
 
           {/* ── Monthly Gain Bars ── */}
-          {(viewMode === 'bars' || viewMode === 'combined') && monthly.map((m, i) => (
-            <rect
-              key={`bar-${i}`}
-              x={getX(i) - barW / 2}
-              y={getBarY(m.knowledge)}
-              width={barW}
-              height={PT + innerH - getBarY(m.knowledge)}
-              fill="url(#barGrad)"
-              rx="3"
-              opacity={hover?.idx === i ? 1 : 0.7}
-              style={{ transition: 'opacity 0.15s' }}
-            />
-          ))}
+          {(viewMode === 'bars' || viewMode === 'combined') && monthly.map((m, i) => {
+            const barH = PT + innerH - getBarY(m.knowledge);
+            return (
+              <rect
+                key={`bar-${i}-${animKey}`}
+                x={getX(i) - barW / 2}
+                y={getBarY(m.knowledge)}
+                width={barW}
+                height={barH}
+                fill="url(#barGrad)"
+                rx="3"
+                opacity={hover?.idx === i ? 1 : 0.7}
+                style={{
+                  transformOrigin: `${getX(i)}px ${PT + innerH}px`,
+                  animation: `barGrow 1.5s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.06}s both`,
+                  transition: 'opacity 0.15s',
+                }}
+              />
+            );
+          })}
 
           {/* ── Cumulative Area Fill ── */}
           {(viewMode === 'area' || viewMode === 'combined') && areaPath && (
-            <path d={areaPath} fill="url(#areaGrad)" />
+            <path
+              key={`area-${animKey}`}
+              d={areaPath} fill="url(#areaGrad)"
+              style={{ animation: 'areaFadeIn 0.8s ease 0.6s both' }}
+            />
           )}
 
-          {/* ── Cumulative Line ── */}
+          {/* ── Cumulative Line (animated draw) ── */}
           {(viewMode === 'area' || viewMode === 'combined') && linePath && (
             <path
+              key={`line-${animKey}`}
+              ref={lineRef}
               d={linePath} fill="none"
               stroke={chartPrimary} strokeWidth="2.5"
               strokeLinecap="round" strokeLinejoin="round"
+              strokeDasharray={lineLen || 2000}
+              strokeDashoffset={lineReady ? 0 : (lineLen || 2000)}
+              style={{ transition: lineReady ? 'stroke-dashoffset 1.5s cubic-bezier(0.22, 1, 0.36, 1)' : 'none' }}
             />
           )}
 
           {/* ── Monthly Dots on Line ── */}
           {(viewMode === 'area' || viewMode === 'combined') && monthly.map((m, i) => (
             <circle
-              key={`dot-${i}`}
+              key={`dot-${i}-${animKey}`}
               cx={getX(i)} cy={getY(m.cumulative)}
               r={hover?.idx === i ? 5 : 3}
               fill={hover?.idx === i ? chartPrimary : 'var(--card)'}
               stroke={chartPrimary} strokeWidth="2"
-              style={{ transition: 'r 0.15s, fill 0.15s' }}
+              style={{
+                transformOrigin: `${getX(i)}px ${getY(m.cumulative)}px`,
+                animation: `dotGrow 0.3s ease ${0.3 + i * 0.1}s both`,
+                transition: 'r 0.15s, fill 0.15s',
+              }}
             />
           ))}
 
