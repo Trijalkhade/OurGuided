@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API } from '../context/AuthContext';
 import { useGrowth } from '../context/GrowthContext';
 import toast from 'react-hot-toast';
-import { FiClock, FiBarChart2, FiRefreshCw, FiSquare, FiTrendingUp, FiZap, FiAward } from 'react-icons/fi';
+import { FiClock, FiActivity, FiRefreshCw, FiSquare, FiTrendingUp, FiZap, FiAward, FiBarChart2 } from 'react-icons/fi';
 import * as cache from '../utils/cache';
+import { SkelStudy } from '../components/Skeleton.jsx';
+import '../styles/analytics.css';
 
 const fmt  = (n, d = 2) => Number(n || 0).toFixed(d);
 const fmtK = (n) => {
@@ -15,11 +17,6 @@ const formatDuration = (s) => {
   return [h > 0 ? String(h).padStart(2,'0') : null, String(m).padStart(2,'0'), String(sec).padStart(2,'0')]
     .filter(Boolean).join(':');
 };
-const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-
 
 const KnowledgeLineChart = ({ data, year }) => {
   const [hoverPoint, setHoverPoint] = useState(null);
@@ -77,7 +74,7 @@ const KnowledgeLineChart = ({ data, year }) => {
         {yTicks.map((t, i) => (
           <g key={i}>
             <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke={chartGrid} strokeWidth="1" strokeDasharray="4 3"/>
-            <text x={PL - 10} y={t.y + 4} textAnchor="end" fontSize="11" fill={chartText} fontFamily="var(--mono)">{fmtK(t.val)}</text>
+            <text x={PL - 10} y={t.y + 4} textAnchor="end" fontSize="10" fill={chartText} fontFamily="var(--mono)">{fmtK(t.val)}</text>
           </g>
         ))}
         
@@ -108,7 +105,6 @@ const KnowledgeLineChart = ({ data, year }) => {
               <circle cx={getX(i)} cy={getY(m.cumulative)} r={isHovered ? "7" : "5"}
                 fill="var(--bg)" stroke={chartPrimary} strokeWidth={isHovered ? "3" : "2"}
                 style={{ transition: 'all 0.2s' }} />
-              {/* Invisible larger hit area for easier hovering */}
               <circle cx={getX(i)} cy={getY(m.cumulative)} r="15" fill="transparent" />
             </g>
           );
@@ -116,7 +112,7 @@ const KnowledgeLineChart = ({ data, year }) => {
         
         {/* X-Axis Labels */}
         {monthly.map((m, i) => (
-          <text key={`l-${i}`} x={getX(i - 0.5)} y={H - 10} textAnchor="middle" fontSize="11" fill={chartText} fontFamily="var(--mono)" fontWeight={i === curMonthIdx ? 'bold' : 'normal'}>{m.label}</text>
+          <text key={`l-${i}`} x={getX(i - 0.5)} y={H - 10} textAnchor="middle" fontSize="10" fill={chartText} fontFamily="var(--mono)" fontWeight={i === curMonthIdx ? 'bold' : 'normal'}>{m.label}</text>
         ))}
         
         {/* Axes Base Lines */}
@@ -131,21 +127,21 @@ const KnowledgeLineChart = ({ data, year }) => {
           left: `calc(${(hoverPoint.x / W) * 100}%)`,
           top: `calc(${(hoverPoint.y / H) * 100}%)`,
           transform: `translate(${hoverPoint.x > W * 0.8 ? '-90%' : hoverPoint.x < W * 0.2 ? '-10%' : '-50%'}, calc(-100% - 12px))`,
-          background: 'var(--bg)',
+          background: 'var(--card)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--r-sm)',
-          padding: '0.4rem 0.6rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          padding: '0.5rem 0.75rem',
+          boxShadow: 'var(--shadow)',
           pointerEvents: 'none',
           zIndex: 10,
-          minWidth: '90px',
+          minWidth: '100px',
           textAlign: 'center'
         }}>
           {hoverPoint.type === 'monthly' ? (
             <>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '2px', fontWeight: 'bold' }}>{hoverPoint.label} {year}</div>
-              <div style={{ fontSize: '0.95rem', color: 'var(--accent)', fontWeight: 'bold' }}>{hoverPoint.val} pts</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--success)' }}>+{hoverPoint.gained} this month</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', marginBottom: '4px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>{hoverPoint.label} {year}</div>
+              <div style={{ fontSize: '1.1rem', color: 'var(--text)', fontWeight: '800', fontFamily: 'var(--mono)' }}>{hoverPoint.val} pts</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '2px', fontWeight: '600' }}>+{hoverPoint.gained} gained</div>
             </>
           ) : (
             <>
@@ -159,26 +155,20 @@ const KnowledgeLineChart = ({ data, year }) => {
   );
 };
 
-import { SkelStudy } from '../components/Skeleton.jsx';
-
 const UsageTracker = () => {
   const { handleGrowthAward } = useGrowth();
-  // Try to restore from cache
   const cachedStatus   = cache.get('study:status');
-  const cachedHistory  = cache.get('study:history');
   const cachedSessions = cache.get('study:sessions');
   const cachedChart    = cache.get('study:chart:' + new Date().getFullYear());
 
   const hasCachedData = cachedStatus !== null;
 
   const [status,    setStatus]    = useState(cachedStatus ? cachedStatus.data : null);
-  const [history,   setHistory]   = useState(cachedHistory ? cachedHistory.data : []);
   const [sessions,  setSessions]  = useState(cachedSessions ? cachedSessions.data : []);
   const [chart,     setChart]     = useState(cachedChart ? cachedChart.data : null);
   const [elapsed,   setElapsed]   = useState(0);
   const [loading,   setLoading]   = useState(!hasCachedData);
   const [actLoad,   setActLoad]   = useState(false);
-  const [activeTab, setActiveTab] = useState('annual');
   const tickRef = useRef(null);
 
   const startTick = useCallback((startTime) => {
@@ -194,20 +184,15 @@ const UsageTracker = () => {
       const year = new Date().getFullYear();
       const results = await Promise.allSettled([
         API.get('/study/status'),
-        API.get('/study/history'),
         API.get('/study/sessions'),
         API.get(`/recommendations/knowledge-chart?year=${year}`),
       ]);
-      const [stRes, histRes, sessRes, chartRes] = results;
+      const [stRes, sessRes, chartRes] = results;
       if (stRes.status === 'fulfilled') {
         setStatus(stRes.value.data);
         cache.set('study:status', stRes.value.data, 'study_status');
         if (stRes.value.data.active_session) startTick(stRes.value.data.active_session.start_time);
         else stopTick();
-      }
-      if (histRes.status === 'fulfilled') {
-        setHistory(histRes.value.data);
-        cache.set('study:history', histRes.value.data, 'study_chart');
       }
       if (sessRes.status === 'fulfilled') {
         setSessions(sessRes.value.data);
@@ -217,84 +202,125 @@ const UsageTracker = () => {
         setChart(chartRes.value.data);
         cache.set(`study:chart:${year}`, chartRes.value.data, 'study_chart');
       }
-    } catch { if (!silent) toast.error('Failed to load usage data'); }
+    } catch { if (!silent) toast.error('Failed to load analytics data'); }
     finally  { setLoading(false); }
   }, [startTick, stopTick]);
 
   useEffect(() => {
     if (hasCachedData) {
-      // Start tick if there's an active session in cached data
       if (cachedStatus?.data?.active_session) startTick(cachedStatus.data.active_session.start_time);
-      fetchAll(true); // silent revalidate
+      fetchAll(true);
     } else {
       fetchAll();
     }
     return () => clearInterval(tickRef.current);
-  }, [fetchAll]);
+  }, [fetchAll, hasCachedData, cachedStatus]);
 
   const handleStop = async () => {
     setActLoad(true);
     try {
       const { data } = await API.post('/study/stop');
-      toast.success('Session ended. Knowledge recorded!');
-      // Forward growth data to context (triggers celebration modal)
+      toast.success('Session ended. Metrics recorded.');
       if (data?.growth) {
         handleGrowthAward(data.growth);
       }
       cache.invalidatePrefix('study');
       await fetchAll(true);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to stop session'); }
     finally { setActLoad(false); }
   };
 
   if (loading) return <SkelStudy />;
 
-  const { stats, today } = status || {};
   const isActive = !!status?.active_session;
   const year = new Date().getFullYear();
   const totalYearK = chart?.monthly?.reduce((s, m) => s + m.knowledge, 0) || 0;
+  const totalYearHours = chart?.monthly?.reduce((s, m) => s + parseFloat(m.hours || 0), 0) || 0;
   const bestMonth = chart?.monthly?.reduce((b, m) => m.knowledge > (b?.knowledge || 0) ? m : b, null);
+  
+  // Calculate total sessions for the year
+  const totalYearSessions = chart?.monthly?.reduce((s, m) => s + (m.sessions || 0), 0) || 0;
 
   return (
-    <div className="usage-page">
-      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div><h2>Usage Tracker</h2><p>Real-time session tracking &amp; knowledge growth analytics</p></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+    <div className="analytics-dashboard">
+      <div className="analytics-header">
+        <div className="analytics-title">
+          <h2>Growth Analytics</h2>
+          <p>Executive performance metrics and cumulative knowledge trajectory.</p>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {isActive && (
-            <button className="btn btn-danger btn-sm" onClick={handleStop} disabled={actLoad} style={{ width: 'auto' }}>
-              <FiSquare size={14}/> End Session ({formatDuration(elapsed)})
-            </button>
+            <div className="analytics-live-widget">
+              <div className="live-indicator">
+                <div className="live-dot"></div>
+                LIVE SESSION
+              </div>
+              <div className="live-time">{formatDuration(elapsed)}</div>
+              <button 
+                className="btn btn-danger btn-sm" 
+                onClick={handleStop} 
+                disabled={actLoad}
+                style={{ padding: '0.35rem 0.8rem', marginLeft: '0.5rem' }}
+              >
+                {actLoad ? 'Stopping...' : 'End'}
+              </button>
+            </div>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} title="Refresh" style={{ width: 'auto' }}>
-            <FiRefreshCw size={14}/>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchAll()} title="Refresh Data">
+            <FiRefreshCw size={16}/>
           </button>
         </div>
       </div>
 
-      <div className="tabs" style={{ marginBottom: '1.25rem' }}>
-        {['annual','sessions'].map(t => (
-          <button key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
+      <div className="analytics-kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap"><FiAward /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">YTD Knowledge Index</div>
+            <div className="kpi-value">{fmtK(totalYearK)}</div>
+            {bestMonth?.knowledge > 0 && (
+              <div className="kpi-sub">
+                <FiTrendingUp /> Peak: {bestMonth.label} (+{fmtK(bestMonth.knowledge)})
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap"><FiClock /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">YTD Active Hours</div>
+            <div className="kpi-value">{fmt(totalYearHours, 1)}h</div>
+            <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
+               Cumulative engagement
+            </div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap"><FiActivity /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">YTD Sessions</div>
+            <div className="kpi-value">{totalYearSessions}</div>
+            <div className="kpi-sub" style={{ color: 'var(--text3)' }}>
+               Total tracked logins
+            </div>
+          </div>
+        </div>
       </div>
 
-
-
-      {activeTab === 'annual' && (
-        <>
-          <div className="usage-chart-card">
-            <div className="usage-chart-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span><FiTrendingUp style={{ display: 'inline', marginRight: 6 }}/>Knowledge Growth — {year}</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
-                ● monthly &nbsp; ● daily
-              </span>
+      <div className="analytics-main-grid">
+        <div className="analytics-main-col" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="analytics-panel">
+            <div className="analytics-panel-title">
+              <FiBarChart2 /> Cumulative Trajectory ({year})
             </div>
             {totalYearK === 0 ? (
-              <div className="empty-state" style={{ padding: '2rem 0', height: 'auto' }}>
-                <FiTrendingUp size={32} style={{ opacity: 0.25, marginBottom: '0.75rem' }}/>
-                <h3>No data for {year} yet</h3>
-                <p>Study to see your knowledge curve here.</p>
+              <div style={{ padding: '3rem 0', textAlign: 'center', color: 'var(--text3)' }}>
+                <FiTrendingUp size={32} style={{ opacity: 0.3, margin: '0 auto 1rem' }} />
+                <h4>No data available</h4>
+                <p style={{ fontSize: '0.85rem' }}>Your growth curve will appear here once you begin studying.</p>
               </div>
             ) : (
               <KnowledgeLineChart data={chart} year={year}/>
@@ -302,72 +328,76 @@ const UsageTracker = () => {
           </div>
 
           {chart?.monthly && totalYearK > 0 && (
-            <div className="usage-log-card">
-              <div className="usage-log-title">
-                <FiAward style={{ display: 'inline', marginRight: 6 }}/>Monthly Breakdown — {year}
+            <div className="analytics-panel">
+              <div className="analytics-panel-title">
+                <FiZap /> Monthly Performance Index
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <div className="analytics-table-wrap">
+                <table className="analytics-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      {['Month','Hours','Sessions','Gained','Cumulative'].map(h => (
-                        <th key={h} style={{ padding: '0.45rem 0.55rem', textAlign: 'left', color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: '0.67rem', textTransform: 'uppercase', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{h}</th>
-                      ))}
+                    <tr>
+                      <th>Period</th>
+                      <th>Active Hours</th>
+                      <th>Sessions</th>
+                      <th>Knowledge Gained</th>
+                      <th>Cumulative Net</th>
                     </tr>
                   </thead>
                   <tbody>
                     {chart.monthly.map((m, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: i === new Date().getMonth() ? 'var(--accentbg)' : 'transparent' }}>
-                        <td style={{ padding: '0.45rem 0.55rem', fontWeight: 600 }}>{m.label}</td>
-                        <td style={{ padding: '0.45rem 0.55rem', fontFamily: 'var(--mono)' }}>{fmt(m.hours)}h</td>
-                        <td style={{ padding: '0.45rem 0.55rem', fontFamily: 'var(--mono)' }}>{m.sessions}</td>
-                        <td style={{ padding: '0.45rem 0.55rem', fontFamily: 'var(--mono)', color: m.knowledge > 0 ? 'var(--success)' : 'var(--text3)' }}>
-                          {m.knowledge > 0 ? '+' : ''}{fmtK(m.knowledge)}
+                      <tr key={i} style={{ background: i === new Date().getMonth() ? 'var(--accentbg)' : 'transparent' }}>
+                        <td style={{ fontWeight: 600 }}>{m.label}</td>
+                        <td className="data-mono">{fmt(m.hours)}h</td>
+                        <td className="data-mono">{m.sessions}</td>
+                        <td className="data-mono">
+                          <span style={{ color: m.knowledge > 0 ? 'var(--success)' : 'inherit' }}>
+                            {m.knowledge > 0 ? '+' : ''}{fmtK(m.knowledge)}
+                          </span>
                         </td>
-                        <td style={{ padding: '0.45rem 0.55rem', fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmtK(m.cumulative)}</td>
+                        <td className="data-highlight">{fmtK(m.cumulative)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {bestMonth?.knowledge > 0 && (
-                <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.8rem', background: 'var(--accentbg)', borderRadius: 'var(--r-sm)', fontSize: '0.8rem', color: 'var(--accent2)' }}>
-                  🏆 Best month: <strong>{bestMonth.label}</strong> — {fmtK(bestMonth.knowledge)} pts gained
-                </div>
-              )}
             </div>
           )}
-        </>
-      )}
+        </div>
 
-      {activeTab === 'sessions' && (
-        sessions.length === 0 ? (
-          <div className="empty-state">
-            <FiClock size={32} style={{ opacity: 0.25, marginBottom: '0.75rem' }}/>
-            <h3>No sessions yet</h3><p>Sessions start automatically when you log in.</p>
-          </div>
-        ) : (
-          <div className="usage-log-card">
-            <div className="usage-log-title"><FiClock style={{ display: 'inline', marginRight: 6 }}/>Recent Sessions</div>
-            {sessions.map(s => (
-              <div key={s.session_id} className="usage-log-row">
-                <div className="ulr-date">
-                  {new Date(s.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  <span className="ulr-time">
-                    {new Date(s.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    {' – '}
-                    {new Date(s.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', fontFamily: 'var(--mono)', fontSize: '0.78rem' }}>
-                  <span style={{ color: 'var(--text2)' }}>{fmt(s.hours_studied)}h</span>
-                  <span style={{ color: 'var(--success)', fontWeight: 600 }}>+{fmtK(s.knowledge_gained)} pts</span>
-                </div>
+        <div className="analytics-side-col">
+          <div className="analytics-panel" style={{ height: '100%' }}>
+            <div className="analytics-panel-title">
+              <FiClock /> Session Ledger
+            </div>
+            {sessions.length === 0 ? (
+              <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text3)' }}>
+                <p style={{ fontSize: '0.85rem' }}>No recent sessions recorded.</p>
               </div>
-            ))}
+            ) : (
+              <div className="session-timeline">
+                {sessions.map(s => (
+                  <div key={s.session_id} className="session-item">
+                    <div>
+                      <div className="session-date">
+                        {new Date(s.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <div className="session-time">
+                        {new Date(s.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        {' → '}
+                        {new Date(s.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <div className="session-stats">
+                      <div className="session-gained">+{fmtK(s.knowledge_gained)} pts</div>
+                      <div className="session-duration">{fmt(s.hours_studied)}h</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )
-      )}
+        </div>
+      </div>
     </div>
   );
 };

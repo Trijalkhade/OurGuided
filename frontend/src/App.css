@@ -40,8 +40,8 @@
   --medal-silver: #94a3b8;
   --medal-bronze: #b45309;
   /* Chart/SVG colors */
-  --chart-primary: #3b5bfa;
-  --chart-secondary: #06b6d4;
+  --chart-primary: #1e3a8a; /* Navy Blue */
+  --chart-secondary: #831843; /* Dark Magenta */
   --chart-grid: #dde2ef;
   --chart-text: #8892b5;
   /* State backgrounds */
@@ -51,27 +51,27 @@
 
 /* Dark Mode Theme */
 html[data-theme="dark"] {
-  --bg: #0f1419;
-  --bg2: #1a1f2e;
-  --bg3: #252d3d;
-  --card: #1a1f2e;
-  --border: #2d3748;
-  --border2: #384756;
+  --bg: #0b0f19;
+  --bg2: #111827;
+  --bg3: #1f2937;
+  --card: #151e32;
+  --border: #293652;
+  --border2: #374151;
   --accent: #5b7cff;
   --accent2: #7c9aff;
   --accent3: #06d9f5;
   --accentbg: rgba(91, 124, 255, 0.12);
   --accentbg2: rgba(91, 124, 255, 0.20);
-  --text: #e8e8ff;
-  --text2: #b8c5dd;
-  --text3: #7a8aae;
+  --text: #f9fafb;
+  --text2: #d1d5db;
+  --text3: #9ca3af;
   --danger: #ff6b6b;
   --success: #51d88a;
   --warning: #ffa940;
-  --shadow-xs: 0 1px 3px rgba(0, 0, 0, .20);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .25), 0 1px 3px rgba(0, 0, 0, .15);
-  --shadow: 0 6px 20px rgba(0, 0, 0, .30), 0 2px 6px rgba(0, 0, 0, .15);
-  --shadow-lg: 0 16px 50px rgba(0, 0, 0, .40), 0 4px 12px rgba(0, 0, 0, .20);
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 16px 50px rgba(0, 0, 0, 0.7);
   /* Medal colors (same in dark mode) */
   --medal-gold: #f59e0b;
   --medal-silver: #94a3b8;
