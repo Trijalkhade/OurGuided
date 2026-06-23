@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthGateProvider } from './context/AuthGateContext';
+import { GrowthProvider } from './context/GrowthContext';
 
 // Eager imports — needed on first render
 import Login from './pages/Login';
@@ -122,13 +123,15 @@ const App = () => (
     <AuthProvider>
       <AuthGateProvider>
         <FeedbackProvider>
-          <BrowserRouter>
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingScreen />}>
-                <AppContent />
-              </Suspense>
-            </ErrorBoundary>
-          </BrowserRouter>
+          <GrowthProvider>
+            <BrowserRouter>
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingScreen />}>
+                  <AppContent />
+                </Suspense>
+              </ErrorBoundary>
+            </BrowserRouter>
+          </GrowthProvider>
         </FeedbackProvider>
       </AuthGateProvider>
     </AuthProvider>

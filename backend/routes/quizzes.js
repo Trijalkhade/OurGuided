@@ -5,6 +5,7 @@ const auth    = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const moderationService = require('../utils/moderationService');
 const { globalActionLimiter } = require('../middleware/rateLimit');
+const { awardGrowth, QUIZ_PASS_THRESHOLD } = require('./growth');
 
 /* ── GET /   — list published quizzes ── */
 router.get('/', auth, async (req, res) => {
@@ -238,7 +239,27 @@ router.post('/:id/submit', auth, async (req, res) => {
     }
 
     conn.release();
-    res.json({ attempt_id: ar.insertId, score, total_points: total, percentage: pct, results, review });
+
+    // Award growth for passing quiz (non-fatal)
+    let growthResult = null;
+    if (pct >= QUIZ_PASS_THRESHOLD) {
+      try {
+        const growthConn = await db.getConnection();
+        try {
+          growthResult = await awardGrowth(growthConn, userId, 'quiz');
+        } finally {
+          growthConn.release();
+        }
+      } catch (growthErr) {
+        console.error('Growth award on quiz failed (non-fatal):', growthErr);
+      }
+    }
+
+    const response = { attempt_id: ar.insertId, score, total_points: total, percentage: pct, results, review };
+    if (growthResult) {
+      response.growth = growthResult;
+    }
+    res.json(response);
   } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
   finally { if (conn) conn.release(); }
 });

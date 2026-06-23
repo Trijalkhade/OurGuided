@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "note": "Reference object SVG silhouettes for the Growth Journey height scale. All assets are placeholder geometric shapes — replace with final illustrated SVGs.",
+  "objects": [
+    { "ref_id": "hand", "file": "hand.svg", "height_cm": 18 },
+    { "ref_id": "a4-paper", "file": "a4-paper.svg", "height_cm": 29.7 },
+    { "ref_id": "toddler", "file": "toddler.svg", "height_cm": 86 },
+    { "ref_id": "average-human", "file": "average-human.svg", "height_cm": 170 },
+    { "ref_id": "tallest-human", "file": "tallest-human.svg", "height_cm": 272 },
+    { "ref_id": "basketball-hoop", "file": "basketball-hoop.svg", "height_cm": 305 },
+    { "ref_id": "giraffe", "file": "giraffe.svg", "height_cm": 550 },
+    { "ref_id": "oak-tree", "file": "oak-tree.svg", "height_cm": 1200 },
+    { "ref_id": "statue-of-liberty", "file": "statue-of-liberty.svg", "height_cm": 9300 },
+    { "ref_id": "eiffel-tower", "file": "eiffel-tower.svg", "height_cm": 33000 },
+    { "ref_id": "burj-khalifa", "file": "burj-khalifa.svg", "height_cm": 82800 },
+    { "ref_id": "mount-everest", "file": "mount-everest.svg", "height_cm": 884886 }
+  ]
+}

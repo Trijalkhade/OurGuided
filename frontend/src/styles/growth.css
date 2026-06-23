@@ -1,0 +1,680 @@
+/* ═══════════════════════════════════════════════════════════════
+   GROWTH JOURNEY STYLES — Visual Ruler Panel
+   Uses existing design tokens from base.css
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes gjGrowLine {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+@keyframes gjFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gjFadeInDelayed {
+  0%   { opacity: 0; transform: translateY(8px); }
+  40%  { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gjModalIn {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes gjPanelIn {
+  from { opacity: 0; transform: scale(0.94) translateX(20px); transform-origin: right center; }
+  to   { opacity: 1; transform: scale(1) translateX(0); transform-origin: right center; }
+}
+
+@keyframes gjPulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(59, 91, 250, 0.3); }
+  50%      { box-shadow: 0 0 18px rgba(59, 91, 250, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gj-animate-grow,
+  .gj-animate-fade-in,
+  .gj-animate-fade-in-delayed,
+  .gj-modal-card,
+  .gj-ruler-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RIGHT-SIDE FIXED BUTTON
+   Rectangular strip on the right edge of the viewport
+═══════════════════════════════════════════════════════════════ */
+.gj-ruler-btn {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 900;
+  width: 36px;
+  height: 160px;
+  padding: 0;
+  border: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--card);
+  border-left: 1.5px solid var(--border);
+  border-top: 1.5px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.gj-ruler-btn:hover {
+  box-shadow: -4px 0 24px rgba(59, 91, 250, 0.25);
+  border-color: var(--accent);
+}
+
+.gj-ruler-btn-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.gj-ruler-btn:hover .gj-ruler-btn-img {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POPUP OVERLAY
+   Darkened + blurred background, 80% screen panel
+═══════════════════════════════════════════════════════════════ */
+.gj-ruler-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.gj-ruler-panel {
+  position: relative;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  width: 420px;
+  max-width: 90vw;
+  height: 80vh;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: gjPanelIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.gj-ruler-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.gj-ruler-title-group {
+  flex: 1;
+}
+
+.gj-ruler-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: var(--text3);
+  margin: 0 0 0.15rem;
+  font-family: var(--mono);
+}
+
+.gj-ruler-height-display {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--mono);
+  line-height: 1.1;
+}
+
+.gj-ruler-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  margin-right: 0.75rem;
+  padding-top: 0.15rem;
+}
+
+.gj-ruler-stat {
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.gj-ruler-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.gj-ruler-close:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VISUAL RULER BODY
+   The core visualization: ruler + reference + user marker
+═══════════════════════════════════════════════════════════════ */
+.gj-ruler-body {
+  flex: 1;
+  position: relative;
+  padding: 2.5rem 4rem 2rem 5rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── The ruler track (vertical center line) ─────────────────── */
+.gj-ruler-track {
+  position: absolute;
+  left: 4.5rem;
+  bottom: 2rem;
+  top: 2.5rem;
+  width: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Origin dot at bottom of ruler */
+.gj-ruler-origin {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #000;
+  border: 2px solid var(--text3);
+  z-index: 3;
+}
+
+/* Filled (glowing) portion from origin to user height */
+.gj-ruler-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, var(--accent), var(--accent3));
+  border-radius: 2px;
+  z-index: 1;
+  box-shadow: 0 0 10px rgba(59, 91, 250, 0.3);
+}
+
+/* ── Tick marks ─────────────────────────────────────────────── */
+.gj-ruler-tick {
+  position: absolute;
+  left: 0;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.gj-ruler-tick-line {
+  width: 8px;
+  height: 1px;
+  background: var(--text3);
+  opacity: 0.35;
+  margin-left: -12px;
+}
+
+.gj-ruler-tick.major .gj-ruler-tick-line {
+  width: 14px;
+  height: 1.5px;
+  opacity: 0.6;
+  margin-left: -18px;
+}
+
+.gj-ruler-tick-label {
+  position: absolute;
+  right: calc(100% + 8px);
+  font-size: 0.58rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  white-space: nowrap;
+  transform: translateY(1px);
+  letter-spacing: 0.3px;
+}
+
+/* ── User's height marker ───────────────────────────────────── */
+.gj-ruler-user-marker {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+
+.gj-ruler-user-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid var(--card);
+  box-shadow: 0 0 12px rgba(59, 91, 250, 0.5);
+  animation: gjPulseGlow 2.5s ease-in-out infinite;
+  z-index: 2;
+}
+
+.gj-ruler-user-label {
+  position: absolute;
+  left: calc(100% + 12px);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: var(--mono);
+  white-space: nowrap;
+  background: var(--card);
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 2px 8px rgba(59, 91, 250, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REFERENCE OBJECT — positioned at its height on the ruler
+═══════════════════════════════════════════════════════════════ */
+.gj-ruler-ref-zone {
+  position: absolute;
+  left: 5.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.gj-ruler-ref-img-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.gj-ruler-ref-img {
+  width: 60px;
+  height: 80px;
+  object-fit: contain;
+  opacity: 0.6;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.gj-ruler-ref-placeholder {
+  width: 60px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border2);
+  border-radius: 8px;
+}
+
+.gj-ruler-ref-emoji {
+  font-size: 2.2rem;
+  opacity: 0.5;
+}
+
+.gj-ruler-ref-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text3);
+  text-align: center;
+  max-width: 80px;
+  line-height: 1.2;
+}
+
+.gj-ruler-ref-height {
+  font-size: 0.55rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  opacity: 0.7;
+}
+
+/* Horizontal dashed line from reference to ruler */
+.gj-ruler-ref-line {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: calc(100% - 1px);
+  width: 20px;
+  height: 0;
+  border-top: 1px dashed var(--text3);
+  opacity: 0.3;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER — progress to next milestone
+═══════════════════════════════════════════════════════════════ */
+.gj-ruler-footer {
+  padding: 0.85rem 1.5rem 1rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.gj-ruler-footer-bar {
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+}
+
+.gj-ruler-footer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  border-radius: 2px;
+  transition: width 0.6s ease-out;
+}
+
+.gj-ruler-footer-text {
+  font-size: 0.62rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CELEBRATION MODAL (kept from before)
+═══════════════════════════════════════════════════════════════ */
+.gj-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.gj-modal-card {
+  position: relative;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 2rem 1.75rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: gjModalIn 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.gj-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 6px;
+  transition: all var(--t);
+}
+
+.gj-modal-close:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.gj-modal-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.gj-modal-line-container {
+  width: 6px;
+  height: 120px;
+  position: relative;
+}
+
+.gj-modal-line-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gj-modal-line-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: linear-gradient(to top, var(--accent), var(--accent3));
+  border-radius: 3px;
+  transform-origin: bottom center;
+}
+
+.gj-animate-grow {
+  animation: gjGrowLine 800ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.gj-modal-line-glow {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  height: 6px;
+  background: var(--accent3);
+  border-radius: 50%;
+  filter: blur(4px);
+  opacity: 0.7;
+  transform-origin: bottom center;
+}
+
+.gj-modal-counter { text-align: left; }
+
+.gj-modal-height-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  font-family: var(--mono);
+}
+
+.gj-modal-height-gained {
+  font-size: 0.82rem;
+  color: var(--success);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+
+.gj-animate-fade-in {
+  animation: gjFadeIn 300ms ease-out both;
+}
+
+.gj-animate-fade-in-delayed {
+  animation: gjFadeInDelayed 800ms ease-out both;
+}
+
+.gj-modal-shield-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--accentbg);
+  border-radius: var(--r-sm);
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.gj-modal-milestone {
+  background: linear-gradient(135deg, var(--accentbg), var(--accentbg2));
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.gj-modal-milestone-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.25rem;
+}
+
+.gj-modal-milestone-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.gj-modal-milestone-height {
+  font-size: 0.78rem;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-top: 0.15rem;
+}
+
+.gj-modal-next { margin-bottom: 1.25rem; }
+
+.gj-modal-next-label {
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.35rem;
+}
+
+.gj-modal-next-bar {
+  height: 6px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gj-modal-next-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  border-radius: 3px;
+  transition: width 0.6s ease-out;
+}
+
+.gj-modal-next-distance {
+  font-size: 0.68rem;
+  color: var(--text3);
+  margin-top: 0.25rem;
+  font-family: var(--mono);
+}
+
+.gj-modal-continue {
+  display: block;
+  width: 100%;
+  padding: 0.72rem 1.4rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--t);
+  font-family: inherit;
+}
+
+.gj-modal-continue:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(59, 91, 250, 0.38);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .gj-ruler-btn {
+    height: 120px;
+    width: 30px;
+  }
+
+  .gj-ruler-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .gj-ruler-panel {
+    width: 100%;
+    max-width: 100%;
+    height: 85vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .gj-ruler-body {
+    padding: 2rem 3rem 2rem 4rem;
+  }
+
+  .gj-ruler-track {
+    left: 3.5rem;
+  }
+
+  .gj-ruler-ref-zone {
+    left: 4.5rem;
+  }
+
+  .gj-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .gj-modal-card {
+    max-width: 100%;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding: 1.5rem 1.25rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+}

@@ -8,6 +8,7 @@ const { sendEmail } = require('../utils/notifier');
 const { createNotification } = require('./notifications');
 const { getUserPublicId } = require('../utils/dbHelpers');
 const crypto = require('crypto');
+const { logAudit, logLoginAttempt, isAccountLocked, lockAccount, blacklistToken } = require('../utils/auditLogger');
 
 // Cookie options for JWT token
 const COOKIE_OPTIONS = {
@@ -138,11 +139,38 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
-    if (!rows.length) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!rows.length) {
+      // Log failed attempt (unknown email — still log for pattern detection)
+      logLoginAttempt(email, req.ip, req.headers['user-agent'], false).catch(() => {});
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const user = rows[0];
+
+    // Check if account is locked
+    const lockStatus = await isAccountLocked(user.user_id);
+    if (lockStatus.locked) {
+      const unlockTime = new Date(lockStatus.unlock_at).toLocaleTimeString();
+      return res.status(423).json({ 
+        message: `Account temporarily locked due to ${lockStatus.reason}. Try again after ${unlockTime}.` 
+      });
+    }
+
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!valid) {
+      // Log failed attempt and check for brute-force
+      const { shouldLock, failedCount } = await logLoginAttempt(email, req.ip, req.headers['user-agent'], false);
+      if (shouldLock) {
+        await lockAccount(user.user_id, 'brute_force', 30);
+        logAudit(user.user_id, 'account_locked', { ip: req.ip, userAgent: req.headers['user-agent'], details: { reason: 'brute_force', failed_attempts: failedCount } }).catch(() => {});
+        return res.status(423).json({ message: 'Account locked due to too many failed attempts. Try again in 30 minutes.' });
+      }
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Successful login — log it
+    logLoginAttempt(email, req.ip, req.headers['user-agent'], true).catch(() => {});
+    logAudit(user.user_id, 'login', { target_type: 'user', ip: req.ip, userAgent: req.headers['user-agent'] }).catch(() => {});
 
     const token = jwt.sign(
       { user_id: user.user_id, username: user.username },
@@ -250,6 +278,9 @@ router.post('/reset-password', async (req, res) => {
     // Mark reset as used
     await db.execute('UPDATE password_resets SET used = TRUE WHERE id = ?', [resets[0].id]);
 
+    // Audit log the password change
+    logAudit(userId, 'password_change', { target_type: 'user', target_id: userId, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'reset_pin' } }).catch(() => {});
+
     res.json({ message: 'Password reset successful. You can now log in.' });
   } catch (err) {
     console.error('Reset password error:', err);
@@ -257,8 +288,18 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Logout — clear the HttpOnly cookie
-router.post('/logout', (req, res) => {
+// Logout — clear the HttpOnly cookie and blacklist the token
+router.post('/logout', auth, async (req, res) => {
+  try {
+    // Blacklist the current token so it can't be reused
+    if (req.token) {
+      await blacklistToken(req.token, req.user.user_id);
+    }
+    logAudit(req.user.user_id, 'logout', { ip: req.ip, userAgent: req.headers['user-agent'] }).catch(() => {});
+  } catch (err) {
+    // Non-fatal — still logout even if blacklist fails
+    console.error('[LOGOUT] Token blacklist error:', err.message);
+  }
   res.clearCookie('token', { path: '/' });
   res.json({ message: 'Logged out' });
 });

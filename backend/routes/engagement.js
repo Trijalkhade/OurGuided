@@ -40,6 +40,15 @@ router.post('/batch', auth, async (req, res) => {
   const { impressions, watchTimes, scrollDepths, videoCompletions } = req.body;
   const deviceType = detectDeviceType(req.headers['user-agent']);
 
+  // Defense in depth: cap batch sizes to prevent write amplification attacks
+  const MAX_PER_ARRAY = 50;
+  const MAX_TOTAL = 200;
+  const arrays = [impressions, watchTimes, scrollDepths, videoCompletions].filter(Array.isArray);
+  const totalItems = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  if (totalItems > MAX_TOTAL || arrays.some(arr => arr.length > MAX_PER_ARRAY)) {
+    return res.status(400).json({ message: `Batch too large. Max ${MAX_PER_ARRAY} items per type, ${MAX_TOTAL} total.` });
+  }
+
   let conn;
   try {
     conn = await db.getConnection();

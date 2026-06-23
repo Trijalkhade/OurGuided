@@ -1,16 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { requireModerator } = require('../middleware/adminAuth');
 const { triggerBirthdayEmailsNow } = require('../utils/birthdayScheduler');
 const db = require('../db');
 const moderationLogger = require('../utils/moderationLogger');
 const moderationService = require('../utils/moderationService');
+const { logAudit } = require('../utils/auditLogger');
 
 /**
  * ADMIN ROUTES
+ * All routes require moderator or admin role.
  */
 
-router.get('/check-birthdays-debug', auth, async (req, res) => {
+router.get('/check-birthdays-debug', auth, requireModerator, async (req, res) => {
     try {
         const query = `
             SELECT u.user_id, u.username, u.email,
@@ -34,7 +37,7 @@ router.get('/check-birthdays-debug', auth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/test-birthdays', auth, async (req, res) => {
+router.get('/test-birthdays', auth, requireModerator, async (req, res) => {
     try {
         const result = await triggerBirthdayEmailsNow();
         res.json({ message: 'Birthday emails triggered', result });
@@ -43,14 +46,14 @@ router.get('/test-birthdays', auth, async (req, res) => {
 
 /* ── MODERATION ENDPOINTS ── */
 
-router.get('/moderation/stats', auth, async (req, res) => {
+router.get('/moderation/stats', auth, requireModerator, async (req, res) => {
     try {
         const stats = await moderationService.getQueueStats();
         res.json({ success: true, data: stats });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
-router.get('/moderation/logs', auth, async (req, res) => {
+router.get('/moderation/logs', auth, requireModerator, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
         const logs = await moderationLogger.getRecentLogs(limit);
@@ -58,7 +61,7 @@ router.get('/moderation/logs', auth, async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
-router.get('/moderation/queue', auth, async (req, res) => {
+router.get('/moderation/queue', auth, requireModerator, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
@@ -67,15 +70,16 @@ router.get('/moderation/queue', auth, async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
-router.post('/moderation/:queueId/decision', auth, async (req, res) => {
+router.post('/moderation/:queueId/decision', auth, requireModerator, async (req, res) => {
     try {
         const { decision, notes } = req.body;
         await moderationService.processModerationDecision(req.params.queueId, req.user.user_id, decision, notes || '');
+        logAudit(req.user.user_id, 'moderation_decision', { target_type: 'moderation', target_id: parseInt(req.params.queueId), ip: req.ip, details: { decision, notes } }).catch(() => {});
         res.json({ success: true, message: `Moderation decision processed: ${decision}` });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
-router.get('/moderation/deletions', auth, async (req, res) => {
+router.get('/moderation/deletions', auth, requireModerator, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
         const offset = parseInt(req.query.offset) || 0;
@@ -84,7 +88,7 @@ router.get('/moderation/deletions', auth, async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
-router.post('/moderation/scan', auth, async (req, res) => {
+router.post('/moderation/scan', auth, requireModerator, async (req, res) => {
     try {
         const { content_type, limit = 100 } = req.body;
         const configs = {

@@ -1,9 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import useFeedback from '../utils/useFeedback';
 import FeedbackWidget from './FeedbackWidget';
+import GrowthRulerPanel from './GrowthRulerPanel';
+const GrowthCelebrationModal = lazy(() => import('./GrowthCelebrationModal'));
+import '../styles/growth.css';
 import {
   FiHome, FiBookmark, FiUser, FiLogOut, FiSearch,
   FiUsers, FiBell, FiCompass, FiList, FiClock, FiMoon, FiSun,
@@ -437,6 +440,14 @@ const Layout = () => {
 
       {/* ── FEEDBACK WIDGET ──────────────────────────────────────────── */}
       <FeedbackWidget />
+
+      {/* ── GROWTH JOURNEY — right-side ruler button + popup ─────────── */}
+      <GrowthRulerPanel />
+
+      {/* ── GROWTH CELEBRATION MODAL (lazy) ──────────────────────────── */}
+      <Suspense fallback={null}>
+        <GrowthCelebrationModal />
+      </Suspense>
 
     </div>
   );

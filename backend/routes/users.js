@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { formatPhoto, resolveUserId, getUserPublicId } = require('../utils/dbHelpers');
 const { uploadToS3 } = require('../utils/s3');
+const { logAudit } = require('../utils/auditLogger');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
@@ -290,6 +291,9 @@ router.delete('/account', auth, async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
+    // Audit log BEFORE deletion (user row will be gone after)
+    logAudit(userId, 'account_delete', { target_type: 'user', target_id: userId, ip: req.ip, userAgent: req.headers['user-agent'] }).catch(() => {});
+
     // Delete all user-related data
     await conn.execute('DELETE FROM user_phone WHERE user_id=?', [userId]);
     await conn.execute('DELETE FROM user_skills WHERE user_id=?', [userId]);
@@ -299,7 +303,7 @@ router.delete('/account', auth, async (req, res) => {
     await conn.execute('DELETE FROM notifications WHERE user_id=?', [userId]);
     await conn.execute('DELETE FROM study_streak WHERE user_id=?', [userId]);
     await conn.execute('DELETE FROM study_sessions WHERE user_id=?', [userId]);
-    await conn.execute('DELETE FROM connections WHERE requester_id=? OR receiver_id=?', [userId, userId]);
+    await conn.execute('DELETE FROM follows WHERE follower_id=? OR following_id=?', [userId, userId]);
     await conn.execute('DELETE FROM user_watch WHERE user_id=?', [userId]);
     await conn.execute('DELETE FROM likes WHERE user_id=?', [userId]);
     await conn.execute('DELETE FROM comments WHERE user_id=?', [userId]);

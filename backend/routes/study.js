@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
+const { awardGrowth, tryAutoShield, MIN_SESSION_SECONDS } = require('./growth');
 const jwt     = require('jsonwebtoken');
 
 // ── helper: run the reinforcement algorithm for a completed session ─────────
@@ -67,16 +68,30 @@ async function doStop(userId, res) {
         const isNewDay = lastDate !== today;
         let streakBroken = false;
         let coreEvolved  = false;
+        let shieldResult = { shieldUsed: false, shieldsRemaining: 0 };
+        let growthResult = null;
 
         if (hours > 0) {
             if (isNewDay) {
                 if (lastDate) {
                     const diffDays = Math.floor((new Date(today) - new Date(lastDate)) / 86400000);
                     if (diffDays > 1) {
-                        streakBroken = true;
-                        streak_factor = Math.floor(streak_factor / 10);
-                        multiplier    = Math.max(multiplier - core_growth * learning_core, min_multiplier);
-                        learning_core = Math.max(learning_core - core_growth / 2, 1.0);
+                        // Try auto-shield before applying decay (Brilliant-style)
+                        try {
+                            shieldResult = await tryAutoShield(conn, userId);
+                        } catch (shieldErr) {
+                            console.error('Shield check failed (non-fatal):', shieldErr);
+                        }
+
+                        if (shieldResult.shieldUsed) {
+                            // Shield consumed — streak preserved, no decay
+                            streakBroken = false;
+                        } else {
+                            streakBroken = true;
+                            streak_factor = Math.floor(streak_factor / 10);
+                            multiplier    = Math.max(multiplier - core_growth * learning_core, min_multiplier);
+                            learning_core = Math.max(learning_core - core_growth / 2, 1.0);
+                        }
                     }
                 }
                 streak_days  += 1;
@@ -113,10 +128,19 @@ async function doStop(userId, res) {
                 [total_knowledge.toFixed(4), learning_core.toFixed(4), userId]
             );
 
+            // Award growth (non-fatal — study result is primary)
+            if (hours * 3600 >= MIN_SESSION_SECONDS) {
+                try {
+                    growthResult = await awardGrowth(conn, userId, 'lesson');
+                } catch (growthErr) {
+                    console.error('Growth award failed (non-fatal):', growthErr);
+                }
+            }
+
             await conn.commit();
 
             if (res) {
-                res.json({
+                const response = {
                     session_id: session.session_id,
                     hours_studied: parseFloat(hours.toFixed(4)),
                     knowledge_gained: parseFloat(knowledge.toFixed(4)),
@@ -126,7 +150,12 @@ async function doStop(userId, res) {
                     total_knowledge: parseFloat(total_knowledge.toFixed(4)),
                     core_evolved: coreEvolved,
                     streak_broken: streakBroken,
-                });
+                    streak_protected: shieldResult.shieldUsed,
+                };
+                if (growthResult) {
+                    response.growth = growthResult;
+                }
+                res.json(response);
             }
         } else {
             // Less than 1 second — close silently

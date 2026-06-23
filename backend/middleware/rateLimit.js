@@ -20,6 +20,8 @@ const apiLimiter = rateLimit({
   message: { message: 'Too many requests. Please slow down.' },
 });
 
+const { checkRateLimit } = require('../utils/auditLogger');
+
 // Unified Action Shield — 5 total create/update actions per 15 minutes per USER
 const globalActionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -31,4 +33,14 @@ const globalActionLimiter = rateLimit({
   message: { message: 'Wait! You are doing too much in a short time. Quality is better than quantity.' },
 });
 
-module.exports = { authLimiter, apiLimiter, globalActionLimiter };
+// DB-backed rate limiter for distributed/persistent limits
+const dbRateLimiter = (actionType, windowMinutes = 15, maxAttempts = 5) => async (req, res, next) => {
+  if (!req.user || !req.user.user_id) return next();
+  const allowed = await checkRateLimit(req.user.user_id, actionType, windowMinutes, maxAttempts);
+  if (!allowed) {
+    return res.status(429).json({ message: 'Wait! You are doing too much in a short time. Quality is better than quantity.' });
+  }
+  next();
+};
+
+module.exports = { authLimiter, apiLimiter, globalActionLimiter, dbRateLimiter };

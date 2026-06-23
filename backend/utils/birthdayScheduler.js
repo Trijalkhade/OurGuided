@@ -30,6 +30,14 @@ function initBirthdayScheduler() {
     return scheduler;
 }
 
+/**
+ * Manually trigger birthday emails (used by admin API)
+ */
+async function triggerBirthdayEmailsNow() {
+    return await sendBirthdayEmails();
+}
+
 module.exports = { 
-    initBirthdayScheduler
+    initBirthdayScheduler,
+    triggerBirthdayEmailsNow,
 };

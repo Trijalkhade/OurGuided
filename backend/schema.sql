@@ -1,23 +1,30 @@
 USE DBMS;
 
+-- ══════════════════════════════════════════════════════════════════════════════
+-- OurGuided — Production Schema (Hardened)
+-- Last Updated: 2026-06-22
+-- Threat Model: 100 concurrent malicious users attacking every component
+-- ══════════════════════════════════════════════════════════════════════════════
+
 -- ── Users ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     user_id   INT AUTO_INCREMENT PRIMARY KEY,
     public_id CHAR(36) NOT NULL DEFAULT (UUID()),
     username  VARCHAR(100) UNIQUE NOT NULL,
     email     VARCHAR(255) UNIQUE NOT NULL,
-    CHECK (email REGEXP '^[A-Za-z0-9._%+-]{2,}@[A-Za-z0-9.-]{2,}\\.[A-Za-z]{2,}$'),
     password  CHAR(60) NOT NULL,
+    role      ENUM('user','moderator','admin') NOT NULL DEFAULT 'user',
     registration_ip VARCHAR(45),
     registration_device_id VARCHAR(255),
     join_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_users_public_id (public_id)
+    UNIQUE INDEX idx_users_public_id (public_id),
+    INDEX idx_users_role (role)
 );
 
 CREATE TABLE IF NOT EXISTS user_profile (
     user_id         INT PRIMARY KEY,
     dob             DATE NOT NULL,
-    CHECK (YEAR(dob) BETWEEN 1945 AND 2012),
+    CHECK (dob >= '1920-01-01'),
     bio             TEXT,
     badges          MEDIUMBLOB,
     knowledge_today DECIMAL(7,3)  DEFAULT 0,
@@ -31,6 +38,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
     notify_quizzes  BOOLEAN       DEFAULT TRUE,
     notify_streaks  BOOLEAN       DEFAULT TRUE,
     whatsapp_number VARCHAR(20) DEFAULT NULL,
+    updated_at      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -40,6 +48,8 @@ CREATE TABLE IF NOT EXISTS user_info (
     middle_name VARCHAR(50),
     last_name   VARCHAR(50) NOT NULL,
     photo       MEDIUMBLOB,
+    photo_url   TEXT DEFAULT NULL,              -- S3 URL (replaces BLOB for new uploads)
+    updated_at  TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -56,7 +66,7 @@ CREATE INDEX idx_user_phone_user ON user_phone(user_id);
 -- ── Skills ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS skills (
     skill_id   INT AUTO_INCREMENT PRIMARY KEY,
-    skill_name VARCHAR(25) UNIQUE NOT NULL
+    skill_name VARCHAR(100) UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_skills (
@@ -144,6 +154,7 @@ CREATE TABLE IF NOT EXISTS posts (
     text       VARCHAR(5000),
     video_url  TEXT,
     small_img  MEDIUMBLOB,
+    image_url  TEXT DEFAULT NULL,               -- S3 URL for main image
     media_type ENUM('image','video','none') DEFAULT 'none',
     category   VARCHAR(50),
     is_anonymous BOOLEAN DEFAULT FALSE,
@@ -156,6 +167,7 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 CREATE INDEX idx_posts_user ON posts(user_id);
 CREATE INDEX idx_posts_date ON posts(post_date DESC);
+CREATE INDEX idx_posts_feed ON posts(is_deleted, is_pending, post_date DESC);
 
 CREATE TABLE IF NOT EXISTS post_images (
     image_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -317,7 +329,7 @@ CREATE TABLE IF NOT EXISTS study_streak (
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
-    type            ENUM('new_skill','quiz','streak','connection','system') NOT NULL,
+    type            ENUM('new_skill','quiz','streak','connection','system','moderation') NOT NULL,
     title           VARCHAR(200) NOT NULL,
     message         TEXT,
     is_read         BOOLEAN DEFAULT FALSE,
@@ -326,6 +338,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications(user_id, is_read);
+CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created_at DESC);
 
 -- Playlists
 CREATE TABLE IF NOT EXISTS playlists (
@@ -361,6 +374,7 @@ CREATE TABLE IF NOT EXISTS moderation_queue (
   detection_details JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   processed_at TIMESTAMP NULL,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   INDEX idx_status (status),
   INDEX idx_content_type (content_type),
   INDEX idx_created_at (created_at)
@@ -403,6 +417,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   INDEX idx_reset_lookup (user_id, used, expires_at)
 );
+CREATE INDEX idx_password_resets ON password_resets(user_id, used, expires_at);
 
 -- ── Engagement Tracking ──────────────────────────────────────────────────
 
@@ -500,4 +515,199 @@ CREATE TABLE IF NOT EXISTS post_repeat_views (
     PRIMARY KEY (user_id, post_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE
+);
+
+-- ── Growth Journey ─────────────────────────────────────────────────────────
+
+-- Core state (1:1 with user)
+CREATE TABLE IF NOT EXISTS growth_journey (
+    user_id           INT PRIMARY KEY,
+    height_cm         DECIMAL(12,2) DEFAULT 10.00,
+    last_awarded_date DATE          DEFAULT NULL,
+    longest_streak    INT           DEFAULT 0,
+    current_ref_id    VARCHAR(40)   DEFAULT 'hand',
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Append-only growth log (powers timeline, heatmap, growth anniversaries)
+CREATE TABLE IF NOT EXISTS growth_journey_log (
+    log_id       INT AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT NOT NULL,
+    award_date   DATE NOT NULL,
+    cm_gained    DECIMAL(6,2) NOT NULL,
+    height_after DECIMAL(12,2) NOT NULL,
+    source       ENUM('lesson','quiz','milestone','momentum_bonus','welcome_bonus','shield_used') NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_day_source (user_id, award_date, source),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX idx_gjl_user_date ON growth_journey_log(user_id, award_date);
+
+-- Reference object ladder (data-driven)
+CREATE TABLE IF NOT EXISTS growth_reference_objects (
+    ref_id      VARCHAR(40) PRIMARY KEY,
+    label       VARCHAR(100) NOT NULL,
+    height_cm   DECIMAL(12,2) NOT NULL,
+    sort_order  INT NOT NULL,
+    asset_file  VARCHAR(120) NOT NULL
+);
+
+-- Streak protection inventory (auto-apply, Brilliant-style)
+CREATE TABLE IF NOT EXISTS streak_shields (
+    user_id        INT NOT NULL,
+    shield_count   INT DEFAULT 0,
+    max_shields    INT DEFAULT 2,
+    last_earned_at DATE DEFAULT NULL,
+    PRIMARY KEY (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Seed reference objects (heights verified from real-world sources)
+INSERT IGNORE INTO growth_reference_objects (ref_id, label, height_cm, sort_order, asset_file) VALUES
+('hand',            'Human Hand',                       18.00,   1,  'hand.svg'),
+('a4-paper',        'A4 Paper (long edge)',              29.70,   2,  'a4-paper.svg'),
+('toddler',         'Average 2-Year-Old',                86.00,   3,  'toddler.svg'),
+('average-human',   'Average Global Adult',             170.00,   4,  'average-human.svg'),
+('tallest-human',   'Tallest Human (Robert Wadlow)',    272.00,   5,  'tallest-human.svg'),
+('basketball-hoop', 'NBA Basketball Hoop',              305.00,   6,  'basketball-hoop.svg'),
+('giraffe',         'Adult Giraffe',                    550.00,   7,  'giraffe.svg'),
+('oak-tree',        'Mature Oak Tree',                 1200.00,   8,  'oak-tree.svg'),
+('statue-liberty',  'Statue of Liberty',               9300.00,   9,  'statue-of-liberty.svg'),
+('eiffel-tower',    'Eiffel Tower',                   33000.00,  10,  'eiffel-tower.svg'),
+('burj-khalifa',    'Burj Khalifa',                   82800.00,  11,  'burj-khalifa.svg'),
+('mount-everest',   'Mount Everest',                 884886.00,  12,  'mount-everest.svg');
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 1: Missing Tables (Code references these but schema didn't define them)
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Referenced by: utils/moderationLogger.js:8
+CREATE TABLE IF NOT EXISTS moderation_logs (
+    log_id           INT AUTO_INCREMENT PRIMARY KEY,
+    user_id          INT NOT NULL,
+    post_id          INT,
+    content          TEXT NOT NULL,
+    content_type     ENUM('post','comment','quiz') NOT NULL DEFAULT 'post',
+    is_hate_speech   BOOLEAN DEFAULT FALSE,
+    confidence       DECIMAL(3,2) DEFAULT 0,
+    reasons          JSON,
+    detection_details JSON,
+    created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE SET NULL,
+    INDEX idx_modlog_created (created_at),
+    INDEX idx_modlog_user (user_id)
+);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 2: Security Hardening (Against 100 concurrent attacker scenario)
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- JWT revocation: blacklist stolen/compromised tokens
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    token_hash CHAR(64) NOT NULL,              -- SHA-256 of the JWT
+    user_id    INT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,             -- Auto-cleanup: delete after JWT expiry
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE INDEX idx_token_hash (token_hash),
+    INDEX idx_token_expires (expires_at),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Per-user brute force tracking (complements per-IP rate limiting in middleware)
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    email        VARCHAR(255) NOT NULL,
+    ip_address   VARCHAR(45) NOT NULL,
+    user_agent   VARCHAR(500),
+    success      BOOLEAN NOT NULL DEFAULT FALSE,
+    attempted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_login_email (email, attempted_at),
+    INDEX idx_login_ip (ip_address, attempted_at)
+);
+
+-- Auto-lock accounts after N failed logins
+CREATE TABLE IF NOT EXISTS account_locks (
+    user_id     INT PRIMARY KEY,
+    locked_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lock_reason ENUM('brute_force','suspicious_activity','manual') NOT NULL,
+    unlock_at   TIMESTAMP NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 3: Audit Trail & Forensics
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Tracks all security-sensitive operations for forensic analysis
+CREATE TABLE IF NOT EXISTS audit_log (
+    log_id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT,
+    action      VARCHAR(50) NOT NULL,          -- 'login', 'password_change', 'account_delete', 'role_change', 'post_delete'
+    target_type VARCHAR(30),                   -- 'user', 'post', 'quiz', 'comment'
+    target_id   INT,
+    ip_address  VARCHAR(45),
+    user_agent  VARCHAR(500),
+    details     JSON,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_user (user_id, created_at),
+    INDEX idx_audit_action (action, created_at),
+    INDEX idx_audit_target (target_type, target_id)
+);
+
+-- Prevents stealthy email swaps (attacker changes email then resets password)
+CREATE TABLE IF NOT EXISTS email_change_log (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    old_email   VARCHAR(255) NOT NULL,
+    new_email   VARCHAR(255) NOT NULL,
+    changed_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address  VARCHAR(45),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    INDEX idx_email_change_user (user_id)
+);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 5: Performance Indexes (for recommendation engine under 100-user load)
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Engagement table covering indexes (8 parallel queries per /recommendations/feed)
+CREATE INDEX idx_watch_time_user ON post_watch_time(user_id, post_id, seconds);
+CREATE INDEX idx_impressions_user ON post_impressions(user_id, post_id, device_type, time_bucket);
+CREATE INDEX idx_scroll_depth_user ON post_scroll_depth(user_id, post_id, depth_pct);
+CREATE INDEX idx_video_completion_user ON post_video_completion(user_id, post_id, completion_pct);
+CREATE INDEX idx_shares_user ON post_shares(user_id, post_id);
+CREATE INDEX idx_profile_clicks_user ON post_profile_clicks(user_id, post_id);
+CREATE INDEX idx_repeat_views_user ON post_repeat_views(user_id, post_id, view_count);
+
+-- Comment length aggregation (used by recommendation engine)
+CREATE INDEX idx_comments_analysis ON comments(user_id, is_deleted, post_id);
+
+-- Follows mutual lookup (connection check runs on every feed request)
+CREATE INDEX idx_follows_mutual ON follows(following_id, follower_id);
+
+-- Study session aggregation (knowledge chart, study history)
+CREATE INDEX idx_study_sessions_agg ON study_sessions(user_id, session_date, end_time);
+
+-- Quiz attempts for leaderboard
+CREATE INDEX idx_quiz_attempts_leaderboard ON quiz_attempts(quiz_id, user_id, percentage DESC);
+
+-- Growth journey log for heatmap/timeline
+CREATE INDEX idx_growth_log_year ON growth_journey_log(user_id, award_date);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 6: Rate Limiting at DB Level (Defense in Depth)
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Per-user action tracking (complements express-rate-limit middleware)
+CREATE TABLE IF NOT EXISTS rate_limit_counters (
+    user_id      INT NOT NULL,
+    action_type  VARCHAR(30) NOT NULL,         -- 'engagement_batch', 'post_create', 'comment'
+    window_start TIMESTAMP NOT NULL,
+    count        INT NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id, action_type, window_start),
+    INDEX idx_rate_limit_cleanup (window_start),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, API } from '../context/AuthContext';
+import { useGrowth } from '../context/GrowthContext';
 import useFeedback from '../utils/useFeedback';
 import toast from 'react-hot-toast';
 import { FiPlus, FiCheck, FiX, FiTrash2, FiChevronRight, FiEye, FiAlertTriangle, FiSend } from 'react-icons/fi';
@@ -236,6 +237,7 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
 ═══════════════════════════════════════════════════════════════ */
 const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
   const { onTap, onSuccess, onError, onCelebration } = useFeedback();
+  const { handleGrowthAward } = useGrowth();
   const [answers, setAnswers]       = useState({});
   const [results, setResults]       = useState(null);
   const [loading, setLoading]       = useState(false);
@@ -259,6 +261,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
       setResults(data);
       onCelebration();
       toast.success(`Quiz completed! You scored ${data.percentage}%`);
+      if (data?.growth) handleGrowthAward(data.growth);
       cache.invalidatePrefix('quizzes');
       onCompleted?.(data);
     } catch(err) { 
@@ -279,6 +282,7 @@ const TakeQuizModal = ({ quiz, onClose, onCompleted }) => {
       setResults(data);
       onCelebration();
       toast.success(`Quiz submitted! You scored ${data.percentage}%`);
+      if (data?.growth) handleGrowthAward(data.growth);
       cache.invalidatePrefix('quizzes');
       onCompleted?.(data);
     } catch(err) {

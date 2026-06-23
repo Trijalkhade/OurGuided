@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API } from '../context/AuthContext';
+import { useGrowth } from '../context/GrowthContext';
 import toast from 'react-hot-toast';
 import { FiClock, FiBarChart2, FiRefreshCw, FiSquare, FiTrendingUp, FiZap, FiAward } from 'react-icons/fi';
 import * as cache from '../utils/cache';
@@ -161,6 +162,7 @@ const KnowledgeLineChart = ({ data, year }) => {
 import { SkelStudy } from '../components/Skeleton.jsx';
 
 const UsageTracker = () => {
+  const { handleGrowthAward } = useGrowth();
   // Try to restore from cache
   const cachedStatus   = cache.get('study:status');
   const cachedHistory  = cache.get('study:history');
@@ -233,8 +235,12 @@ const UsageTracker = () => {
   const handleStop = async () => {
     setActLoad(true);
     try {
-      await API.post('/study/stop');
+      const { data } = await API.post('/study/stop');
       toast.success('Session ended. Knowledge recorded!');
+      // Forward growth data to context (triggers celebration modal)
+      if (data?.growth) {
+        handleGrowthAward(data.growth);
+      }
       cache.invalidatePrefix('study');
       await fetchAll(true);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
