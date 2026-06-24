@@ -4,7 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const s3 = new S3Client({
-  region: process.env.AWS_REGION || 'ap-south-1',
+  region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -21,7 +21,7 @@ const BUCKET = process.env.AWS_S3_BUCKET;
  */
 async function uploadToS3(fileData, mimetype, folder = 'images') {
   if (!fileData) return null;
-  
+
   // Generate a random unique filename
   const extension = mimetype.split('/')[1] || 'jpeg';
   const key = `${folder}/${crypto.randomUUID()}.${extension}`;
@@ -44,7 +44,7 @@ async function uploadToS3(fileData, mimetype, folder = 'images') {
 
   await parallelUploads3.done();
 
-  return `https://${BUCKET}.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/${key}`;
+  return `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 }
 
 /**

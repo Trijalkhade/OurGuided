@@ -469,7 +469,7 @@ const Feed = () => {
           </button>
           <video
             ref={videoRef}
-            src="https://ourguided-media.s3.ap-south-1.amazonaws.com/songs/song_of_liberation.webm"
+            src="https://ourguided-media.s3.us-east-1.amazonaws.com/songs/song_of_liberation.webm"
             autoPlay
             playsInline
             preload="auto"
