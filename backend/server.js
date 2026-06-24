@@ -10,6 +10,16 @@ const cookieParser = require('cookie-parser');
 const timeout = require('connect-timeout');
 require('dotenv').config();
 
+if (!process.env.JWT_SECRET) {
+  const { execSync } = require('child_process');
+  try {
+    execSync('osascript -e \'display alert "CRITICAL ERROR: JWT_SECRET is missing in .env file. The server will now terminate." as critical\'');
+  } catch (e) {
+    console.error('CRITICAL ERROR: JWT_SECRET is missing in .env file.');
+  }
+  process.exit(1);
+}
+
 const app = express();
 app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate limiting
 
@@ -31,7 +41,7 @@ io.use((socket, next) => {
   const token = tokenMatch?.[1] || socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication required'));
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.user_id;
     next();
   } catch {

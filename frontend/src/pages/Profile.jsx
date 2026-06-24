@@ -347,11 +347,16 @@ const Profile = () => {
             ) : (
               profile.certifications.map(c => (
                 <div key={c.certification_id} className="cert-card">
-                  {c.certificate_img ? (
+                  {c.certificate_url ? (
                     <img
-                      src={`data:image/jpeg;base64,${c.certificate_img}`}
+                      src={c.certificate_url}
                       alt="Certificate"
                       className="cert-img"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.style.display = 'none';
+                        e.target.insertAdjacentHTML('afterend', '<div class="cert-icon">🏆</div>');
+                      }}
                     />
                   ) : (
                     <div className="cert-icon">🏆</div>

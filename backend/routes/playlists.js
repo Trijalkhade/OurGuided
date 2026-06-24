@@ -41,9 +41,9 @@ router.get('/:id', auth, async (req, res) => {
 
     const [items] = await db.execute(
       `SELECT p.public_id AS post_id, p.text AS content, p.post_date, p.category,
-              p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
+              p.media_type, p.image_url, p.video_url AS video, p.is_anonymous,
               u.username, COALESCE(ui.first_name,'') AS first_name,
-              COALESCE(ui.last_name,'') AS last_name,
+              COALESCE(ui.last_name,'') AS last_name, ui.photo_url,
               pi2.sort_order, pi2.added_at
        FROM playlist_items pi2
        JOIN posts p ON pi2.post_id=p.post_id
@@ -95,7 +95,7 @@ router.delete('/:id/remove/:postId', auth, async (req, res) => {
     if (!pl || pl.user_id !== req.user.user_id)
       return res.status(403).json({ message: 'Not your playlist' });
     await db.execute('DELETE FROM playlist_items WHERE playlist_id=? AND post_id=?',
-      [req.params.id, req.params.postId]);
+      [req.params.id, await resolvePostId(req.params.postId)]);
     res.json({ message: 'Removed' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

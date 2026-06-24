@@ -172,10 +172,17 @@ const CreateQuizModal = ({ onClose, onCreated }) => {
         <div className="two-col">
           <div className="form-group">
             <label>Category</label>
-            <select value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-              <option value="">Select category</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <>
+              <input
+                list="quiz-category-options"
+                placeholder="Select or type a category..."
+                value={form.category}
+                onChange={e => setForm({...form, category: e.target.value})}
+              />
+              <datalist id="quiz-category-options">
+                {CATEGORIES.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </>
           </div>
           <div className="form-group">
             <label>Difficulty</label>

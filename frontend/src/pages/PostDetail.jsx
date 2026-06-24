@@ -251,7 +251,7 @@ const PostDetail = () => {
         {post.tags && (
           <div className="post-tags">
             {post.tags.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-              <span key={tag} className="tag">#{tag}</span>
+              <span key={tag} className="tag">{tag}</span>
             ))}
           </div>
         )}

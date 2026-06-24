@@ -127,3 +127,37 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   NIKA VIDEO BUTTON — RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .nika-video-btn {
+    right: 12px;
+    bottom: 88px;
+  }
+
+  .nika-video-btn img {
+    width: 140px;
+  }
+
+  .nika-video-close {
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .nika-video-btn {
+    right: 8px;
+    bottom: 80px;
+  }
+
+  .nika-video-btn img {
+    width: 110px;
+  }
+}

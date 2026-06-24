@@ -12,7 +12,7 @@ router.get('/search/:query', auth, async (req, res) => {
   try {
     const q = `%${req.params.query}%`;
     const [users] = await db.execute(
-      `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
+      `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo_url AS photo, up.is_expert
        FROM users u
        LEFT JOIN user_info ui    ON u.user_id=ui.user_id
        LEFT JOIN user_profile up ON u.user_id=up.user_id
@@ -53,8 +53,8 @@ router.get('/:id', auth, async (req, res) => {
 
     const [[user]] = await db.execute(
       `SELECT u.public_id AS user_id, u.username, u.email, u.join_date,
-              ui.first_name, ui.middle_name, ui.last_name, ui.photo,
-              up.dob, up.bio, up.core_level, up.total_knowledge, up.badges,
+              ui.first_name, ui.middle_name, ui.last_name, ui.photo_url AS photo,
+              up.dob, up.bio, up.core_level, up.total_knowledge,
               up.knowledge_today, up.is_expert, up.is_private,
               TIMESTAMPDIFF(YEAR, up.dob, CURDATE()) AS age
        FROM users u
@@ -72,12 +72,9 @@ router.get('/:id', auth, async (req, res) => {
        JOIN skills s ON us.skill_id=s.skill_id WHERE us.user_id=?`, [userId]);
     const [certifications] = await db.execute(
       `SELECT c.certification_id, c.certification_name, c.issued_by,
-              uc.certified_level, uc.certificate_url, uc.issued_date, uc.expiry_date, uc.certificate_img
+              uc.certified_level, uc.certificate_url, uc.issued_date, uc.expiry_date
        FROM user_certifications uc JOIN certifications c ON uc.certification_id=c.certification_id
        WHERE uc.user_id=?`, [userId]);
-    certifications.forEach(c => {
-      if (c.certificate_img) c.certificate_img = c.certificate_img.toString('base64');
-    });
     const [education] = await db.execute(
       `SELECT et.type, ue.institution, ue.score
        FROM user_education ue JOIN education_type et ON ue.type_id=et.type_id
@@ -217,9 +214,9 @@ router.post('/certifications', auth, upload.single('certificate_img'), async (re
     conn = await db.getConnection();
     await conn.beginTransaction();
     
-    let certBuffer = null;
+    let s3CertUrl = certificate_url || null;
     if (certificate_img_path) {
-      certBuffer = fs.readFileSync(certificate_img_path);
+      s3CertUrl = await uploadToS3(certificate_img_path, req.file.mimetype, 'certifications');
     }
 
     const [cert] = await conn.execute(
@@ -227,9 +224,9 @@ router.post('/certifications', auth, upload.single('certificate_img'), async (re
       [certification_name]);
     const certId = cert.insertId;
     await conn.execute(
-      `INSERT INTO user_certifications (user_id,certification_id,certified_level,certificate_url,certificate_img)
-       VALUES (?,?,?,?,?)`,
-      [req.user.user_id, certId, certified_level || null, certificate_url || null, certBuffer]);
+      `INSERT INTO user_certifications (user_id,certification_id,certified_level,certificate_url)
+       VALUES (?,?,?,?)`,
+      [req.user.user_id, certId, certified_level || null, s3CertUrl]);
     await conn.commit();
     res.status(201).json({ certification_id: certId, certification_name });
   } catch (err) { 

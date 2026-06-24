@@ -49,11 +49,23 @@ async function doStop(userId, res) {
         }
         const session = sessions[0];
 
-        // Real elapsed time from DB timestamps — no fake values
+        // Real elapsed time from DB timestamps
         const [elapsed] = await conn.execute(
-            'SELECT TIMESTAMPDIFF(SECOND, ?, NOW()) AS secs', [session.start_time]
+            'SELECT TIMESTAMPDIFF(SECOND, ?, NOW()) AS secs, NOW() as now_time', [session.start_time]
         );
-        const hours = Math.max(elapsed[0].secs / 3600, 0);
+        const totalSecs = elapsed[0].secs;
+        const nowTime = new Date(elapsed[0].now_time);
+        
+        if (totalSecs < 120) {
+            // Less than 2 minutes — close silently, no streak/knowledge
+            await conn.execute(
+                'UPDATE study_sessions SET end_time = NOW(), knowledge_gained = 0 WHERE session_id = ?',
+                [session.session_id]
+            );
+            await conn.commit();
+            if (res) return res.json({ session_id: session.session_id, hours_studied: 0, knowledge_gained: 0, message: 'Session too short (< 2 mins)' });
+            return;
+        }
 
         const stats = await ensureStreak(conn, userId);
         let { multiplier, learning_core, streak_days, streak_factor, total_knowledge, last_study_date } = stats;
@@ -63,28 +75,42 @@ async function doStop(userId, res) {
 
         const min_multiplier = 0.5;
         const core_growth    = 0.05;
-        const today    = new Date().toISOString().slice(0, 10);
-        const lastDate = last_study_date ? new Date(last_study_date).toISOString().slice(0, 10) : null;
-        const isNewDay = lastDate !== today;
+        
+        // Split sessions if spanning multiple days
+        let currentStartTime = new Date(session.start_time);
+        let currentSessionId = session.session_id;
+        
         let streakBroken = false;
         let coreEvolved  = false;
         let shieldResult = { shieldUsed: false, shieldsRemaining: 0 };
         let growthResult = null;
+        let lastResponse = null;
 
-        if (hours > 0) {
+        while (true) {
+            let sessionDateStr = currentStartTime.toISOString().slice(0, 10);
+            let nextMidnight = new Date(currentStartTime);
+            nextMidnight.setUTCHours(24, 0, 0, 0); // Next day midnight
+
+            let isLastChunk = nowTime < nextMidnight;
+            let endTime = isLastChunk ? nowTime : nextMidnight;
+            let chunkSecs = (endTime - currentStartTime) / 1000;
+            let chunkHours = Math.max(chunkSecs / 3600, 0);
+
+            // Streak processing
+            const lastDate = last_study_date ? new Date(last_study_date).toISOString().slice(0, 10) : null;
+            const isNewDay = lastDate !== sessionDateStr;
+
             if (isNewDay) {
                 if (lastDate) {
-                    const diffDays = Math.floor((new Date(today) - new Date(lastDate)) / 86400000);
+                    const diffDays = Math.floor((new Date(sessionDateStr) - new Date(lastDate)) / 86400000);
                     if (diffDays > 1) {
-                        // Try auto-shield before applying decay (Brilliant-style)
                         try {
                             shieldResult = await tryAutoShield(conn, userId);
                         } catch (shieldErr) {
-                            console.error('Shield check failed (non-fatal):', shieldErr);
+                            console.error('Shield check failed:', shieldErr);
                         }
 
                         if (shieldResult.shieldUsed) {
-                            // Shield consumed — streak preserved, no decay
                             streakBroken = false;
                         } else {
                             streakBroken = true;
@@ -98,7 +124,7 @@ async function doStop(userId, res) {
                 streak_factor += 1;
             }
 
-            const { knowledge, multiplier: newMult } = computeKnowledge(hours, { multiplier, learning_core });
+            const { knowledge, multiplier: newMult } = computeKnowledge(chunkHours, { multiplier, learning_core });
             multiplier       = newMult;
             total_knowledge += knowledge;
 
@@ -107,11 +133,13 @@ async function doStop(userId, res) {
                 coreEvolved    = true;
             }
 
+            // Update session
             await conn.execute(
-                'UPDATE study_sessions SET end_time = NOW(), knowledge_gained = ? WHERE session_id = ?',
-                [knowledge.toFixed(4), session.session_id]
+                'UPDATE study_sessions SET end_time = ?, knowledge_gained = ? WHERE session_id = ?',
+                [endTime, knowledge.toFixed(4), currentSessionId]
             );
 
+            // Update streak
             await conn.execute(
                 `INSERT INTO study_streak (user_id, multiplier, learning_core, streak_days, streak_factor, total_knowledge, last_study_date)
                  VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -120,7 +148,7 @@ async function doStop(userId, res) {
                    streak_days = VALUES(streak_days), streak_factor = VALUES(streak_factor),
                    total_knowledge = VALUES(total_knowledge), last_study_date = VALUES(last_study_date)`,
                 [userId, multiplier.toFixed(4), learning_core.toFixed(4),
-                 streak_days, streak_factor, total_knowledge.toFixed(4), today]
+                 streak_days, streak_factor, total_knowledge.toFixed(4), sessionDateStr]
             );
 
             await conn.execute(
@@ -128,44 +156,41 @@ async function doStop(userId, res) {
                 [total_knowledge.toFixed(4), learning_core.toFixed(4), userId]
             );
 
-            // Award growth (non-fatal — study result is primary)
-            if (hours * 3600 >= MIN_SESSION_SECONDS) {
+            last_study_date = sessionDateStr;
+
+            if (chunkSecs >= MIN_SESSION_SECONDS) {
                 try {
                     growthResult = await awardGrowth(conn, userId, 'lesson');
-                } catch (growthErr) {
-                    console.error('Growth award failed (non-fatal):', growthErr);
-                }
+                } catch (growthErr) {}
             }
 
-            await conn.commit();
+            lastResponse = {
+                session_id: currentSessionId,
+                hours_studied: parseFloat(chunkHours.toFixed(4)),
+                knowledge_gained: parseFloat(knowledge.toFixed(4)),
+                multiplier: parseFloat(multiplier.toFixed(3)),
+                learning_core: parseFloat(learning_core.toFixed(3)),
+                streak_days, streak_factor,
+                total_knowledge: parseFloat(total_knowledge.toFixed(4)),
+                core_evolved: coreEvolved,
+                streak_broken: streakBroken,
+                streak_protected: shieldResult.shieldUsed,
+            };
+            if (growthResult) lastResponse.growth = growthResult;
 
-            if (res) {
-                const response = {
-                    session_id: session.session_id,
-                    hours_studied: parseFloat(hours.toFixed(4)),
-                    knowledge_gained: parseFloat(knowledge.toFixed(4)),
-                    multiplier: parseFloat(multiplier.toFixed(3)),
-                    learning_core: parseFloat(learning_core.toFixed(3)),
-                    streak_days, streak_factor,
-                    total_knowledge: parseFloat(total_knowledge.toFixed(4)),
-                    core_evolved: coreEvolved,
-                    streak_broken: streakBroken,
-                    streak_protected: shieldResult.shieldUsed,
-                };
-                if (growthResult) {
-                    response.growth = growthResult;
-                }
-                res.json(response);
-            }
-        } else {
-            // Less than 1 second — close silently
-            await conn.execute(
-                'UPDATE study_sessions SET end_time = NOW(), knowledge_gained = 0 WHERE session_id = ?',
-                [session.session_id]
+            if (isLastChunk) break;
+
+            // Start new session for next day
+            currentStartTime = nextMidnight;
+            const [newSession] = await conn.execute(
+                'INSERT INTO study_sessions (user_id, start_time, session_date) VALUES (?, ?, ?)',
+                [userId, nextMidnight, nextMidnight.toISOString().slice(0, 10)]
             );
-            await conn.commit();
-            if (res) res.json({ session_id: session.session_id, hours_studied: 0, knowledge_gained: 0 });
+            currentSessionId = newSession.insertId;
         }
+
+        await conn.commit();
+        if (res) res.json(lastResponse);
     } catch (err) {
         await conn.rollback();
         console.error('STOP ERROR:', err);
@@ -217,7 +242,7 @@ router.post('/stop', async (req, res) => {
 
     let userId;
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.user_id;
     } catch {
         return res.status(401).json({ message: 'Invalid token' });

@@ -326,7 +326,7 @@ const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readO
             {post.tags.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
               <span key={tag} className="tag tag-link"
                 onClick={() => navigate(`/feed?tag=${encodeURIComponent(tag)}`)}>
-                #{tag}
+                {tag}
               </span>
             ))}
           </div>

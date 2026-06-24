@@ -63,7 +63,7 @@ router.get('/my-connections', auth, async (req, res) => {
               u.username,
               COALESCE(ui.first_name, '') AS first_name,
               COALESCE(ui.last_name, '') AS last_name,
-              COALESCE(ui.photo, '') AS photo,
+              ui.photo_url,
               COALESCE(up.bio, '') AS bio
        FROM follows f1
        INNER JOIN follows f2 ON f1.following_id = f2.follower_id AND f1.follower_id = f2.following_id
@@ -74,7 +74,7 @@ router.get('/my-connections', auth, async (req, res) => {
        ORDER BY f1.follow_date DESC`,
       [userId]
     );
-    for (const c of connections) { c.photo = formatPhoto(c.photo); }
+    for (const c of connections) { c.photo = formatPhoto(c.photo_url); delete c.photo_url; }
     res.json(connections);
   } catch (err) {
     console.error('GET CONNECTIONS ERROR:', err.message);
@@ -97,7 +97,7 @@ router.get('/requests', auth, async (req, res) => {
               u.username,
               COALESCE(ui.first_name, '') AS first_name,
               COALESCE(ui.last_name, '') AS last_name,
-              COALESCE(ui.photo, '') AS photo
+              ui.photo_url
        FROM follows f1
        LEFT JOIN follows f2 ON f1.follower_id = f2.following_id AND f1.following_id = f2.follower_id
        INNER JOIN users u ON f1.follower_id = u.user_id
@@ -106,7 +106,7 @@ router.get('/requests', auth, async (req, res) => {
        ORDER BY f1.follow_date DESC`,
       [userId]
     );
-    for (const r of requests) { r.photo = formatPhoto(r.photo); }
+    for (const r of requests) { r.photo = formatPhoto(r.photo_url); delete r.photo_url; }
     res.json(requests);
   } catch (err) {
     console.error('GET REQUESTS ERROR:', err.message);
@@ -215,7 +215,7 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
     // Fetch the other user's public info (the requester) to return to the frontend
     const [userRows] = await conn.execute(
       `SELECT u.public_id AS user_id, u.username, COALESCE(ui.first_name, '') AS first_name,
-              COALESCE(ui.last_name, '') AS last_name, COALESCE(ui.photo, '') AS photo,
+              COALESCE(ui.last_name, '') AS last_name, ui.photo_url,
               COALESCE(up.bio, '') AS bio
        FROM users u
        LEFT JOIN user_info ui ON ui.user_id = u.user_id
@@ -225,7 +225,10 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
     );
 
     const userInfo = userRows[0] || null;
-    if (userInfo) userInfo.photo = formatPhoto(userInfo.photo);
+    if (userInfo) {
+      userInfo.photo = formatPhoto(userInfo.photo_url);
+      delete userInfo.photo_url;
+    }
 
     res.json({ message: 'Connection accepted', connection: returnedConnection, user: userInfo });
   } catch (err) {

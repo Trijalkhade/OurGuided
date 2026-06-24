@@ -45,6 +45,12 @@ router.post('/register', ensureDeviceCookie, async (req, res) => {
     return res.status(400).json({ message: 'Username, email, and password are required' });
   }
 
+  // Honeypot check: If nickname is filled, it's a bot
+  if (req.body.nickname) {
+    console.warn(`Bot detected: Honeypot filled by ${req.ip}`);
+    return res.status(200).json({ token: 'bot_detected', user_id: 0, message: 'Welcome!' });
+  }
+
   const conn = await db.getConnection();
   try {
     // Device limit check — unbypassable: server sets the _dv cookie, not the client
@@ -75,12 +81,6 @@ router.post('/register', ensureDeviceCookie, async (req, res) => {
       [username, email, hashed, publicId, req.ip, deviceId]
     );
 
-    // Honeypot check: If nickname is filled, it's a bot
-    if (req.body.nickname) {
-      console.warn(`Bot detected: Honeypot filled by ${req.ip}`);
-      await conn.rollback();
-      return res.status(200).json({ token: 'bot_detected', user_id: 0, message: 'Welcome!' });
-    }
     const userId = result.insertId;
 
     // Create user_info
@@ -118,7 +118,7 @@ The OurGuided Team`;
     sendEmail(email, 'Welcome to OurGuided!', welcomeBody).catch(e => console.error('Welcome email failed:', e));
     createNotification(userId, 'system', 'Welcome!', 'Welcome to OurGuided! Start your learning journey today.').catch(e => console.error('Welcome notif failed:', e));
 
-    const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '7d' });
+    const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPTIONS);
     // public_id was explicitly set during INSERT, use it directly
     res.status(201).json({ user_id: publicId, username, email });
@@ -174,7 +174,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { user_id: user.user_id, username: user.username },
-      process.env.JWT_SECRET || 'secret_key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -191,7 +191,7 @@ router.get('/me', auth, async (req, res) => {
   try {
     const [[user]] = await db.execute(
       `SELECT u.public_id AS user_id, u.username, u.email,
-              ui.first_name, ui.last_name, ui.photo, ui.photo_url
+              ui.first_name, ui.last_name, ui.photo_url
        FROM users u
        LEFT JOIN user_info ui ON u.user_id = ui.user_id
        WHERE u.user_id = ?`,
@@ -199,9 +199,9 @@ router.get('/me', auth, async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Format photo: S3 URL takes priority, then binary blob
+    // Format photo: S3 URL takes priority
     const { formatPhoto } = require('../utils/dbHelpers');
-    user.photo = formatPhoto(user.photo, user.photo_url);
+    user.photo = formatPhoto(user.photo_url);
     delete user.photo_url;
 
     res.json(user);

@@ -16,7 +16,7 @@ router.get('/', auth, async (req, res) => {
 
     const [users, posts, quizzes] = await Promise.all([
       conn.execute(
-        `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo, up.is_expert
+        `SELECT u.public_id AS user_id, u.username, ui.first_name, ui.last_name, ui.photo_url, up.is_expert
          FROM users u
          LEFT JOIN user_info ui    ON u.user_id=ui.user_id
          LEFT JOIN user_profile up ON u.user_id=up.user_id
@@ -45,7 +45,8 @@ router.get('/', auth, async (req, res) => {
     ]);
 
     for (const u of users) {
-      u.photo = formatPhoto(u.photo);
+      u.photo = formatPhoto(u.photo_url);
+      delete u.photo_url;
     }
 
     res.json({ users, posts, quizzes });

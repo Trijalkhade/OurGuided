@@ -567,3 +567,159 @@ html[data-theme="dark"] .action-btn-split .count-part {
   background: #fff;
   transform: scale(1.4);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   NIKA VIDEO — FLOATING BUTTON + FULLSCREEN OVERLAY
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Floating image button (right side) ── */
+.nika-video-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 120px;
+  z-index: 500;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.nika-video-btn:hover {
+  transform: scale(1.04);
+}
+
+.nika-video-btn:active {
+  transform: scale(0.97);
+}
+
+.nika-video-btn img {
+  width: 180px;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid #000;
+  animation: nikaAuraFlicker 2.5s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+/* Blue aura flicker — smooth, multi-step, never abrupt */
+@keyframes nikaAuraFlicker {
+  0% {
+    box-shadow:
+      0 0 6px 2px rgba(59, 130, 246, 0.35),
+      0 0 12px 4px rgba(59, 130, 246, 0.15);
+  }
+  20% {
+    box-shadow:
+      0 0 10px 3px rgba(59, 130, 246, 0.55),
+      0 0 22px 8px rgba(59, 130, 246, 0.25);
+  }
+  40% {
+    box-shadow:
+      0 0 16px 5px rgba(59, 130, 246, 0.75),
+      0 0 32px 12px rgba(59, 130, 246, 0.3);
+  }
+  55% {
+    box-shadow:
+      0 0 12px 4px rgba(59, 130, 246, 0.5),
+      0 0 24px 8px rgba(59, 130, 246, 0.2);
+  }
+  70% {
+    box-shadow:
+      0 0 18px 6px rgba(59, 130, 246, 0.8),
+      0 0 36px 14px rgba(59, 130, 246, 0.35);
+  }
+  85% {
+    box-shadow:
+      0 0 10px 3px rgba(59, 130, 246, 0.45),
+      0 0 20px 7px rgba(59, 130, 246, 0.18);
+  }
+  100% {
+    box-shadow:
+      0 0 6px 2px rgba(59, 130, 246, 0.35),
+      0 0 12px 4px rgba(59, 130, 246, 0.15);
+  }
+}
+
+
+/* ── Fullscreen video overlay ── */
+.nika-video-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: nikaFadeIn 0.35s ease-out;
+}
+
+.nika-video-overlay.closing {
+  animation: nikaFadeOut 0.3s ease-in forwards;
+}
+
+@keyframes nikaFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nikaFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.nika-video-overlay video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  outline: none;
+}
+
+/* Close / back button */
+.nika-video-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nika-video-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.45);
+  transform: scale(1.08);
+}
+
+.nika-video-close:active {
+  transform: scale(0.94);
+}
+
+/* Hide feedback widget and all other fixed overlays when video is fullscreen */
+body.nika-video-active .fb-widget,
+body.nika-video-active .mobile-nav,
+body.nika-video-active .topbar {
+  display: none !important;
+}

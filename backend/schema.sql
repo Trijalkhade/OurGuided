@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS user_profile (
     dob             DATE NOT NULL,
     CHECK (dob >= '1920-01-01'),
     bio             TEXT,
-    badges          MEDIUMBLOB,
     knowledge_today DECIMAL(7,3)  DEFAULT 0,
     total_knowledge DECIMAL(10,4) DEFAULT 0,
     core_level      DECIMAL(5,3)  DEFAULT 0,
@@ -47,7 +46,6 @@ CREATE TABLE IF NOT EXISTS user_info (
     first_name  VARCHAR(50) NOT NULL,
     middle_name VARCHAR(50),
     last_name   VARCHAR(50) NOT NULL,
-    photo       MEDIUMBLOB,
     photo_url   TEXT DEFAULT NULL,              -- S3 URL (replaces BLOB for new uploads)
     updated_at  TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -135,7 +133,6 @@ CREATE TABLE IF NOT EXISTS user_certifications (
     user_id          INT NOT NULL,
     certification_id INT NOT NULL,
     certified_level  INT CHECK (certified_level BETWEEN 1 AND 10),
-    certificate_img  MEDIUMBLOB,
     certificate_url  TEXT,
     issued_date      DATE,
     expiry_date      DATE,
@@ -153,7 +150,6 @@ CREATE TABLE IF NOT EXISTS posts (
     user_id    INT NOT NULL,
     text       VARCHAR(5000),
     video_url  TEXT,
-    small_img  MEDIUMBLOB,
     image_url  TEXT DEFAULT NULL,               -- S3 URL for main image
     media_type ENUM('image','video','none') DEFAULT 'none',
     category   VARCHAR(50),
@@ -172,7 +168,6 @@ CREATE INDEX idx_posts_feed ON posts(is_deleted, is_pending, post_date DESC);
 CREATE TABLE IF NOT EXISTS post_images (
     image_id INT AUTO_INCREMENT PRIMARY KEY,
     post_id  INT NOT NULL,
-    image    MEDIUMBLOB NULL,
     image_url TEXT,
     sort_order INT DEFAULT 0,
     FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE ON UPDATE CASCADE

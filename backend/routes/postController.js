@@ -13,7 +13,7 @@ async function batchExtraImages(conn, posts) {
   const ids = posts.map(p => p.post_id);
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await conn.execute(
-    `SELECT post_id, image, image_url FROM post_images WHERE post_id IN (${placeholders}) ORDER BY post_id, sort_order`,
+    `SELECT post_id, image_url FROM post_images WHERE post_id IN (${placeholders}) ORDER BY post_id, sort_order`,
     ids
   );
   const map = {};
@@ -21,8 +21,6 @@ async function batchExtraImages(conn, posts) {
     if (!map[r.post_id]) map[r.post_id] = [];
     if (r.image_url) {
         map[r.post_id].push(r.image_url);
-    } else if (r.image) {
-        map[r.post_id].push(`data:image/jpeg;base64,${r.image.toString('base64')}`);
     }
   }
   for (const p of posts) {
@@ -125,10 +123,10 @@ exports.getPostsByTag = async (req, res) => {
     conn = await db.getConnection();
     const [posts] = await conn.query(
       `SELECT p.post_id, p.user_id, p.text AS content, p.post_date, p.category,
-              p.media_type, p.small_img, p.video_url AS video, p.is_anonymous,
+              p.media_type, p.image_url, p.video_url AS video, p.is_anonymous,
               GROUP_CONCAT(DISTINCT pt2.tag ORDER BY pt2.tag) AS tags,
               u.username, COALESCE(ui.first_name,'') AS first_name,
-              COALESCE(ui.last_name,'') AS last_name, COALESCE(ui.photo,'') AS photo,
+              COALESCE(ui.last_name,'') AS last_name, ui.photo_url,
               (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
               (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ?) AS user_liked,
               (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
@@ -502,7 +500,7 @@ exports.getPostLikers = async (req, res) => {
               COALESCE(ui.first_name, '') AS first_name, 
               COALESCE(ui.middle_name, '') AS middle_name, 
               COALESCE(ui.last_name, '') AS last_name,
-              COALESCE(ui.photo, '') AS photo
+              ui.photo_url
        FROM likes l
        JOIN users u ON l.user_id = u.user_id
        LEFT JOIN user_info ui ON u.user_id = ui.user_id
@@ -511,7 +509,8 @@ exports.getPostLikers = async (req, res) => {
     );
 
     for (const l of likers) {
-      l.photo = formatPhoto(l.photo);
+      l.photo = formatPhoto(l.photo_url);
+      delete l.photo_url;
       // Ensure username is never null to prevent frontend crashes
       if (!l.username) l.username = `user_${l.user_id}`;
     }
@@ -533,12 +532,11 @@ exports.getPublicFeed = async (req, res) => {
     const [posts] = await conn.query(
       `SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
               p.text AS content, p.post_date, p.category,
-              p.media_type, p.small_img, p.image_url, p.video_url AS video, p.is_anonymous,
+              p.media_type, p.image_url, p.video_url AS video, p.is_anonymous,
               GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
               u.username,
               COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'')  AS last_name,
-              COALESCE(ui.photo,'')      AS photo,
               ui.photo_url,
               (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
               0 AS user_liked,

@@ -5,7 +5,7 @@ import PostCard from '../components/PostCard.jsx';
 import useFeedback from '../utils/useFeedback';
 import useEngagementTracker from '../utils/useEngagementTracker';
 import { SkelFeed } from '../components/Skeleton.jsx';
-import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap } from 'react-icons/fi';
+import { FiImage, FiTag, FiSend, FiEyeOff, FiChevronDown, FiZap, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import * as cache from '../utils/cache';
 
@@ -82,11 +82,18 @@ const CreatePost = ({ onPostCreated }) => {
             <input placeholder="Tags (comma separated)…" value={tags} onChange={e => setTags(e.target.value)}
               style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '.42rem .72rem', fontSize: '.85rem', color: 'var(--text)', outline: 'none' }} />
           </div>
-          <select value={category} onChange={e => setCategory(e.target.value)}
-            style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '.42rem .72rem', fontSize: '.85rem', color: 'var(--text)', outline: 'none' }}>
-            <option value="">No category</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <>
+            <input
+              list="feed-category-options"
+              placeholder="Category (e.g. Real Talk)"
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '.42rem .72rem', fontSize: '.85rem', color: 'var(--text)', outline: 'none' }}
+            />
+            <datalist id="feed-category-options">
+              {CATEGORIES.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </>
           <div>
             <label style={{ display: 'block', fontSize: '.7rem', color: 'var(--text3)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '.3rem' }}>Images (up to 6)</label>
             <input type="file" accept="image/*" multiple onChange={e => setImageFiles(Array.from(e.target.files || []).slice(0, 6))} />
@@ -134,6 +141,7 @@ const Feed = () => {
   const stateRef          = useRef();
   const pendingScrollRef  = useRef(null);
   const isInitialMount    = useRef(true);
+  const videoRef          = useRef(null);
 
   // Check for return visit + try cache
   const isReturning = useRef(
@@ -161,6 +169,58 @@ const Feed = () => {
   const [useRec,    setUseRec]    = useState(hasCachedData ? cachedEntry.current.useRec    : true);
   const [fetching,  setFetching]  = useState(!hasCachedData);
   const [error,     setError]     = useState(false);
+
+  // ── Nika Video Player state ─────────────────────────────────────────────────
+  const [showNikaVideo, setShowNikaVideo] = useState(false);
+  const [nikaClosing,   setNikaClosing]   = useState(false);
+  const nikaOverlayRef = useRef(null);
+
+  const openNikaVideo = useCallback(() => {
+    setShowNikaVideo(true);
+    setNikaClosing(false);
+    // Hide feedback widget + other fixed UI
+    document.body.classList.add('nika-video-active');
+    // Enter browser fullscreen after overlay mounts
+    requestAnimationFrame(() => {
+      const el = document.documentElement;
+      const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (rfs) rfs.call(el).catch(() => {});
+    });
+  }, []);
+
+  const closeNikaVideo = useCallback(() => {
+    setNikaClosing(true);
+    // Pause video immediately
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    // Exit browser fullscreen
+    const efs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (efs && document.fullscreenElement) efs.call(document).catch(() => {});
+    // Remove body class
+    document.body.classList.remove('nika-video-active');
+    // Wait for fade-out animation to finish before unmounting
+    setTimeout(() => {
+      setShowNikaVideo(false);
+      setNikaClosing(false);
+    }, 280);
+  }, []);
+
+  // Close video if user exits fullscreen via browser mechanism (e.g. Esc long-press)
+  useEffect(() => {
+    if (!showNikaVideo) return;
+    const onFsChange = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement && showNikaVideo && !nikaClosing) {
+        closeNikaVideo();
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, [showNikaVideo, nikaClosing, closeNikaVideo]);
 
   stateRef.current = { posts, page, catFilter, hasMore, useRec };
 
@@ -382,6 +442,39 @@ const Feed = () => {
             </button>
           )}
         </>
+      )}
+
+      {/* ── Nika AMV — floating image button ── */}
+      <div
+        className="nika-video-btn"
+        onClick={openNikaVideo}
+        title="Song of Liberation — The Awakening of Nika"
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNikaVideo(); } }}
+      >
+        <img src="/song_button.png" alt="Song of Liberation" draggable={false} />
+      </div>
+
+      {/* ── Fullscreen video overlay ── */}
+      {showNikaVideo && (
+        <div className={`nika-video-overlay${nikaClosing ? ' closing' : ''}`}>
+          <button
+            className="nika-video-close"
+            onClick={closeNikaVideo}
+            title="Close video"
+            aria-label="Close video"
+          >
+            <FiX size={20} />
+          </button>
+          <video
+            ref={videoRef}
+            src="https://ourguided-media.s3.ap-south-1.amazonaws.com/songs/song_of_liberation.webm"
+            autoPlay
+            playsInline
+            preload="auto"
+          />
+        </div>
       )}
     </div>
   );

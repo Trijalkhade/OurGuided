@@ -44,12 +44,12 @@
 }
 
 .nav-group-label {
-  font-size: .6rem;
+  font-size: .56rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.6px;
   color: var(--text3);
-  padding: .5rem .7rem .1rem;
+  padding: .45rem .55rem .1rem;
   font-family: var(--mono);
   flex-shrink: 0;
 }
@@ -57,12 +57,12 @@
 .nav-item {
   display: flex;
   align-items: center;
-  gap: .68rem;
-  padding: .58rem .78rem;
+  gap: .65rem;
+  padding: .5rem .6rem;
   border-radius: var(--r-sm);
   color: var(--text2);
   font-weight: 500;
-  font-size: .845rem;
+  font-size: .8rem;
   transition: all .14s;
   cursor: pointer;
   border: none;
@@ -75,6 +75,8 @@
 }
 
 .nav-item svg {
+  width: .95rem;
+  height: .95rem;
   flex-shrink: 0;
   opacity: .7;
   transition: opacity .14s;
@@ -127,7 +129,7 @@
 }
 
 .sidebar-copyright {
-  font-size: .62rem;
+  font-size: .58rem;
   color: var(--text3);
   text-align: center;
   padding: 0 .5rem;
@@ -160,7 +162,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0 1.5rem;
+  padding: 1.8rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg2);
   z-index: 300;
@@ -174,7 +176,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -.6px;
+  letter-spacing: -.3px;
   cursor: pointer;
   flex-shrink: 0;
   user-select: none;
@@ -379,6 +381,7 @@
     opacity: 0;
     transform: translateY(-6px) scale(.97);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -534,8 +537,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-close-btn {
@@ -578,6 +586,7 @@
     opacity: 0;
     transform: translateY(16px) scale(.96);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
