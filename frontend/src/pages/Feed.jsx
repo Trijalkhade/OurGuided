@@ -483,7 +483,7 @@ const Feed = () => {
 
           <video
             ref={videoRef}
-            src="https://ourguided-media.s3.us-east-1.amazonaws.com/songs/song_of_liberation.webm"
+            src="https://dk69era72d81y.cloudfront.net/songs/song_of_liberation.webm"
             autoPlay
             playsInline
             preload="none"
