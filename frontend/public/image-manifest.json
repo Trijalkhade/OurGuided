@@ -1,0 +1,69 @@
+{
+  "hero-bg.jpg": {
+    "original": "/hero-bg.jpg",
+    "webp": {
+      "480": "/hero-bg-480w.webp",
+      "960": "/hero-bg-960w.webp",
+      "1440": "/hero-bg-1440w.webp",
+      "1920": "/hero-bg-1920w.webp"
+    },
+    "lqip": "data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAABwAwCdASoUAAsAPzmQvlWvKqajMAgB4CcJZAABHVUlZOmk6FAA/vnFPNOky0wJYfRk/364ez34T/ka45NM12OAAAA=",
+    "srcSet": "/hero-bg-480w.webp 480w, /hero-bg-960w.webp 960w, /hero-bg-1440w.webp 1440w, /hero-bg-1920w.webp 1920w",
+    "defaultWebp": "/hero-bg-1920w.webp"
+  },
+  "manifesto-bg.jpg": {
+    "original": "/manifesto-bg.jpg",
+    "webp": {
+      "480": "/manifesto-bg-480w.webp",
+      "960": "/manifesto-bg-960w.webp",
+      "1440": "/manifesto-bg-1440w.webp",
+      "1920": "/manifesto-bg-1920w.webp"
+    },
+    "lqip": "data:image/webp;base64,UklGRjYAAABXRUJQVlA4ICoAAADQAgCdASoUAAsAPzmIulQvKSWjMAgB4CcJaQAAfj4AAP7vBTMJkr74QAA=",
+    "srcSet": "/manifesto-bg-480w.webp 480w, /manifesto-bg-960w.webp 960w, /manifesto-bg-1440w.webp 1440w, /manifesto-bg-1920w.webp 1920w",
+    "defaultWebp": "/manifesto-bg-1920w.webp"
+  },
+  "environment.jpg": {
+    "original": "/environment.jpg",
+    "webp": {
+      "480": "/environment-480w.webp",
+      "960": "/environment-960w.webp",
+      "1440": "/environment-1440w.webp",
+      "1920": "/environment-1920w.webp"
+    },
+    "lqip": "data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAgCdASoUAAsAPzmGuVOvKSWisAgB4CcJZwAAetEDAAD+7SGtjV8+rojVBBXlJUGppZgA",
+    "srcSet": "/environment-480w.webp 480w, /environment-960w.webp 960w, /environment-1440w.webp 1440w, /environment-1920w.webp 1920w",
+    "defaultWebp": "/environment-1920w.webp"
+  },
+  "home_img.png": {
+    "original": "/home_img.png",
+    "webp": {
+      "480": "/home_img-480w.webp",
+      "960": "/home_img-960w.webp",
+      "1440": "/home_img-1440w.webp",
+      "1920": "/home_img-1920w.webp"
+    },
+    "lqip": "data:image/webp;base64,UklGRkwAAABXRUJQVlA4IEAAAABQAwCdASoUAA8APzmKulOvKaWisAgB4CcJZQDCgC0Hx/Z2AAD+6F5599rDVSsTS9dim5uKTen2Z9EHSzjE0AAA",
+    "srcSet": "/home_img-480w.webp 480w, /home_img-960w.webp 960w, /home_img-1440w.webp 1440w, /home_img-1920w.webp 1920w",
+    "defaultWebp": "/home_img-1920w.webp"
+  },
+  "song_button.png": {
+    "original": "/song_button.png",
+    "webp": {
+      "180": "/song_button-180w.webp",
+      "360": "/song_button-360w.webp"
+    },
+    "lqip": null,
+    "srcSet": "/song_button-180w.webp 180w, /song_button-360w.webp 360w",
+    "defaultWebp": "/song_button-360w.webp"
+  },
+  "og-image.png": {
+    "original": "/og-image.png",
+    "webp": {
+      "1200": "/og-image-1200w.webp"
+    },
+    "lqip": null,
+    "srcSet": "/og-image-1200w.webp 1200w",
+    "defaultWebp": "/og-image-1200w.webp"
+  }
+}

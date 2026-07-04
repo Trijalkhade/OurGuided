@@ -11,6 +11,13 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 
+	<!-- Preconnect to S3/CDN for faster media delivery -->
+	<link rel="preconnect" href="https://ourguided-media.s3.us-east-1.amazonaws.com" crossorigin>
+	<link rel="dns-prefetch" href="https://ourguided-media.s3.us-east-1.amazonaws.com">
+
+	<!-- Preload LCP hero image (largest contentful paint) — WebP with JPEG fallback -->
+	<link rel="preload" as="image" type="image/webp" href="/hero-bg-1920w.webp" fetchpriority="high">
+
 	<!-- Website Logo (Favicon) for Google Search Results -->
 	<link rel="icon" type="image/png" href="/website-icon.png">
 	<link rel="apple-touch-icon" href="/website-icon.png">

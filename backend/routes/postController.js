@@ -2,7 +2,7 @@ const db = require('../db');
 const { createNotification } = require('../routes/notifications');
 const moderationService = require('../utils/moderationService');
 const { processImages, buildPostSelect, formatPhoto, resolvePostId, resolveUserId, getPostPublicId, getUserPublicId } = require('../utils/dbHelpers');
-const { uploadToS3, deleteFromS3 } = require('../utils/s3');
+const { uploadToS3, uploadOptimizedImage, deleteFromS3 } = require('../utils/s3');
 const crypto = require('crypto');
 
 /* ── Helpers ── */
@@ -13,18 +13,22 @@ async function batchExtraImages(conn, posts) {
   const ids = posts.map(p => p.post_id);
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await conn.execute(
-    `SELECT post_id, image_url FROM post_images WHERE post_id IN (${placeholders}) ORDER BY post_id, sort_order`,
+    `SELECT post_id, image_url, thumbnail_url FROM post_images WHERE post_id IN (${placeholders}) ORDER BY post_id, sort_order`,
     ids
   );
   const map = {};
+  const thumbMap = {};
   for (const r of rows) {
     if (!map[r.post_id]) map[r.post_id] = [];
+    if (!thumbMap[r.post_id]) thumbMap[r.post_id] = [];
     if (r.image_url) {
         map[r.post_id].push(r.image_url);
+        thumbMap[r.post_id].push(r.thumbnail_url || r.image_url);
     }
   }
   for (const p of posts) {
     p.extra_images = map[p.post_id] || [];
+    p.extra_thumbnails = thumbMap[p.post_id] || [];
   }
 }
 
@@ -237,11 +241,15 @@ exports.createPost = async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // 1. Upload Main Image to S3
+    // 1. Upload Main Image to S3 (optimized WebP + thumbnail)
     let s3ImageUrl = null;
+    let s3ThumbnailUrl = null;
     if (mainImage) {
-      s3ImageUrl = await uploadToS3(mainImage, req.files.image[0].mimetype, 'posts');
+      const result = await uploadOptimizedImage(mainImage, 'posts');
+      s3ImageUrl = result.url;
+      s3ThumbnailUrl = result.thumbnailUrl;
       if (s3ImageUrl) uploadedUrls.push(s3ImageUrl);
+      if (s3ThumbnailUrl) uploadedUrls.push(s3ThumbnailUrl);
     }
 
     // 2. Upload Video to S3 (if provided as file)
@@ -255,18 +263,19 @@ exports.createPost = async (req, res) => {
 
     const publicId = crypto.randomUUID();
     const [result] = await conn.execute(
-      `INSERT INTO posts (user_id,public_id,text,media_type,image_url,video_url,category,is_anonymous,is_pending)
-       VALUES (?,?,?,?,?,?,?,?,FALSE)`,
+      `INSERT INTO posts (user_id,public_id,text,media_type,image_url,thumbnail_url,video_url,category,is_anonymous,is_pending)
+       VALUES (?,?,?,?,?,?,?,?,?,FALSE)`,
       [req.user.user_id, publicId, content || '', mediaType,
-       s3ImageUrl, finalVideoUrl, category || null, is_anonymous === 'true' ? 1 : 0]);
+       s3ImageUrl, s3ThumbnailUrl, finalVideoUrl, category || null, is_anonymous === 'true' ? 1 : 0]);
     const postId = result.insertId;
 
-    // 3. Upload Extra Images to S3
+    // 3. Upload Extra Images to S3 (optimized)
     for (let i = 0; i < extraImages.length; i++) {
-      const extraUrl = await uploadToS3(extraImages[i], req.files.images[i].mimetype, 'posts/extra');
-      if (extraUrl) uploadedUrls.push(extraUrl);
-      await conn.execute('INSERT INTO post_images (post_id,image_url,sort_order) VALUES (?,?,?)',
-        [postId, extraUrl, i]);
+      const extraResult = await uploadOptimizedImage(extraImages[i], 'posts/extra');
+      if (extraResult.url) uploadedUrls.push(extraResult.url);
+      if (extraResult.thumbnailUrl) uploadedUrls.push(extraResult.thumbnailUrl);
+      await conn.execute('INSERT INTO post_images (post_id,image_url,thumbnail_url,sort_order) VALUES (?,?,?,?)',
+        [postId, extraResult.url, extraResult.thumbnailUrl, i]);
     }
 
     if (tags) {

@@ -187,6 +187,13 @@ const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readO
     ...(Array.isArray(post.extra_images) ? post.extra_images : []),
   ];
 
+  // Thumbnails for feed display (faster loading) — fall back to full-size images
+  const allThumbnails = [
+    ...(post.thumbnail ? [post.thumbnail] : post.image ? [post.image] : []),
+    ...(Array.isArray(post.extra_thumbnails) ? post.extra_thumbnails : 
+        Array.isArray(post.extra_images) ? post.extra_images : []),
+  ];
+
   const handleLike = async () => {
     if (readOnly) { requireAuth('like this post'); return; }
     onTap();
@@ -272,17 +279,18 @@ const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readO
   const renderImages = () => {
     if (!allImages.length) return null;
     if (allImages.length === 1) {
-      return <img src={allImages[0]} className="post-img-single" alt="Post image" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}/>;
+      return <img src={allThumbnails[0] || allImages[0]} className="post-img-single" alt="Post image" loading="lazy" onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}/>;
     }
     const count = allImages.length;
     const displayImages = allImages.slice(0, 6);
+    const displayThumbs = allThumbnails.slice(0, 6);
     const remainder = count - 6;
     const gridClass = count === 2 ? 'g2' : count === 3 ? 'g3' : count === 4 ? 'g4' : 'g5plus';
     return (
       <div className={`post-img-grid ${gridClass}`}>
         {displayImages.map((src, i) => (
           <div key={i} className="gi" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
-            <img src={src} alt={`Image ${i + 1}`}/>
+            <img src={displayThumbs[i] || src} alt={`Image ${i + 1}`} loading="lazy"/>
             {i === 5 && remainder > 0 && <div className="gi-overlay">+{remainder}</div>}
           </div>
         ))}
@@ -338,12 +346,13 @@ const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readO
         {post.media_type === 'video' && post.video && (
           post.video.match(/\.(mp4|webm|mov|m4v)(\?|$)/i) ? (
             <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 420 }}
+              preload="metadata"
               ref={el => { if (el && videoRef) videoRef(post.post_id, el); }}>
               <source src={post.video}/>
             </video>
           ) : (
             <iframe src={getEmbedUrl(post.video)} title="Video"
-              style={{ width: '100%', height: '340px', border: 'none', display: 'block' }} allowFullScreen/>
+              style={{ width: '100%', height: '340px', border: 'none', display: 'block' }} allowFullScreen loading="lazy"/>
           )
         )}
 

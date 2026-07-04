@@ -723,3 +723,15 @@ body.nika-video-active .mobile-nav,
 body.nika-video-active .topbar {
   display: none !important;
 }
+
+/* Video loading spinner — centered over the video overlay */
+.nika-video-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}

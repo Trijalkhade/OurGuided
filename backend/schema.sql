@@ -150,7 +150,8 @@ CREATE TABLE IF NOT EXISTS posts (
     user_id    INT NOT NULL,
     text       VARCHAR(5000),
     video_url  TEXT,
-    image_url  TEXT DEFAULT NULL,               -- S3 URL for main image
+    image_url  TEXT DEFAULT NULL,               -- S3 URL for main image (full-size WebP)
+    thumbnail_url TEXT DEFAULT NULL,            -- S3 URL for feed thumbnail (480px WebP)
     media_type ENUM('image','video','none') DEFAULT 'none',
     category   VARCHAR(50),
     is_anonymous BOOLEAN DEFAULT FALSE,
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS post_images (
     image_id INT AUTO_INCREMENT PRIMARY KEY,
     post_id  INT NOT NULL,
     image_url TEXT,
+    thumbnail_url TEXT DEFAULT NULL,            -- 480px WebP thumbnail
     sort_order INT DEFAULT 0,
     FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE ON UPDATE CASCADE
 );

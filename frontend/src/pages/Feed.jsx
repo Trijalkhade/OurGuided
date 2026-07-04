@@ -173,11 +173,13 @@ const Feed = () => {
   // ── Nika Video Player state ─────────────────────────────────────────────────
   const [showNikaVideo, setShowNikaVideo] = useState(false);
   const [nikaClosing,   setNikaClosing]   = useState(false);
+  const [nikaBuffering, setNikaBuffering] = useState(true);
   const nikaOverlayRef = useRef(null);
 
   const openNikaVideo = useCallback(() => {
     setShowNikaVideo(true);
     setNikaClosing(false);
+    setNikaBuffering(true);
     // Hide feedback widget + other fixed UI
     document.body.classList.add('nika-video-active');
     // Enter browser fullscreen after overlay mounts
@@ -453,7 +455,10 @@ const Feed = () => {
         tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNikaVideo(); } }}
       >
-        <img src="/song_button.png" alt="Song of Liberation" draggable={false} />
+        <picture>
+          <source type="image/webp" srcSet="/song_button-180w.webp 180w, /song_button-360w.webp 360w" sizes="180px" />
+          <img src="/song_button.png" alt="Song of Liberation" draggable={false} />
+        </picture>
       </div>
 
       {/* ── Fullscreen video overlay ── */}
@@ -467,12 +472,25 @@ const Feed = () => {
           >
             <FiX size={20} />
           </button>
+
+          {/* Loading spinner — visible until video can play */}
+          {nikaBuffering && (
+            <div className="nika-video-loader">
+              <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+              <p style={{ color: 'rgba(255,255,255,0.6)', marginTop: 12, fontSize: '0.85rem', fontFamily: 'var(--mono)' }}>Loading video…</p>
+            </div>
+          )}
+
           <video
             ref={videoRef}
             src="https://ourguided-media.s3.us-east-1.amazonaws.com/songs/song_of_liberation.webm"
             autoPlay
             playsInline
-            preload="auto"
+            preload="none"
+            onCanPlay={() => setNikaBuffering(false)}
+            onWaiting={() => setNikaBuffering(true)}
+            onPlaying={() => setNikaBuffering(false)}
+            style={{ opacity: nikaBuffering ? 0.3 : 1, transition: 'opacity 0.3s ease' }}
           />
         </div>
       )}

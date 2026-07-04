@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import OptimizedImage from '../components/OptimizedImage';
 
 /* ═══════════════════════════════════════════════════════════════
    OURGUIDED — LANDING PAGE
@@ -93,11 +94,15 @@ const HeroSection = () => {
     <section className="landing-hero premium-section" id="hero" ref={ref}>
       {/* Background Image with slow Rolex-style zoom */}
       <div className="premium-image-wrapper">
-        <img 
+        <OptimizedImage 
           src="/hero-bg.jpg" 
           alt="A macro shot of intricately layered, dark architectural forms representing deep thought" 
           className="premium-image-slow-pan" 
-          loading="eager" 
+          loading="eager"
+          fetchPriority="high"
+          sizes="100vw"
+          wrapperClass="premium-image-inner"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         />
         <div className="premium-overlay-gradient"></div>
       </div>
@@ -199,11 +204,14 @@ const ManifestoSection = () => {
   return (
     <section className="landing-manifesto premium-section" id="manifesto" ref={ref}>
        <div className="premium-image-wrapper">
-        <img 
+        <OptimizedImage 
           src="/manifesto-bg.jpg" 
           alt="Abstract dark macro texture, like brushed obsidian or deep ink" 
           className="premium-image-slow-pan" 
-          loading="lazy" 
+          loading="lazy"
+          sizes="100vw"
+          wrapperClass="premium-image-inner"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         />
         <div className="premium-overlay-gradient"></div>
       </div>
@@ -229,11 +237,14 @@ const EnvironmentSection = () => {
   return (
     <section className="landing-environment premium-section" id="environment" ref={ref}>
       <div className="premium-image-wrapper">
-        <img
+        <OptimizedImage
           className="premium-image-slow-pan"
           src="/environment.jpg"
           alt="An expansive, dark, brutalist interior bathed in a single ray of warm natural light"
           loading="lazy"
+          sizes="100vw"
+          wrapperClass="premium-image-inner"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         />
         <div className="premium-overlay-bottom"></div>
       </div>

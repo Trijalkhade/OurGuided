@@ -18,6 +18,10 @@ exports.processImages = (post) => {
   post.image = post.image_url || null;
   delete post.image_url;
 
+  // Handle Thumbnail (feed-optimized version)
+  post.thumbnail = post.thumbnail_url || null;
+  delete post.thumbnail_url;
+
   post.user_saved = (post.user_saved || 0) > 0;
   post.extra_images = post.extra_images || [];
 
@@ -42,7 +46,7 @@ exports.buildPostSelect = (userId) => {
   return `
     SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
            p.text AS content, p.post_date, p.category,
-           p.media_type, p.image_url, p.video_url AS video, p.is_anonymous,
+           p.media_type, p.image_url, p.thumbnail_url, p.video_url AS video, p.is_anonymous,
            GROUP_CONCAT(DISTINCT pt.tag ORDER BY pt.tag) AS tags,
            u.username,
            COALESCE(ui.first_name,'') AS first_name,
