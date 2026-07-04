@@ -227,26 +227,8 @@ router.post('/start', auth, async (req, res) => {
 
 // ── POST /api/study/stop ─────────────────────────────────────────────────────
 // Supports both normal JSON requests and sendBeacon (application/json blob)
-router.post('/stop', async (req, res) => {
-    // sendBeacon sends the token in headers just like normal; auth middleware still works
-    // But we need to handle bearer auth manually here because auth middleware runs before us
-    const authHeader = req.headers['authorization'] || '';
-    let token        = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    // Fallback to body token (for sendBeacon/fetch-keepalive bodies)
-    if (!token && req.body && req.body.token) {
-        token = req.body.token;
-    }
-
-    if (!token) return res.status(401).json({ message: 'No token' });
-
-    let userId;
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        userId = decoded.user_id;
-    } catch {
-        return res.status(401).json({ message: 'Invalid token' });
-    }
+router.post('/stop', auth, async (req, res) => {
+    const userId = req.user.user_id;
 
     await doStop(userId, res);
 });

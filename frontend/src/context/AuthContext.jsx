@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }) => {
 
           // Warm caches in background — instant navigation for the user
           Promise.allSettled([
+            API.post('/study/start').catch(() => {}), // Start usage tracking session
             API.get('/recommendations/feed?page=1').then(r => cache.set('feed::rec', { posts: r.data.posts, page: 1, catFilter: '', hasMore: r.data.has_more, useRec: true }, 'feed')),
             API.get('/categories').then(r => cache.set('explore:categories', r.data, 'explore_categories')),
             API.get(`/users/${data.user_id}`).then(r => cache.set(`profile:${data.user_id}`, r.data, 'profile_own')),
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
     connectSocket();
+    API.post('/study/start').catch(() => {});
     return data;
   };
 
@@ -93,6 +95,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
     connectSocket();
+    API.post('/study/start').catch(() => {});
     return data;
   };
 
