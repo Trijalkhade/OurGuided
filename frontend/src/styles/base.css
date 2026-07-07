@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -10,11 +10,11 @@
   --card: #ffffff;
   --border: #dde2ef;
   --border2: #c8d0e7;
-  --accent: #3b5bfa;
-  --accent2: #2243e0;
-  --accent3: #06b6d4;
-  --accentbg: rgba(59, 91, 250, 0.07);
-  --accentbg2: rgba(59, 91, 250, 0.14);
+  --accent: #C8102E;
+  --accent2: #9B0A1E;
+  --accent3: #D4A017;
+  --accentbg: rgba(200, 16, 46, 0.07);
+  --accentbg2: rgba(200, 16, 46, 0.14);
   --text: #0d1a38;
   --text2: #455070;
   --text3: #8892b5;
@@ -32,7 +32,7 @@
   --r-xl: 24px;
   --sidebar-w: 270px;
   --topbar-h: 54px;
-  --font: 'Plus Jakarta Sans', sans-serif;
+  --font: 'Outfit', sans-serif;
   --mono: 'JetBrains Mono', monospace;
   --t: .18s ease;
   /* Medal colors */
@@ -40,17 +40,17 @@
   --medal-silver: #94a3b8;
   --medal-bronze: #b45309;
   /* Chart/SVG colors */
-  --chart-primary: #3b5bfa;
-  --chart-secondary: #06b6d4;
+  --chart-primary: #C8102E;
+  --chart-secondary: #D4A017;
   --chart-grid: #dde2ef;
   --chart-text: #8892b5;
   /* State backgrounds */
   --success-bg: rgba(5, 150, 105, 0.1);
   --success-border: rgba(5, 150, 105, 0.3);
   /* Landing / Glassmorphism tokens */
-  --gradient-start: #7c3aed;
-  --gradient-mid: #3b5bfa;
-  --gradient-end: #06b6d4;
+  --gradient-start: #C8102E;
+  --gradient-mid: #9B0A1E;
+  --gradient-end: #D4A017;
   --glass: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.15);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -64,11 +64,11 @@ html[data-theme="dark"] {
   --card: #1a1f2e;
   --border: #2d3748;
   --border2: #384756;
-  --accent: #5b7cff;
-  --accent2: #7c9aff;
-  --accent3: #06d9f5;
-  --accentbg: rgba(91, 124, 255, 0.12);
-  --accentbg2: rgba(91, 124, 255, 0.20);
+  --accent: #E8354A;
+  --accent2: #FF6B7A;
+  --accent3: #F0C040;
+  --accentbg: rgba(232, 53, 74, 0.12);
+  --accentbg2: rgba(232, 53, 74, 0.20);
   --text: #e8e8ff;
   --text2: #b8c5dd;
   --text3: #7a8aae;
@@ -84,8 +84,8 @@ html[data-theme="dark"] {
   --medal-silver: #94a3b8;
   --medal-bronze: #b45309;
   /* Chart/SVG colors */
-  --chart-primary: #5b7cff;
-  --chart-secondary: #06d9f5;
+  --chart-primary: #E8354A;
+  --chart-secondary: #F0C040;
   --chart-grid: #2d3748;
   --chart-text: #7a8aae;
   /* State backgrounds */
@@ -337,7 +337,7 @@ img {
 
 .btn-primary:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(59, 91, 250, .38);
+  box-shadow: 0 6px 22px rgba(200, 16, 46, .38);
 }
 
 .btn-secondary {

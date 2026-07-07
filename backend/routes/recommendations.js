@@ -413,16 +413,22 @@ router.get('/feed', auth, async (req, res) => {
     if (candidates.length) {
       const ph = ids.map(() => '?').join(',');
       const [extraImgs] = await conn.execute(
-        `SELECT post_id, image_url FROM post_images WHERE post_id IN (${ph}) ORDER BY post_id, sort_order`, ids);
+        `SELECT post_id, image_url, thumbnail_url FROM post_images WHERE post_id IN (${ph}) ORDER BY post_id, sort_order`, ids);
       const imgMap = {};
+      const thumbMap = {};
       for (const r of extraImgs) {
-        if (!imgMap[r.post_id]) imgMap[r.post_id] = [];
+        if (!imgMap[r.post_id]) {
+          imgMap[r.post_id] = [];
+          thumbMap[r.post_id] = [];
+        }
         if (r.image_url) {
           imgMap[r.post_id].push(r.image_url);
+          thumbMap[r.post_id].push(r.thumbnail_url || r.image_url);
         }
       }
       for (const p of candidates) {
         p.extra_images = imgMap[p.post_id] || [];
+        p.extra_thumbnails = thumbMap[p.post_id] || [];
       }
     }
 

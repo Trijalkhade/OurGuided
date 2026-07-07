@@ -211,7 +211,7 @@
   align-items: center;
   padding: .16rem .52rem;
   margin: 0 1.4rem .32rem;
-  background: rgba(6, 182, 212, .1);
+  background: rgba(212, 160, 23, .1);
   color: var(--accent3);
   border-radius: 6px;
   font-size: .66rem;
@@ -348,8 +348,8 @@
 
 .action-btn.saved {
   color: var(--accent3);
-  border-color: rgba(6, 182, 212, .28);
-  background: rgba(6, 182, 212, .07);
+  border-color: rgba(212, 160, 23, .28);
+  background: rgba(212, 160, 23, .07);
 }
 
 .action-btn-split {

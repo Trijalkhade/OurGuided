@@ -26,8 +26,8 @@ const formatDuration = (s) => {
 
 /* ── CSS Variable Reader ──────────────────────────────────────── */
 const getCSSVar = (name) => {
-  if (typeof window === 'undefined') return '#3b5bfa';
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#3b5bfa';
+  if (typeof window === 'undefined') return '#C8102E';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#C8102E';
 };
 
 /* ══════════════════════════════════════════════════════════════════

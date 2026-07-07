@@ -347,6 +347,7 @@ const PostCard = ({ post, onDelete, onUnsave, onReport, postRef, videoRef, readO
           post.video.match(/\.(mp4|webm|mov|m4v)(\?|$)/i) ? (
             <video controls className="post-img-single" style={{ cursor: 'default', maxHeight: 420 }}
               preload="metadata"
+              poster={post.thumbnail || undefined}
               ref={el => { if (el && videoRef) videoRef(post.post_id, el); }}>
               <source src={post.video}/>
             </video>
