@@ -89,10 +89,11 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Rate Limiting ───────────────────────────────────────────────────────────
-const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
-app.use('/api', apiLimiter);
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+// ⚠️ TEMPORARILY DISABLED FOR K6 LOAD TESTING — RE-ENABLE AFTER TEST!
+// const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
+// app.use('/api', apiLimiter);
+// app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/register', authLimiter);
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
