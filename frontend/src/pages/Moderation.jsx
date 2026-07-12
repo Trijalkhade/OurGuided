@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { FiCheck, FiX, FiShield } from 'react-icons/fi';
+import { FiCheck, FiX, FiShield, FiZap } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import * as cache from '../utils/cache';
 
@@ -17,6 +17,20 @@ const Moderation = () => {
   const [posts, setPosts] = useState(cachedQueue ? cachedQueue.data : []);
   const [profile, setProfile] = useState(cachedProfile ? cachedProfile.data : null);
   const [loading, setLoading] = useState(!cachedQueue || !cachedProfile);
+
+  const [jobStatus, setJobStatus] = useState(null);
+  const [training, setTraining] = useState(false);
+
+  const fetchJobStatus = async () => {
+    try {
+      const { data } = await API.get('/admin/recommendations/status');
+      if (data.success) {
+        setJobStatus(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch training status', err);
+    }
+  };
 
   useEffect(() => {
     const load = async (silent = false) => {
@@ -44,7 +58,31 @@ const Moderation = () => {
     } else {
       load();
     }
+    fetchJobStatus();
   }, [user]);
+
+  useEffect(() => {
+    let interval;
+    if (jobStatus?.status === 'running') {
+      interval = setInterval(fetchJobStatus, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [jobStatus?.status]);
+
+  const startTraining = async () => {
+    setTraining(true);
+    try {
+      const { data } = await API.post('/admin/recommendations/train');
+      if (data.success) {
+        toast.success('Recommendation model training started!');
+        fetchJobStatus();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start training');
+    } finally {
+      setTraining(false);
+    }
+  };
 
   const approve = async (postId) => {
     try {
@@ -87,6 +125,46 @@ const Moderation = () => {
       <div className="page-header">
         <h2><FiShield style={{ display: 'inline', marginRight: 8 }} />Moderation Queue</h2>
         <p>{posts.length} post{posts.length !== 1 ? 's' : ''} awaiting review</p>
+      </div>
+
+      {/* Recommendation Engine Panel */}
+      <div className="mod-card" style={{ marginBottom: '1.5rem', background: 'var(--accent-bg-light)', border: '1px solid var(--border)' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+          <FiZap style={{ color: 'var(--accent)' }} /> Recommendation System Training
+        </h3>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text3)', margin: '0.4rem 0 0.8rem 0' }}>
+          Train the personalized feed models on historical user interaction data on-demand.
+        </p>
+
+        {jobStatus && (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text2)', background: 'var(--bg3)', padding: '0.65rem 0.85rem', borderRadius: 8, marginBottom: '0.8rem', border: '1px solid var(--border)' }}>
+            <div><strong>Status:</strong> <span style={{ textTransform: 'capitalize', color: jobStatus.status === 'completed' ? 'var(--success)' : jobStatus.status === 'running' ? 'var(--accent)' : jobStatus.status === 'failed' ? 'var(--danger)' : 'var(--text)' }}>{jobStatus.status}</span></div>
+            {jobStatus.status === 'running' && (
+              <div style={{ marginTop: '0.2rem' }}>
+                Processing: {jobStatus.users_processed} users / {jobStatus.posts_scored} posts scored...
+              </div>
+            )}
+            {jobStatus.status === 'completed' && jobStatus.completed_at && (
+              <div style={{ marginTop: '0.2rem', color: 'var(--text3)' }}>
+                Last trained: {new Date(jobStatus.completed_at).toLocaleString()} ({jobStatus.users_processed} users, {jobStatus.posts_scored} posts scored)
+              </div>
+            )}
+            {jobStatus.status === 'failed' && jobStatus.error_message && (
+              <div style={{ marginTop: '0.2rem', color: 'var(--danger)' }}>
+                Error: {jobStatus.error_message}
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ width: 'auto', padding: '0.42rem 1rem' }}
+          onClick={startTraining}
+          disabled={training || jobStatus?.status === 'running'}
+        >
+          {training || jobStatus?.status === 'running' ? 'Training in Progress...' : 'Start Training Now'}
+        </button>
       </div>
 
       {posts.length === 0 ? (

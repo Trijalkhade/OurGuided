@@ -371,46 +371,67 @@ router.get('/feed', auth, async (req, res) => {
   try {
     conn = await db.getConnection();
 
-    // Build current user's vector
-    const uVec = await buildUserVector(conn, userId);
-
-    // Get connected users (for connection-feed boost)
-    const [conns] = await conn.execute(
-      `SELECT f1.following_id AS uid FROM follows f1
-       INNER JOIN follows f2 ON f1.following_id=f2.follower_id AND f1.follower_id=f2.following_id
-       WHERE f1.follower_id=?`,
+    // Fetch precomputed feed item IDs
+    const [rows] = await conn.execute(
+      `SELECT post_id, is_explore FROM precomputed_feed 
+       WHERE user_id = ? 
+       ORDER BY feed_rank ASC`,
       [userId]
     );
-    const connectedUsers = new Set(conns.map(c => c.uid));
 
-    // FETCH CANDIDATES: Latest + Collaborative Filtering (exclude hidden/reported)
-    const [candidateIds] = await conn.query(`
-      (SELECT post_id FROM posts WHERE is_pending=FALSE AND is_deleted=FALSE
-       AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=posts.post_id AND user_id=? AND is_hidden=TRUE)
-       ORDER BY post_date DESC LIMIT 100)
-      UNION
-      (SELECT p.post_id FROM posts p JOIN likes l ON p.post_id=l.post_id 
-       WHERE l.user_id IN (
-         SELECT l2.user_id FROM likes l1 JOIN likes l2 ON l1.post_id=l2.post_id 
-         WHERE l1.user_id=? AND l2.user_id!=?
-       ) AND p.is_pending=FALSE AND p.is_deleted=FALSE
-       AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=p.post_id AND user_id=? AND is_hidden=TRUE)
-       LIMIT 50)
-    `, [userId, userId, userId, userId]);
-    
-    if (candidateIds.length === 0) {
-      return res.json({ posts: [], has_more: false });
+    let posts = [];
+    let hasMore = false;
+
+    if (rows.length > 0) {
+      // Precomputed feed exists! Let's slice for pagination
+      const offset = (page - 1) * limit;
+      const paginatedIds = rows.slice(offset, offset + limit);
+      hasMore = (offset + paginatedIds.length) < rows.length;
+
+      if (paginatedIds.length > 0) {
+        const ids = paginatedIds.map(r => r.post_id);
+        const placeholders = ids.map(() => '?').join(',');
+        
+        // Fetch full post details, preserving rank order
+        const [candidates] = await conn.query(
+          `${buildPostSelect(userId)}
+           WHERE p.post_id IN (${placeholders}) AND pr_hide.report_id IS NULL
+           GROUP BY p.post_id`,
+          ids
+        );
+
+        // Sort posts back to the precomputed rank order
+        const rankMap = {};
+        paginatedIds.forEach((r, idx) => { rankMap[r.post_id] = idx; });
+        candidates.sort((a, b) => rankMap[a.post_id] - rankMap[b.post_id]);
+        posts = candidates;
+
+        // Label explore items
+        const exploreSet = new Set(paginatedIds.filter(r => r.is_explore).map(r => r.post_id));
+        posts.forEach(p => {
+          if (exploreSet.has(p.post_id)) {
+            p.is_explore = true;
+          }
+        });
+      }
+    } else {
+      // Fallback: feed not precomputed yet (e.g. fresh database or training not run)
+      // Grab chronological latest posts
+      const offset = (page - 1) * limit;
+      const [candidates] = await conn.query(
+        `${buildPostSelect(userId)}
+         WHERE p.is_pending = FALSE AND p.is_deleted = FALSE AND pr_hide.report_id IS NULL
+         GROUP BY p.post_id
+         ORDER BY p.post_date DESC
+         LIMIT ${limit + 1} OFFSET ${offset}`
+      );
+      hasMore = candidates.length > limit;
+      posts = candidates.slice(0, limit);
     }
-    
-    const ids = candidateIds.map(c => c.post_id);
-    const [candidates] = await conn.query(
-      `${buildPostSelect(userId)}
-       WHERE p.post_id IN (${ids.join(',')}) AND pr_hide.report_id IS NULL
-       GROUP BY p.post_id`
-    );
 
     // Batch-fetch extra images BEFORE processImages swaps IDs to UUIDs
-    if (candidates.length) {
+    if (posts.length) {
+      const ids = posts.map(p => p.post_id);
       const ph = ids.map(() => '?').join(',');
       const [extraImgs] = await conn.execute(
         `SELECT post_id, image_url, thumbnail_url FROM post_images WHERE post_id IN (${ph}) ORDER BY post_id, sort_order`, ids);
@@ -426,111 +447,16 @@ router.get('/feed', auth, async (req, res) => {
           thumbMap[r.post_id].push(r.thumbnail_url || r.image_url);
         }
       }
-      for (const p of candidates) {
+      for (const p of posts) {
         p.extra_images = imgMap[p.post_id] || [];
         p.extra_thumbnails = thumbMap[p.post_id] || [];
       }
     }
 
-    // ── FETCH ENGAGEMENT DATA for scoring ──────────────────────────
-    const engagementData = {
-      watchTimes: new Map(),
-      impressions: new Map(),
-      scrollDepths: new Map(),
-      videoCompletions: new Map(),
-      shares: new Set(),
-      profileClicks: new Set(),
-      repeatViews: new Map(),
-      commentLengths: new Map(),
-      userDeviceType: 'desktop',
-      userTimeBucket: 'morning'
-    };
+    // Process images (swaps internal IDs to UUIDs)
+    posts.forEach(processImages);
 
-    if (ids.length > 0) {
-      const ph = ids.map(() => '?').join(',');
-      const baseParams = [userId, ...ids];
-
-      const [
-        [wtRows], [impRows], [sdRows], [vcRows], [shRows], [pcRows], [rvRows], [clRows]
-      ] = await Promise.all([
-        conn.query(`SELECT post_id, seconds FROM post_watch_time WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT post_id, device_type, time_bucket FROM post_impressions WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT post_id, depth_pct FROM post_scroll_depth WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT post_id, completion_pct FROM post_video_completion WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT DISTINCT post_id FROM post_shares WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT post_id FROM post_profile_clicks WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT post_id, view_count FROM post_repeat_views WHERE user_id=? AND post_id IN (${ph})`, baseParams),
-        conn.query(`SELECT p.category, AVG(CHAR_LENGTH(c.content)) AS avg_len FROM comments c JOIN posts p ON c.post_id=p.post_id WHERE c.user_id=? AND c.is_deleted=FALSE AND p.category IS NOT NULL GROUP BY p.category`, [userId])
-      ]);
-
-      for (const r of wtRows)  engagementData.watchTimes.set(r.post_id, r.seconds);
-      for (const r of impRows) engagementData.impressions.set(r.post_id, { device_type: r.device_type, time_bucket: r.time_bucket });
-      for (const r of sdRows)  engagementData.scrollDepths.set(r.post_id, r.depth_pct);
-      for (const r of vcRows)  engagementData.videoCompletions.set(r.post_id, r.completion_pct);
-      for (const r of shRows)  engagementData.shares.add(r.post_id);
-      for (const r of pcRows)  engagementData.profileClicks.add(r.post_id);
-      for (const r of rvRows)  engagementData.repeatViews.set(r.post_id, r.view_count);
-      for (const r of clRows)  engagementData.commentLengths.set((r.category || '').toLowerCase(), parseFloat(r.avg_len) || 0);
-
-      // Detect current user's device & time bucket from request
-      const ua = req.headers['user-agent'] || '';
-      if (/mobile|android|iphone|ipod/i.test(ua)) engagementData.userDeviceType = 'mobile';
-      else if (/ipad|tablet/i.test(ua)) engagementData.userDeviceType = 'tablet';
-      const hour = new Date().getHours();
-      if (hour >= 5 && hour < 12)       engagementData.userTimeBucket = 'morning';
-      else if (hour >= 12 && hour < 17)  engagementData.userTimeBucket = 'afternoon';
-      else if (hour >= 17 && hour < 21)  engagementData.userTimeBucket = 'evening';
-      else                               engagementData.userTimeBucket = 'night';
-    }
-
-    // SCORE & RANK (must happen before processImages swaps IDs to UUIDs,
-    // because scoring checks connectedUsers set of integer IDs)
-    const scored = candidates.map(p => ({ ...p, _score: extractFeaturesAndScore(p, uVec, connectedUsers, engagementData) }));
-    scored.sort((a, b) => b._score - a._score || new Date(b.post_date) - new Date(a.post_date));
-
-    // RE-RANKING: Diversity & Anti-Fatigue (also uses integer user_id)
-    const finalFeed = [];
-    const recentAuthors = [];
-    const recentCategories = [];
-
-    // Apply sliding window diversity filter
-    while (scored.length > 0) {
-      let bestIdx = 0;
-      
-      // Look at top 10 items in the queue to find the best one that doesn't violate diversity
-      for (let i = 0; i < Math.min(10, scored.length); i++) {
-        const p = scored[i];
-        const authorCount = recentAuthors.filter(a => a === p.user_id).length;
-        const catCount = recentCategories.filter(c => c === p.category).length;
-        
-        // Allowed max 2 from same author, 3 from same category in the recent sliding window
-        if (authorCount < 2 && catCount < 3) {
-          bestIdx = i;
-          break;
-        }
-      }
-      
-      const p = scored.splice(bestIdx, 1)[0];
-      finalFeed.push(p);
-      
-      recentAuthors.push(p.user_id);
-      if (recentAuthors.length > 5) recentAuthors.shift(); // sliding window of 5
-      
-      recentCategories.push(p.category);
-      if (recentCategories.length > 8) recentCategories.shift(); // sliding window of 8
-    }
-
-    // Paginate
-    const offset = (page - 1) * limit;
-    const page_posts = finalFeed.slice(offset, offset + limit);
-
-    // Remove internal score, then swap internal IDs → UUIDs
-    page_posts.forEach(p => {
-      delete p._score;
-      processImages(p);
-    });
-
-    res.json({ posts: page_posts, has_more: (offset + page_posts.length) < finalFeed.length });
+    res.json({ posts, has_more: hasMore });
   } catch (err) {
     console.error('RECOMMENDATIONS ERROR:', err.message);
     res.status(500).json({ message: err.message });

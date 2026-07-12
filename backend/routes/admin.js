@@ -118,4 +118,72 @@ router.post('/moderation/scan', auth, requireModerator, async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 
+/* ── RECOMMENDATION TRAINING ── */
+const { Worker } = require('worker_threads');
+const path = require('path');
+
+router.post('/recommendations/train', auth, requireModerator, async (req, res) => {
+    try {
+        const [activeJobs] = await db.execute(
+            "SELECT job_id FROM training_jobs WHERE status = 'running'"
+        );
+        if (activeJobs.length > 0) {
+            return res.status(400).json({ success: false, message: 'A recommendation training job is already running.' });
+        }
+
+        const [result] = await db.execute(
+            "INSERT INTO training_jobs (status, started_at) VALUES ('running', CURRENT_TIMESTAMP)"
+        );
+        const jobId = result.insertId;
+
+        const workerPath = path.join(__dirname, '../workers/trainRecommendations.js');
+        const worker = new Worker(workerPath);
+
+        worker.on('message', (msg) => {
+            if (msg.type === 'progress') {
+                db.execute(
+                    "UPDATE training_jobs SET users_processed = ?, posts_scored = ? WHERE job_id = ?",
+                    [msg.usersProcessed, msg.postsScored, jobId]
+                ).catch(err => console.error('Failed to update training progress in DB:', err.message));
+            }
+        });
+
+        worker.on('error', (err) => {
+            console.error('Recommendation training worker error:', err);
+            db.execute(
+                "UPDATE training_jobs SET status = 'failed', completed_at = CURRENT_TIMESTAMP, error_message = ? WHERE job_id = ?",
+                [err.message, jobId]
+            ).catch(e => console.error(e));
+        });
+
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                console.error(`Recommendation training worker stopped with exit code ${code}`);
+                db.execute(
+                    "UPDATE training_jobs SET status = 'failed', completed_at = CURRENT_TIMESTAMP, error_message = ? WHERE job_id = ? AND status = 'running'",
+                    [`Worker stopped with exit code ${code}`, jobId]
+                ).catch(e => console.error(e));
+            }
+        });
+
+        res.json({ success: true, message: 'Recommendation model training started.', jobId });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.get('/recommendations/status', auth, requireModerator, async (req, res) => {
+    try {
+        const [rows] = await db.execute(
+            "SELECT job_id, status, started_at, completed_at, users_processed, posts_scored, error_message FROM training_jobs ORDER BY created_at DESC LIMIT 1"
+        );
+        if (rows.length === 0) {
+            return res.json({ success: true, data: null });
+        }
+        res.json({ success: true, data: rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;

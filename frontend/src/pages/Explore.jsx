@@ -4,6 +4,7 @@ import PostCard from '../components/PostCard.jsx';
 import toast from 'react-hot-toast';
 import { SkelExplore, SkelFeed } from '../components/Skeleton.jsx';
 import * as cache from '../utils/cache';
+import useEngagementTracker from '../utils/useEngagementTracker';
 
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 
@@ -49,6 +50,7 @@ const Explore = () => {
   const [errorPosts,      setErrorPosts]      = useState(false);
   const [savingInterests, setSavingInterests] = useState(false);
   const [activeTab,       setActiveTab]       = useState(cachedTab || 'recommended');
+  const { registerPost, registerVideo } = useEngagementTracker();
 
   stateRef.current = { categories, selected, posts, interests, activeTab };
 
@@ -284,7 +286,14 @@ const Explore = () => {
         </div>
       ) : (
         <div style={{ maxWidth: 680, margin: '0 auto' }}>
-          {posts.map(post => <PostCard key={post.post_id} post={post} />)}
+          {posts.map(post => (
+            <PostCard
+              key={post.post_id}
+              post={post}
+              postRef={registerPost}
+              videoRef={registerVideo}
+            />
+          ))}
         </div>
       )}
     </div>
