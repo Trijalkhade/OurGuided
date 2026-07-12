@@ -7,7 +7,7 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || 'pccoe',
   database: process.env.DB_NAME || 'DBMS',
   waitForConnections: true,
-  connectionLimit: 50,
+  connectionLimit: 15, // Reduced for PM2 cluster mode to avoid hitting MySQL max_connections
   maxIdle: 10,
   idleTimeout: 60000,
   queueLimit: 0,

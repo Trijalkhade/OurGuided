@@ -52,9 +52,9 @@ exports.buildPostSelect = (userId) => {
            COALESCE(ui.first_name,'') AS first_name,
            COALESCE(ui.last_name,'')  AS last_name,
            ui.photo_url,
-           (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
+           p.like_count,
            (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_liked,
-           (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
+           p.comment_count,
            (SELECT COUNT(*) FROM user_watch WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_saved
     FROM posts p
     INNER JOIN users u     ON p.user_id  = u.user_id
@@ -64,28 +64,53 @@ exports.buildPostSelect = (userId) => {
 };
 
 // ── UUID Resolvers ──────────────────────────────────────────────────────────
+const { LRUCache } = require('lru-cache');
+const uuidCache = new LRUCache({ max: 10000, ttl: 5 * 60 * 1000 }); // 5 minutes TTL
+
 // Resolve a public_id (UUID) to an internal user_id (integer)
 exports.resolveUserId = async (id) => {
   if (!id) return null;
+  const cacheKey = `user_id_by_pub:${id}`;
+  if (uuidCache.has(cacheKey)) return uuidCache.get(cacheKey);
+
   const [rows] = await db.execute('SELECT user_id FROM users WHERE public_id = ?', [id]);
-  return rows.length ? rows[0].user_id : null;
+  const val = rows.length ? rows[0].user_id : null;
+  if (val) uuidCache.set(cacheKey, val);
+  return val;
 };
 
 // Resolve a public_id (UUID) to an internal post_id (integer)
 exports.resolvePostId = async (id) => {
   if (!id) return null;
+  const cacheKey = `post_id_by_pub:${id}`;
+  if (uuidCache.has(cacheKey)) return uuidCache.get(cacheKey);
+
   const [rows] = await db.execute('SELECT post_id FROM posts WHERE public_id = ?', [id]);
-  return rows.length ? rows[0].post_id : null;
+  const val = rows.length ? rows[0].post_id : null;
+  if (val) uuidCache.set(cacheKey, val);
+  return val;
 };
 
 // Get user's public_id from internal user_id
 exports.getUserPublicId = async (userId) => {
+  if (!userId) return null;
+  const cacheKey = `user_pub_by_id:${userId}`;
+  if (uuidCache.has(cacheKey)) return uuidCache.get(cacheKey);
+
   const [rows] = await db.execute('SELECT public_id FROM users WHERE user_id = ?', [userId]);
-  return rows.length ? rows[0].public_id : null;
+  const val = rows.length ? rows[0].public_id : null;
+  if (val) uuidCache.set(cacheKey, val);
+  return val;
 };
 
 // Get post's public_id from internal post_id
 exports.getPostPublicId = async (postId) => {
+  if (!postId) return null;
+  const cacheKey = `post_pub_by_id:${postId}`;
+  if (uuidCache.has(cacheKey)) return uuidCache.get(cacheKey);
+
   const [rows] = await db.execute('SELECT public_id FROM posts WHERE post_id = ?', [postId]);
-  return rows.length ? rows[0].public_id : null;
+  const val = rows.length ? rows[0].public_id : null;
+  if (val) uuidCache.set(cacheKey, val);
+  return val;
 };

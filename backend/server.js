@@ -5,7 +5,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
-const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const timeout = require('connect-timeout');
 require('dotenv').config();
@@ -41,7 +40,7 @@ io.use((socket, next) => {
   const token = tokenMatch?.[1] || socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication required'));
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     socket.userId = decoded.user_id;
     next();
   } catch {
@@ -69,31 +68,36 @@ process.on('uncaughtException', (err) => console.error('UNCAUGHT EXCEPTION:', er
 process.on('unhandledRejection', (reason, promise) => console.error('UNHANDLED REJECTION:', reason));
 
 // ── Security & Performance Middleware ────────────────────────────────────────
-app.use(helmet());
-app.use(compression());
-app.use(cookieParser());
+// 1. CORS first — reject invalid origins immediately (preflight = 0 CPU)
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
 
-// Default 30-second timeout for all normal API routes.
-// Video upload routes override this with a longer per-route timeout in posts.js.
+// 2. Timeout — start the clock early
 app.use(timeout('30s'));
 app.use((req, res, next) => {
   if (!req.timedout) next();
 });
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// 3. Security headers — cheap, should be on all responses
+app.use(helmet());
+
+// 4. Cookie parsing — needed for auth
+app.use(cookieParser());
+
+// 5. Body parsing — reduced from 20mb to 1mb for security against large JSON payloads
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// 6. Static files — served before route matching
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Rate Limiting ───────────────────────────────────────────────────────────
-// ⚠️ TEMPORARILY DISABLED FOR K6 LOAD TESTING — RE-ENABLE AFTER TEST!
-// const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
-// app.use('/api', apiLimiter);
-// app.use('/api/auth/login', authLimiter);
-// app.use('/api/auth/register', authLimiter);
+const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
@@ -112,7 +116,15 @@ app.use('/api/engagement', require('./routes/engagement'));
 app.use('/api/growth', require('./routes/growth'));
 app.use('/api/admin', require('./routes/admin'));
 
-app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
+const db = require('./db');
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.execute('SELECT 1');
+    res.json({ status: 'OK', db: 'connected', timestamp: new Date() });
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', db: 'disconnected', timestamp: new Date() });
+  }
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -122,3 +134,19 @@ app.use((err, req, res, next) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
+
+const gracefulShutdown = () => {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
+  // Force close after 10s
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

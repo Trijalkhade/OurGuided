@@ -159,6 +159,8 @@ CREATE TABLE IF NOT EXISTS posts (
     is_deleted   BOOLEAN DEFAULT FALSE,
     deleted_at   TIMESTAMP NULL,
     post_date  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    like_count   INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
     CONSTRAINT fk_posts_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     UNIQUE INDEX idx_posts_public_id (public_id)
 );

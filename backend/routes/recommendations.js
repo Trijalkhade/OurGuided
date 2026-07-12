@@ -387,7 +387,7 @@ router.get('/feed', auth, async (req, res) => {
     const [candidateIds] = await conn.query(`
       (SELECT post_id FROM posts WHERE is_pending=FALSE AND is_deleted=FALSE
        AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=posts.post_id AND user_id=? AND is_hidden=TRUE)
-       ORDER BY post_date DESC LIMIT 300)
+       ORDER BY post_date DESC LIMIT 100)
       UNION
       (SELECT p.post_id FROM posts p JOIN likes l ON p.post_id=l.post_id 
        WHERE l.user_id IN (
@@ -395,7 +395,7 @@ router.get('/feed', auth, async (req, res) => {
          WHERE l1.user_id=? AND l2.user_id!=?
        ) AND p.is_pending=FALSE AND p.is_deleted=FALSE
        AND NOT EXISTS (SELECT 1 FROM post_reports WHERE post_id=p.post_id AND user_id=? AND is_hidden=TRUE)
-       LIMIT 200)
+       LIMIT 50)
     `, [userId, userId, userId, userId]);
     
     if (candidateIds.length === 0) {
@@ -560,7 +560,7 @@ router.get('/similar-users', auth, async (req, res) => {
        LEFT JOIN user_info ui ON u.user_id=ui.user_id
        LEFT JOIN user_profile up ON u.user_id=up.user_id
        WHERE u.user_id != ?
-       LIMIT 200`,
+       LIMIT 50`,
        [userId]
     );
 

@@ -11,6 +11,21 @@ const db = require('../db');
  *   await logAudit(userId, 'login', { target_type: 'user', ip: req.ip, userAgent: req.headers['user-agent'] });
  */
 
+const { LRUCache } = require('lru-cache');
+const blacklistCache = new LRUCache({ max: 50000, ttl: 7 * 24 * 60 * 60 * 1000 });
+
+// Load initially and every hour
+async function loadBlacklist() {
+  try {
+    const [rows] = await db.execute('SELECT token_hash FROM token_blacklist WHERE expires_at > NOW()');
+    rows.forEach(r => blacklistCache.set(r.token_hash, true));
+  } catch (err) {
+    console.error('[AUDIT] Failed to load token blacklist:', err.message);
+  }
+}
+loadBlacklist();
+setInterval(loadBlacklist, 3600000); // 1 hour
+
 /**
  * Log a security-sensitive action to the audit trail.
  * Fire-and-forget — never throws, never blocks the caller.
@@ -162,6 +177,7 @@ async function blacklistToken(token, userId) {
       `INSERT IGNORE INTO token_blacklist (token_hash, user_id, expires_at) VALUES (?, ?, ?)`,
       [tokenHash, userId, expiresAt]
     );
+    blacklistCache.set(tokenHash, true);
   } catch (err) {
     console.error('[AUDIT] Token blacklist failed:', err.message);
   }
@@ -176,11 +192,19 @@ async function isTokenBlacklisted(token) {
   try {
     const crypto = require('crypto');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    
+    if (blacklistCache.has(tokenHash)) return true;
+
+    // Fallback to DB just in case cache missed between syncs
     const [[result]] = await db.execute(
       `SELECT id FROM token_blacklist WHERE token_hash = ? LIMIT 1`,
       [tokenHash]
     );
-    return !!result;
+    if (result) {
+      blacklistCache.set(tokenHash, true);
+      return true;
+    }
+    return false;
   } catch (err) {
     console.error('[AUDIT] Token blacklist check failed:', err.message);
     return false; // Fail open — don't block requests if blacklist check fails

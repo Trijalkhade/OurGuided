@@ -131,9 +131,9 @@ exports.getPostsByTag = async (req, res) => {
               GROUP_CONCAT(DISTINCT pt2.tag ORDER BY pt2.tag) AS tags,
               u.username, COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'') AS last_name, ui.photo_url,
-              (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
+              p.like_count,
               (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ?) AS user_liked,
-              (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
+              p.comment_count,
               (SELECT COUNT(*) FROM user_watch WHERE post_id = p.post_id AND user_id = ?) AS user_saved
        FROM posts p
        INNER JOIN post_tags pt  ON pt.post_id = p.post_id AND pt.tag = ?
@@ -410,9 +410,11 @@ exports.likePost = async (req, res) => {
       [req.user.user_id, postId]);
     if (existing.length) {
       await conn.execute('DELETE FROM likes WHERE user_id=? AND post_id=?', [req.user.user_id, postId]);
+      await conn.execute('UPDATE posts SET like_count = like_count - 1 WHERE post_id=?', [postId]);
       return res.json({ liked: false });
     }
     await conn.execute('INSERT INTO likes (user_id,post_id) VALUES (?,?)', [req.user.user_id, postId]);
+    await conn.execute('UPDATE posts SET like_count = like_count + 1 WHERE post_id=?', [postId]);
 
     // Fire-and-forget notification
     (async () => {
@@ -468,6 +470,7 @@ exports.commentOnPost = async (req, res) => {
     conn = await db.getConnection();
     const [r] = await conn.execute('INSERT INTO comments (user_id,post_id,content) VALUES (?,?,?)',
       [req.user.user_id, postId, content]);
+    await conn.execute('UPDATE posts SET comment_count = comment_count + 1 WHERE post_id=?', [postId]);
 
     // Background moderation
     moderationService.queueForDetection({
@@ -547,9 +550,9 @@ exports.getPublicFeed = async (req, res) => {
               COALESCE(ui.first_name,'') AS first_name,
               COALESCE(ui.last_name,'')  AS last_name,
               ui.photo_url,
-              (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) AS like_count,
+              p.like_count,
               0 AS user_liked,
-              (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE) AS comment_count,
+              p.comment_count,
               0 AS user_saved
        FROM posts p
        INNER JOIN users u     ON p.user_id  = u.user_id

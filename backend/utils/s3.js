@@ -4,7 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION || 'auto',
+  endpoint: process.env.R2_ENDPOINT_URL, // e.g. https://<ACCOUNT_ID>.r2.cloudflarestorage.com
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

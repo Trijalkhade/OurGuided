@@ -8,7 +8,7 @@ const authMiddleware = async (req, res, next) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+    decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key', { algorithms: ['HS256'] });
 
     // Check if token has been blacklisted (logout, password change, etc.)
     const blacklisted = await isTokenBlacklisted(token);

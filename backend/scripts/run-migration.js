@@ -19,6 +19,8 @@ async function migrate() {
       "ALTER TABLE user_info ADD COLUMN photo_url TEXT DEFAULT NULL",
       "ALTER TABLE user_info ADD COLUMN updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP",
       "ALTER TABLE posts ADD COLUMN image_url TEXT DEFAULT NULL",
+      "ALTER TABLE posts ADD COLUMN like_count INT DEFAULT 0",
+      "ALTER TABLE posts ADD COLUMN comment_count INT DEFAULT 0",
       "ALTER TABLE notifications MODIFY COLUMN type ENUM('new_skill','quiz','streak','connection','system','moderation') NOT NULL"
     ];
 
@@ -90,6 +92,20 @@ async function migrate() {
       await pool.query(sql);
     }
     console.log('✅ New security tables created successfully');
+
+    // 4. Backfill materialized counters
+    try {
+      console.log('Backfilling like_count and comment_count on posts table...');
+      await pool.query(`
+        UPDATE posts p 
+        SET 
+          like_count = (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id), 
+          comment_count = (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id AND is_deleted = FALSE)
+      `);
+      console.log('✅ Materialized counters backfilled successfully');
+    } catch(err) {
+      console.log('✅ Note on backfilling counters: ' + err.message);
+    }
 
     console.log('Migration complete!');
     process.exit(0);

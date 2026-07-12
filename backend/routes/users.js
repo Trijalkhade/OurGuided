@@ -274,7 +274,7 @@ router.delete('/account', auth, async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ message: 'Password is required to delete your account' });
 
-  const bcrypt = require('bcryptjs');
+  const bcrypt = require('bcrypt');
   let conn;
   try {
     const userId = req.user.user_id;
