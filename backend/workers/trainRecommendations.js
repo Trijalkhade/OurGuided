@@ -345,7 +345,8 @@ async function trainModel() {
       }
 
       usersProcessedCount++;
-      postsScoredCount += finalFeed.length;
+      // Track total unique posts scored across the entire job
+      postsScoredCount = postsToScore.length;
       updateProgress(usersProcessedCount, postsScoredCount);
     }
 
