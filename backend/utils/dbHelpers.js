@@ -35,6 +35,14 @@ exports.processImages = (post) => {
     delete post.post_public_id;
   }
 
+  // Strip author info for anonymous posts
+  if (post.is_anonymous) {
+    post.username = 'Anonymous';
+    post.first_name = '';
+    post.last_name = '';
+    post.photo = null;
+  }
+
   return post;
 };
 

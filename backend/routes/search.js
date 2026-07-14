@@ -20,19 +20,22 @@ router.get('/', auth, async (req, res) => {
          FROM users u
          LEFT JOIN user_info ui    ON u.user_id=ui.user_id
          LEFT JOIN user_profile up ON u.user_id=up.user_id
-         WHERE u.username LIKE ? OR ui.first_name LIKE ? OR ui.last_name LIKE ?
-         LIMIT 5`, [like, like, like]
+         WHERE (u.username LIKE ? OR ui.first_name LIKE ? OR ui.last_name LIKE ?)
+           AND (COALESCE(up.is_private, 0) = 0 OR u.user_id = ?)
+         LIMIT 5`, [like, like, like, req.user.user_id]
       ).then(([rows]) => rows),
 
       conn.query(
-        `SELECT p.public_id AS post_id, p.text AS content, p.category, p.post_date, u.username
+        `SELECT p.public_id AS post_id, p.text AS content, p.category, p.post_date, u.username, p.is_anonymous
          FROM posts p
          INNER JOIN users u ON p.user_id = u.user_id
          LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
+         LEFT  JOIN user_profile up ON p.user_id = up.user_id
          WHERE p.is_pending = FALSE AND p.is_deleted = FALSE
+           AND (COALESCE(up.is_private, 0) = 0 OR p.user_id = ?)
            AND (p.text LIKE ? OR pt.tag LIKE ? OR p.category LIKE ?)
          GROUP BY p.post_id
-         ORDER BY p.post_date DESC LIMIT 5`, [like, like, like]
+         ORDER BY p.post_date DESC LIMIT 5`, [req.user.user_id, like, like, like]
       ).then(([rows]) => rows),
 
       conn.execute(
@@ -47,6 +50,12 @@ router.get('/', auth, async (req, res) => {
     for (const u of users) {
       u.photo = formatPhoto(u.photo_url);
       delete u.photo_url;
+    }
+
+    for (const p of posts) {
+      if (p.is_anonymous) {
+        p.username = 'Anonymous';
+      }
     }
 
     res.json({ users, posts, quizzes });
