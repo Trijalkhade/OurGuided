@@ -459,7 +459,7 @@ router.get('/feed', auth, async (req, res) => {
     res.json({ posts, has_more: hasMore });
   } catch (err) {
     console.error('RECOMMENDATIONS ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -542,7 +542,7 @@ router.get('/similar-users', auth, async (req, res) => {
     res.json(withSim.slice(0, 10));
   } catch (err) {
     console.error('SIMILAR USERS ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -602,7 +602,7 @@ router.get('/knowledge-chart', auth, async (req, res) => {
 
     res.json({ monthly: cumulative, daily, year });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

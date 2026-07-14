@@ -44,7 +44,7 @@ router.get('/status/:userId', auth, async (req, res) => {
     });
   } catch (err) {
     console.error('STATUS CHECK ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -78,7 +78,7 @@ router.get('/my-connections', auth, async (req, res) => {
     res.json(connections);
   } catch (err) {
     console.error('GET CONNECTIONS ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -110,7 +110,7 @@ router.get('/requests', auth, async (req, res) => {
     res.json(requests);
   } catch (err) {
     console.error('GET REQUESTS ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -186,7 +186,7 @@ router.post('/request/:userId', auth, async (req, res) => {
   } catch (err) {
     await conn?.rollback();
     console.error('REQUEST ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -233,7 +233,7 @@ router.post('/accept/:connectionId', auth, async (req, res) => {
     res.json({ message: 'Connection accepted', connection: returnedConnection, user: userInfo });
   } catch (err) {
     console.error('ACCEPT ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -255,7 +255,7 @@ router.delete('/reject/:connectionId', auth, async (req, res) => {
     res.json({ message: 'Connection request rejected' });
   } catch (err) {
     console.error('REJECT ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -283,7 +283,7 @@ router.delete('/remove/:userId', auth, async (req, res) => {
   } catch (err) {
     await conn?.rollback();
     console.error('REMOVE ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }

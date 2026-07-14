@@ -194,7 +194,7 @@ async function doStop(userId, res) {
     } catch (err) {
         await conn.rollback();
         console.error('STOP ERROR:', err);
-        if (res) res.status(500).json({ message: err.message });
+        if (res) res.status(500).json({ message: 'Internal server error' });
     } finally {
         conn.release();
     }
@@ -219,7 +219,7 @@ router.post('/start', auth, async (req, res) => {
         );
         res.status(201).json({ session_id: result.insertId, status: 'started' });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     } finally {
         conn.release();
     }
@@ -260,7 +260,7 @@ router.get('/status', auth, async (req, res) => {
                 knowledge: parseFloat((todayRows[0].today_knowledge || 0).toFixed(2)),
             },
         });
-    } catch (err) { res.status(500).json({ message: err.message }); }
+    } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 // ── GET /api/study/history ───────────────────────────────────────────────────
@@ -280,7 +280,7 @@ router.get('/history', auth, async (req, res) => {
             [userId]
         );
         res.json(rows);
-    } catch (err) { res.status(500).json({ message: err.message }); }
+    } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 // ── GET /api/study/sessions ──────────────────────────────────────────────────
@@ -296,7 +296,7 @@ router.get('/sessions', auth, async (req, res) => {
             [userId]
         );
         res.json(rows);
-    } catch (err) { res.status(500).json({ message: err.message }); }
+    } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 module.exports = router;

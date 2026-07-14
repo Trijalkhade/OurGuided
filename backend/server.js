@@ -20,7 +20,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express();
-app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate limiting
+// CHECK 11: Set trust proxy to exact proxy count (Nginx + Cloudflare = 2)
+app.set('trust proxy', 2);
 
 const server = http.createServer(app);
 // keepAlive / headers timeouts only — per-route timeout middleware handles request limits
@@ -80,24 +81,48 @@ app.use((req, res, next) => {
   if (!req.timedout) next();
 });
 
-// 3. Security headers — cheap, should be on all responses
-app.use(helmet());
+// 3. Security headers — CHECK 13, 14, 20
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "*.cloudfront.net", "*.amazonaws.com"],
+      connectSrc: ["'self'", "wss:", process.env.FRONTEND_URL || 'http://localhost:5173'],
+      fontSrc: ["'self'", "fonts.gstatic.com"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    }
+  },
+  hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+
+// Permissions-Policy header (CHECK 20)
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 // 4. Cookie parsing — needed for auth
 app.use(cookieParser());
 
-// 5. Body parsing — reduced from 20mb to 1mb for security against large JSON payloads
+// 5. Body parsing — 1mb default, auth routes only need 2kb
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 6. Static files — served before route matching
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// CHECK 10: Removed /uploads static serving — all media is served from S3/CDN now
 
 // ── Rate Limiting ───────────────────────────────────────────────────────────
-const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
+const { authLimiter, apiLimiter, resetLimiter } = require('./middleware/rateLimit');
 app.use('/api', apiLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', resetLimiter);
+app.use('/api/auth/reset-password', resetLimiter);
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
@@ -127,7 +152,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  // CHECK 8: Never leak internal error details to clients
+  console.error('[ERROR]', err.stack);
   res.status(500).json({ message: 'Internal server error' });
 });
 

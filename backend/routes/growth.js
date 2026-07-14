@@ -272,7 +272,7 @@ router.get('/state', auth, async (req, res) => {
             conn.release();
         }
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -292,7 +292,7 @@ router.get('/timeline', auth, async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -303,7 +303,7 @@ router.get('/reference-objects', auth, async (req, res) => {
         res.set('Cache-Control', 'public, max-age=3600');
         res.json(refObjects);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -381,7 +381,7 @@ router.get('/achievements', auth, async (req, res) => {
             },
         });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -399,7 +399,7 @@ router.get('/heatmap', auth, async (req, res) => {
         );
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 

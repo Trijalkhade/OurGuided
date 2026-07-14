@@ -39,11 +39,16 @@ exports.processImages = (post) => {
 };
 
 // Shared SQL for fetching posts with embedded counts
-// Now selects public_ids alongside internal IDs for API responses
+// Returns { sql, params } — callers MUST pass params to conn.execute()
 // Includes LEFT JOIN on post_reports so callers can filter hidden posts
 // with: AND pr_hide.report_id IS NULL
 exports.buildPostSelect = (userId) => {
-  return `
+  const id = Number(userId);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error('Invalid userId for buildPostSelect');
+  }
+  return {
+    sql: `
     SELECT p.post_id, p.public_id AS post_public_id, p.user_id, u.public_id AS user_public_id,
            p.text AS content, p.post_date, p.category,
            p.media_type, p.image_url, p.thumbnail_url, p.video_url AS video, p.is_anonymous,
@@ -53,14 +58,18 @@ exports.buildPostSelect = (userId) => {
            COALESCE(ui.last_name,'')  AS last_name,
            ui.photo_url,
            p.like_count,
-           (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_liked,
+           (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id AND user_id = ?) AS user_liked,
            p.comment_count,
-           (SELECT COUNT(*) FROM user_watch WHERE post_id = p.post_id AND user_id = ${Number(userId)}) AS user_saved
+           (SELECT COUNT(*) FROM user_watch WHERE post_id = p.post_id AND user_id = ?) AS user_saved,
+           COALESCE(up.is_private, 0) AS is_private
     FROM posts p
     INNER JOIN users u     ON p.user_id  = u.user_id
     LEFT  JOIN user_info ui ON p.user_id = ui.user_id
+    LEFT  JOIN user_profile up ON p.user_id = up.user_id
     LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
-    LEFT  JOIN post_reports pr_hide ON pr_hide.post_id = p.post_id AND pr_hide.user_id = ${Number(userId)} AND pr_hide.is_hidden = TRUE`;
+    LEFT  JOIN post_reports pr_hide ON pr_hide.post_id = p.post_id AND pr_hide.user_id = ? AND pr_hide.is_hidden = TRUE`,
+    params: [id, id, id],
+  };
 };
 
 // ── UUID Resolvers ──────────────────────────────────────────────────────────

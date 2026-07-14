@@ -19,4 +19,19 @@ function isBufferSafeImage(buffer) {
   return false;
 }
 
-module.exports = { isBufferSafeImage };
+/**
+ * CHECK 10: Validates if a buffer starts with known video magic numbers (MP4, MOV)
+ * MP4/MOV files use ISO Base Media File Format — 'ftyp' signature at offset 4.
+ */
+function isBufferSafeVideo(buffer) {
+  if (!buffer || buffer.length < 12) return false;
+
+  const hex = buffer.toString('hex', 0, 12).toUpperCase();
+
+  // ISO BMFF (MP4, MOV, M4V): bytes 4-7 = 'ftyp' (66 74 79 70)
+  if (hex.slice(8, 16) === '66747970') return true;
+
+  return false;
+}
+
+module.exports = { isBufferSafeImage, isBufferSafeVideo };

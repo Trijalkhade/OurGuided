@@ -12,7 +12,7 @@ router.get('/public', async (req, res) => {
               (SELECT COUNT(*) FROM posts p WHERE p.category=c.name AND p.is_pending=FALSE AND p.is_deleted=FALSE) AS post_count
        FROM categories c ORDER BY c.category_id`);
     res.json(cats);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET / — list all categories with post counts ── */
@@ -24,7 +24,7 @@ router.get('/', auth, async (req, res) => {
               (SELECT COUNT(*) FROM quizzes q WHERE q.category=c.name AND q.is_published=TRUE AND q.is_deleted=FALSE) AS quiz_count
        FROM categories c ORDER BY c.category_id`);
     res.json(cats);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /interests — get current user's interests ── */
@@ -35,7 +35,7 @@ router.get('/interests', auth, async (req, res) => {
        FROM user_interests ui JOIN categories c ON ui.category_id=c.category_id
        WHERE ui.user_id=?`, [req.user.user_id]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── POST /interests — set user interests (replaces all) ── */
@@ -55,7 +55,7 @@ router.post('/interests', auth, async (req, res) => {
     }
     await conn.commit();
     res.json({ message: 'Interests updated' });
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 });
 
@@ -90,7 +90,7 @@ router.get('/recommended', auth, async (req, res) => {
     }
 
     res.json({ posts, interests: interests.map(i => i.name) });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 module.exports = router;

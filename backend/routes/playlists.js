@@ -13,7 +13,7 @@ router.get('/', auth, async (req, res) => {
        FROM playlists pl WHERE pl.user_id=? ORDER BY pl.created_at DESC`,
       [req.user.user_id]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* GET /public/:userId — public playlists of a user */
@@ -27,7 +27,7 @@ router.get('/public/:userId', auth, async (req, res) => {
        FROM playlists pl WHERE pl.user_id=? AND pl.is_public=TRUE ORDER BY pl.created_at DESC`,
       [userId]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* GET /:id — playlist with posts */
@@ -57,7 +57,7 @@ router.get('/:id', auth, async (req, res) => {
     });
 
     res.json({ ...playlist, items });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* POST / — create playlist */
@@ -69,7 +69,7 @@ router.post('/', auth, async (req, res) => {
       'INSERT INTO playlists (user_id,title,description,is_public) VALUES (?,?,?,?)',
       [req.user.user_id, title, description || null, is_public !== false ? 1 : 0]);
     res.status(201).json({ playlist_id: r.insertId, title });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* POST /:id/add — add post to playlist */
@@ -85,7 +85,7 @@ router.post('/:id/add', auth, async (req, res) => {
     await db.execute('INSERT IGNORE INTO playlist_items (playlist_id,post_id) VALUES (?,?)',
       [req.params.id, postId]);
     res.json({ message: 'Added' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* DELETE /:id/remove/:postId — remove post from playlist */
@@ -97,7 +97,7 @@ router.delete('/:id/remove/:postId', auth, async (req, res) => {
     await db.execute('DELETE FROM playlist_items WHERE playlist_id=? AND post_id=?',
       [req.params.id, await resolvePostId(req.params.postId)]);
     res.json({ message: 'Removed' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* DELETE /:id — delete playlist */
@@ -107,7 +107,7 @@ router.delete('/:id', auth, async (req, res) => {
       [req.params.id, req.user.user_id]);
     if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized' });
     res.json({ message: 'Playlist deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 module.exports = router;

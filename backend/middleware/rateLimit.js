@@ -1,26 +1,31 @@
 const rateLimit = require('express-rate-limit');
 
-// Helper to check if the request comes from the load test IP
-const skipLoadTestIP = (req) => {
-  return process.env.LOAD_TEST_IP && req.ip && req.ip.includes(process.env.LOAD_TEST_IP);
-};
+// CHECK 11: Removed LOAD_TEST_IP bypass — use separate environment for load tests
 
 // Auth endpoints — strict: 10 requests per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  skip: skipLoadTestIP,
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
   message: { message: 'Too many attempts. Please try again after 15 minutes.' },
 });
 
+// Password reset — 5 requests per hour per IP (CHECK 16)
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  message: { message: 'Too many password reset attempts. Please try again later.' },
+});
+
 // General API — 100 requests per minute per IP
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
-  skip: skipLoadTestIP,
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
@@ -33,7 +38,6 @@ const { checkRateLimit } = require('../utils/auditLogger');
 const globalActionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  skip: skipLoadTestIP,
   keyGenerator: (req) => req.user?.user_id || req.ip,
   validate: false,
   standardHeaders: true,
@@ -43,7 +47,6 @@ const globalActionLimiter = rateLimit({
 
 // DB-backed rate limiter for distributed/persistent limits
 const dbRateLimiter = (actionType, windowMinutes = 15, maxAttempts = 5) => async (req, res, next) => {
-  if (skipLoadTestIP(req)) return next();
   if (!req.user || !req.user.user_id) return next();
   const allowed = await checkRateLimit(req.user.user_id, actionType, windowMinutes, maxAttempts);
   if (!allowed) {
@@ -52,4 +55,4 @@ const dbRateLimiter = (actionType, windowMinutes = 15, maxAttempts = 5) => async
   next();
 };
 
-module.exports = { authLimiter, apiLimiter, globalActionLimiter, dbRateLimiter };
+module.exports = { authLimiter, apiLimiter, globalActionLimiter, dbRateLimiter, resetLimiter };

@@ -14,14 +14,16 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, uniqueSuffix + '-' + file.originalname)
+    // CHECK 10: Sanitize filename to prevent path traversal
+    const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, uniqueSuffix + '-' + safeName)
   }
 });
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 200 * 1024 * 1024, // 200 MB max per file
+    fileSize: 50 * 1024 * 1024, // 50 MB max per file (reduced from 200MB — CHECK 10)
     files: 6,                    // up to 6 images or 1 video per post
   },
   fileFilter: (req, file, cb) => {

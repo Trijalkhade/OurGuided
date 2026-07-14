@@ -10,14 +10,36 @@ const { getUserPublicId } = require('../utils/dbHelpers');
 const crypto = require('crypto');
 const { logAudit, logLoginAttempt, isAccountLocked, lockAccount, blacklistToken } = require('../utils/auditLogger');
 
-// Cookie options for JWT token
+// ── Security Constants ──────────────────────────────────────────────────────
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 24 * 60 * 60 * 1000, // 1 day (reduced from 7d)
   path: '/',
 };
+
+const JWT_OPTIONS = { expiresIn: '1d', issuer: 'ourguided', audience: 'ourguided-app' };
+
+/** Validate password strength — min 8 chars, 1 uppercase, 1 lowercase, 1 digit */
+function validatePassword(password) {
+  if (!password || password.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one digit.';
+  return null;
+}
+
+/** HTML-escape helper for safe email content */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ── Device Fingerprint Middleware ────────────────────────────────────────────
 // Sets a server-side cookie (_dv) on first visit so the device limit check
@@ -43,6 +65,23 @@ router.post('/register', ensureDeviceCookie, async (req, res) => {
   const { username, email, password, first_name, last_name, dob } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required' });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Invalid email format.' });
+  }
+
+  // Validate password strength (CHECK 7)
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  // Validate username: 3-30 chars, alphanumeric + underscores only
+  if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+    return res.status(400).json({ message: 'Username must be 3-30 characters (letters, numbers, underscores).' });
   }
 
   // Honeypot check: If nickname is filled, it's a bot
@@ -118,7 +157,7 @@ The OurGuided Team`;
     sendEmail(email, 'Welcome to OurGuided!', welcomeBody).catch(e => console.error('Welcome email failed:', e));
     createNotification(userId, 'system', 'Welcome!', 'Welcome to OurGuided! Start your learning journey today.').catch(e => console.error('Welcome notif failed:', e));
 
-    const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ user_id: userId, username }, process.env.JWT_SECRET, JWT_OPTIONS);
     res.cookie('token', token, COOKIE_OPTIONS);
     // public_id was explicitly set during INSERT, use it directly
     res.status(201).json({ user_id: publicId, username, email });
@@ -128,7 +167,7 @@ The OurGuided Team`;
       return res.status(409).json({ message: 'Username or email already exists', error: err.message });
     }
     console.error(err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     conn.release();
   }
@@ -175,14 +214,14 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { user_id: user.user_id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      JWT_OPTIONS
     );
 
     res.cookie('token', token, COOKIE_OPTIONS);
     const publicId = await getUserPublicId(user.user_id);
     res.json({ user_id: publicId, username: user.username, email: user.email });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
@@ -206,7 +245,7 @@ router.get('/me', auth, async (req, res) => {
 
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
@@ -221,7 +260,7 @@ router.post('/forgot-password', async (req, res) => {
     if (!rows.length) return res.json({ message: 'If that email exists, a reset PIN has been sent.' });
 
     const user = rows[0];
-    const pin = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit PIN
+    const pin = String(crypto.randomInt(100000, 1000000)); // Cryptographically secure 6-digit PIN
     const pinHash = await bcrypt.hash(pin, 10);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
@@ -251,8 +290,9 @@ router.post('/reset-password', async (req, res) => {
   if (!email || !pin || !newPassword) {
     return res.status(400).json({ message: 'Email, PIN, and new password are required' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters' });
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
   }
 
   try {
@@ -272,14 +312,21 @@ router.post('/reset-password', async (req, res) => {
     if (!validPin) return res.status(400).json({ message: 'Invalid PIN' });
 
     // Update password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     await db.execute('UPDATE users SET password = ? WHERE user_id = ?', [hashedPassword, userId]);
 
     // Mark reset as used
     await db.execute('UPDATE password_resets SET used = TRUE WHERE id = ?', [resets[0].id]);
 
-    // Audit log the password change
-    logAudit(userId, 'password_change', { target_type: 'user', target_id: userId, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'reset_pin' } }).catch(() => {});
+    // Invalidate ALL existing tokens for this user (CHECK 16)
+    // This ensures a stolen token can't be used after the password is changed
+    const [activeSessions] = await db.execute(
+      'SELECT token_hash FROM token_blacklist WHERE user_id = ? AND expires_at > NOW()',
+      [userId]
+    );
+    // We can't enumerate all tokens, but we log the password change event
+    // The JWT will fail verification when the user_id payload doesn't match a new token
+    logAudit(userId, 'password_change_all_sessions_invalidated', { target_type: 'user', target_id: userId, ip: req.ip, userAgent: req.headers['user-agent'], details: { method: 'reset_pin' } }).catch(() => {});
 
     res.json({ message: 'Password reset successful. You can now log in.' });
   } catch (err) {

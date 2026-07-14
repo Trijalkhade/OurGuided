@@ -207,7 +207,9 @@ async function isTokenBlacklisted(token) {
     return false;
   } catch (err) {
     console.error('[AUDIT] Token blacklist check failed:', err.message);
-    return false; // Fail open — don't block requests if blacklist check fails
+    // CHECK 17: Fail-closed — if we can't verify, reject the request
+    // This prevents revoked tokens from being used during DB outages
+    return true;
   }
 }
 

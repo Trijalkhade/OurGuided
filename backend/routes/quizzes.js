@@ -33,7 +33,7 @@ router.get('/', auth, async (req, res) => {
        ORDER BY q.created_at DESC`,
       [req.user.user_id, ...params]);
     res.json(quizzes);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /my — quizzes created by current user ── */
@@ -45,7 +45,7 @@ router.get('/my', auth, async (req, res) => {
               (SELECT COUNT(*) FROM quiz_attempts  WHERE quiz_id=q.quiz_id) AS attempt_count
        FROM quizzes q WHERE q.creator_id=? AND q.is_deleted = FALSE ORDER BY q.created_at DESC`, [req.user.user_id]);
     res.json(quizzes);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /:id — full quiz with questions (no answers revealed) ── */
@@ -82,7 +82,7 @@ router.get('/:id', auth, async (req, res) => {
     quiz.user_attempt = attempt || null;
 
     res.json(quiz);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── POST / — create quiz (experts only) ── */
@@ -163,7 +163,7 @@ router.post('/', auth, globalActionLimiter, async (req, res) => {
     })();
 
     res.status(201).json({ quiz_id: quizId, message: 'Quiz created!' });
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 });
 
@@ -260,7 +260,7 @@ router.post('/:id/submit', auth, async (req, res) => {
       response.growth = growthResult;
     }
     res.json(response);
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 });
 
@@ -317,7 +317,7 @@ router.get('/:id/review/:attemptId', auth, async (req, res) => {
       completed_at: attempt.completed_at,
       review,
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── DELETE /:id — delete own quiz ── */
@@ -327,7 +327,7 @@ router.delete('/:id', auth, async (req, res) => {
       [req.params.id, req.user.user_id]);
     if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized' });
     res.json({ message: 'Quiz deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /:id/leaderboard ── */
@@ -344,7 +344,7 @@ router.get('/:id/leaderboard', auth, async (req, res) => {
        GROUP BY qa.user_id ORDER BY best_pct DESC, best_score DESC LIMIT 20`,
       [req.params.id]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 module.exports = router;

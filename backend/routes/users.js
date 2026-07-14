@@ -6,6 +6,7 @@ const upload = require('../middleware/upload');
 const { formatPhoto, resolveUserId, getUserPublicId } = require('../utils/dbHelpers');
 const { uploadToS3 } = require('../utils/s3');
 const { logAudit } = require('../utils/auditLogger');
+const { validateProfileUpdate, validatePhone, validateSkill, validateCertification, validateEducation } = require('../middleware/validators');
 
 /* ── GET /search/:query ── */
 router.get('/search/:query', auth, async (req, res) => {
@@ -16,15 +17,16 @@ router.get('/search/:query', auth, async (req, res) => {
        FROM users u
        LEFT JOIN user_info ui    ON u.user_id=ui.user_id
        LEFT JOIN user_profile up ON u.user_id=up.user_id
-       WHERE u.username LIKE ? OR ui.first_name LIKE ? OR ui.last_name LIKE ?
-        LIMIT 20`, [q, q, q]);
+       WHERE (u.username LIKE ? OR ui.first_name LIKE ? OR ui.last_name LIKE ?)
+         AND (COALESCE(up.is_private, 0) = 0 OR u.user_id = ?)
+        LIMIT 20`, [q, q, q, req.user.user_id]);
     
     for (const u of users) {
       u.photo = formatPhoto(u.photo);
     }
     
     res.json(users);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /leaderboard ── */
@@ -41,7 +43,7 @@ router.get('/leaderboard', auth, async (req, res) => {
        LEFT JOIN study_streak ss ON u.user_id=ss.user_id
        ORDER BY up.total_knowledge DESC LIMIT 20`);
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── GET /:id ── */
@@ -50,6 +52,8 @@ router.get('/:id', auth, async (req, res) => {
     // Resolve UUID public_id to internal user_id
     const userId = await resolveUserId(req.params.id);
     if (!userId) return res.status(404).json({ message: 'User not found' });
+
+    const isOwnProfile = req.user.user_id === userId;
 
     const [[user]] = await db.execute(
       `SELECT u.public_id AS user_id, u.username, u.email, u.join_date,
@@ -64,6 +68,27 @@ router.get('/:id', auth, async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.photo = formatPhoto(user.photo);
+
+    // If profile is private and viewer is NOT the owner, hide ALL data completely
+    if (user.is_private && !isOwnProfile) {
+      return res.json({
+        user_id: user.user_id,
+        username: 'PrivateUser',
+        first_name: 'Private',
+        last_name: 'Account',
+        photo: null,
+        is_expert: false,
+        is_private: true,
+        bio: 'This account is private.',
+        phones: [],
+        skills: [],
+        certifications: [],
+        education: [],
+        post_count: 0,
+        interests: [],
+        study_stats: null,
+      });
+    }
 
     const [phones] = await db.execute(
       'SELECT phone_id, phone_no, about FROM user_phone WHERE user_id=?', [userId]);
@@ -88,12 +113,18 @@ router.get('/:id', auth, async (req, res) => {
       'SELECT streak_days, streak_factor, total_knowledge, multiplier, learning_core FROM study_streak WHERE user_id=?',
       [userId]).catch(() => [[null]]);
 
-    res.json({ ...user, phones, skills, certifications, education, post_count, interests, study_stats: studyStats || null });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    // Strip email from response for non-owners (CHECK 3)
+    const responseData = { ...user, phones, skills, certifications, education, post_count, interests, study_stats: studyStats || null };
+    if (!isOwnProfile) {
+      delete responseData.email;
+    }
+
+    res.json(responseData);
+  } catch (err) { res.status(500).json({ message: 'Failed to load profile' }); }
 });
 
 /* ── PUT /profile/update ── */
-router.put('/profile/update', auth, upload.single('photo'), async (req, res) => {
+router.put('/profile/update', auth, upload.single('photo'), validateProfileUpdate, async (req, res) => {
   const { bio, first_name, middle_name, last_name, dob } = req.body;
   const userId = req.user.user_id;
   const photoPath = req.file ? req.file.path : null;
@@ -108,7 +139,7 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     }
   } catch (err) {
     if (photoPath && fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
-    return res.status(400).json({ message: err.message });
+    return res.status(500).json({ message: 'Internal server error' });
   }
   let conn;
   try {
@@ -139,7 +170,7 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
     res.json({ message: 'Profile updated' });
   } catch (err) { 
     await conn?.rollback(); 
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: 'Internal server error' }); 
   }
   finally { 
     if (conn) conn.release(); 
@@ -148,14 +179,14 @@ router.put('/profile/update', auth, upload.single('photo'), async (req, res) => 
 });
 
 /* ── POST /phones ── */
-router.post('/phones', auth, async (req, res) => {
+router.post('/phones', auth, validatePhone, async (req, res) => {
   const { phone_no, about } = req.body;
   if (!phone_no) return res.status(400).json({ message: 'Phone number required' });
   try {
     const [r] = await db.execute('INSERT INTO user_phone (user_id,phone_no,about) VALUES (?,?,?)',
       [req.user.user_id, phone_no, about || null]);
     res.status(201).json({ phone_id: r.insertId, phone_no, about });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 router.delete('/phones/:id', auth, async (req, res) => {
@@ -163,11 +194,11 @@ router.delete('/phones/:id', auth, async (req, res) => {
     const [r] = await db.execute('DELETE FROM user_phone WHERE phone_id=? AND user_id=?', [req.params.id, req.user.user_id]);
     if (!r.affectedRows) return res.status(403).json({ message: 'Not authorized or phone not found' });
     res.json({ message: 'Phone deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── POST /skills ── */
-router.post('/skills', auth, async (req, res) => {
+router.post('/skills', auth, validateSkill, async (req, res) => {
   const { skill_name } = req.body;
   let conn;
   try {
@@ -181,7 +212,7 @@ router.post('/skills', auth, async (req, res) => {
       [req.user.user_id, skillId]);
     await conn.commit();
     res.status(201).json({ skill_id: skillId, skill_name });
-  } catch (err) { await conn?.rollback(); res.status(500).json({ message: err.message }); }
+  } catch (err) { await conn?.rollback(); res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 });
 
@@ -190,11 +221,11 @@ router.delete('/skills/:id', auth, async (req, res) => {
     await db.execute('DELETE FROM user_skills WHERE skill_id=? AND user_id=?',
       [req.params.id, req.user.user_id]);
     res.json({ message: 'Skill deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── POST /certifications ── */
-router.post('/certifications', auth, upload.single('certificate_img'), async (req, res) => {
+router.post('/certifications', auth, upload.single('certificate_img'), validateCertification, async (req, res) => {
   const { certification_name, certificate_url, certified_level } = req.body;
   const certificate_img_path = req.file ? req.file.path : null;
 
@@ -207,7 +238,7 @@ router.post('/certifications', auth, upload.single('certificate_img'), async (re
     }
   } catch (err) {
     if (certificate_img_path && fs.existsSync(certificate_img_path)) fs.unlinkSync(certificate_img_path);
-    return res.status(400).json({ message: err.message });
+    return res.status(500).json({ message: 'Internal server error' });
   }
   let conn;
   try {
@@ -231,7 +262,7 @@ router.post('/certifications', auth, upload.single('certificate_img'), async (re
     res.status(201).json({ certification_id: certId, certification_name });
   } catch (err) { 
     await conn?.rollback(); 
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: 'Internal server error' }); 
   }
   finally { 
     if (conn) conn.release(); 
@@ -240,7 +271,7 @@ router.post('/certifications', auth, upload.single('certificate_img'), async (re
 });
 
 /* ── POST /education ── */
-router.post('/education', auth, async (req, res) => {
+router.post('/education', auth, validateEducation, async (req, res) => {
   const { type, institution, score } = req.body;
   if (!type || !institution || !score)
     return res.status(400).json({ message: 'Missing fields' });
@@ -252,7 +283,7 @@ router.post('/education', auth, async (req, res) => {
        ON DUPLICATE KEY UPDATE institution=VALUES(institution), score=VALUES(score)`,
       [req.user.user_id, typeRow.type_id, institution, score]);
     res.json({ message: 'Education saved' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── POST /request-expert ── */
@@ -266,7 +297,7 @@ router.post('/request-expert', auth, async (req, res) => {
       return res.status(403).json({ message: 'You need at least 100 knowledge points to become an expert' });
     await db.execute('UPDATE user_profile SET is_expert=TRUE WHERE user_id=?', [req.user.user_id]);
     res.json({ message: 'Expert status granted! You can now create quizzes.', is_expert: true });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* ── DELETE /account — permanently delete user account ── */
@@ -316,7 +347,7 @@ router.delete('/account', auth, async (req, res) => {
     res.json({ message: 'Account deleted successfully' });
   } catch (err) {
     await conn?.rollback();
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }

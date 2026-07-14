@@ -12,7 +12,7 @@ router.get('/settings', auth, async (req, res) => {
               notify_streaks, is_private, is_expert, whatsapp_number
        FROM user_profile WHERE user_id=?`, [req.user.user_id]);
     res.json(row || {});
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* PUT /settings */
@@ -31,7 +31,7 @@ router.put('/settings', auth, async (req, res) => {
        notify_quizzes??null, notify_streaks??null, is_private??null,
        whatsapp_number??null, req.user.user_id]);
     res.json({ message: 'Settings updated' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* GET / — paginated inbox */
@@ -47,7 +47,7 @@ router.get('/', auth, async (req, res) => {
     const [[{ total }]] = await db.execute(
       'SELECT COUNT(*) AS total FROM notifications WHERE user_id=?', [req.user.user_id]);
     res.json({ notifications: rows, total, page, has_more: (offset + rows.length) < total });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* GET /unread-count */
@@ -57,7 +57,7 @@ router.get('/unread-count', auth, async (req, res) => {
       'SELECT COUNT(*) AS cnt FROM notifications WHERE user_id=? AND is_read=FALSE',
       [req.user.user_id]);
     res.json({ count: cnt });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* POST /mark-read */
@@ -65,7 +65,7 @@ router.post('/mark-read', auth, async (req, res) => {
   try {
     await db.execute('UPDATE notifications SET is_read=TRUE WHERE user_id=?', [req.user.user_id]);
     res.json({ message: 'All marked as read' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* DELETE /:id — delete single notification */
@@ -76,7 +76,7 @@ router.delete('/:id', auth, async (req, res) => {
       [req.params.id, req.user.user_id]);
     if (!r.affectedRows) return res.status(404).json({ message: 'Not found' });
     res.json({ message: 'Deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 /* POST /test — send demo notifications */
@@ -106,7 +106,7 @@ router.post('/test', auth, async (req, res) => {
       whatsapp_sent: !!user.notify_whatsapp && !!user.whatsapp_number,
       in_app_sent: true
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 async function createNotification(userId, type, title, message) {

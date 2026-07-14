@@ -3,3 +3,5 @@ node_modules/
 frontend/dist/
 backend/tmp/
 .DS_Store
+users.csv
+*.csv

@@ -43,18 +43,19 @@ exports.getFeed = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    let where = 'WHERE p.is_deleted = FALSE AND p.is_pending = FALSE AND pr_hide.report_id IS NULL';
-    const params = [];
-    if (cat) { where += ' AND p.category = ?'; params.push(cat); }
+    let where = 'WHERE p.is_deleted = FALSE AND p.is_pending = FALSE AND pr_hide.report_id IS NULL AND (COALESCE(up.is_private, 0) = 0 OR p.user_id = ?)';
+    const { sql, params } = buildPostSelect(userId);
+    const queryParams = [...params, userId];
+    if (cat) { where += ' AND p.category = ?'; queryParams.push(cat); }
 
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)} ${where}
-       GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT ${limit} OFFSET ${offset}`, params);
+    const [posts] = await conn.execute(
+      `${sql} ${where}
+       GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT ${limit} OFFSET ${offset}`, queryParams);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { console.error('FEED ERROR:', err.message); res.status(500).json({ message: err.message }); }
+  } catch (err) { console.error('FEED ERROR:', err.message); res.status(500).json({ message: 'Failed to load feed' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -65,15 +66,16 @@ exports.getUserPosts = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)}
-       WHERE p.user_id = ? AND p.is_deleted = FALSE AND p.is_pending = FALSE
-       GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 50`, [profileId]);
+    const { sql, params } = buildPostSelect(userId);
+    const [posts] = await conn.execute(
+      `${sql}
+       WHERE p.user_id = ? AND p.is_deleted = FALSE AND p.is_pending = FALSE AND (COALESCE(up.is_private, 0) = 0 OR p.user_id = ?)
+       GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 50`, [...params, profileId, userId]);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Failed to load user posts' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -82,16 +84,17 @@ exports.getWatchlist = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)}
+    const { sql, params } = buildPostSelect(userId);
+    const [posts] = await conn.execute(
+      `${sql}
        INNER JOIN user_watch uw ON uw.post_id = p.post_id AND uw.user_id = ?
        WHERE p.is_deleted = FALSE
-       GROUP BY p.post_id ORDER BY uw.watch_date DESC LIMIT 50`, [userId]);
+       GROUP BY p.post_id ORDER BY uw.watch_date DESC LIMIT 50`, [...params, userId]);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Failed to load watchlist' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -105,14 +108,15 @@ exports.getPendingPosts = async (req, res) => {
     if (!expert?.is_expert)
       return res.status(403).json({ message: 'Expert access required' });
 
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)} WHERE p.is_deleted = FALSE AND p.is_pending = TRUE
-       GROUP BY p.post_id ORDER BY p.post_date DESC`);
+    const { sql, params } = buildPostSelect(userId);
+    const [posts] = await conn.execute(
+      `${sql} WHERE p.is_deleted = FALSE AND p.is_pending = TRUE
+       GROUP BY p.post_id ORDER BY p.post_date DESC`, params);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Failed to load pending posts' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -139,15 +143,16 @@ exports.getPostsByTag = async (req, res) => {
        INNER JOIN post_tags pt  ON pt.post_id = p.post_id AND pt.tag = ?
        INNER JOIN users u       ON p.user_id  = u.user_id
        LEFT  JOIN user_info ui  ON p.user_id  = ui.user_id
+       LEFT  JOIN user_profile up ON p.user_id = up.user_id
        LEFT  JOIN post_tags pt2 ON p.post_id  = pt2.post_id
-       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE
+       WHERE p.is_pending = FALSE AND p.is_deleted = FALSE AND (COALESCE(up.is_private, 0) = 0 OR p.user_id = ?)
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT ${limit} OFFSET ${offset}`,
-      [userId, userId, tag]);
+      [userId, userId, tag, userId]);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -159,17 +164,19 @@ exports.searchPosts = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)}
+    const { sql, params } = buildPostSelect(userId);
+    const [posts] = await conn.execute(
+      `${sql}
        WHERE p.is_pending = FALSE AND p.is_deleted = FALSE AND pr_hide.report_id IS NULL
+         AND (COALESCE(up.is_private, 0) = 0 OR p.user_id = ?)
          AND (p.text LIKE ? OR pt.tag LIKE ? OR p.category LIKE ?)
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
-      [like, like, like]);
+      [...params, userId, like, like, like]);
 
     await batchExtraImages(conn, posts);
     posts.forEach(processImages);
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Search failed' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -180,8 +187,9 @@ exports.getPostDetail = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [posts] = await conn.query(
-      `${buildPostSelect(userId)} WHERE p.post_id=? AND p.is_deleted = FALSE GROUP BY p.post_id`, [postId]);
+    const { sql, params } = buildPostSelect(userId);
+    const [posts] = await conn.execute(
+      `${sql} WHERE p.post_id=? AND p.is_deleted = FALSE GROUP BY p.post_id`, [...params, postId]);
     if (!posts.length) return res.status(404).json({ message: 'Post not found' });
 
     await batchExtraImages(conn, posts);
@@ -203,7 +211,7 @@ exports.getPostDetail = async (req, res) => {
     }
     post.comments = comments;
     res.json(post);
-  } catch (err) { console.error('POST DETAIL:', err.message); res.status(500).json({ message: err.message }); }
+  } catch (err) { console.error('POST DETAIL:', err.message); res.status(500).json({ message: 'Failed to load post' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -214,7 +222,7 @@ exports.createPost = async (req, res) => {
   const videoFile   = req.files?.video?.[0]?.path   || null;
 
   const fs = require('fs');
-  const { isBufferSafeImage } = require('../utils/security');
+  const { isBufferSafeImage, isBufferSafeVideo } = require('../utils/security');
   
   try {
     if (mainImage) {
@@ -225,11 +233,15 @@ exports.createPost = async (req, res) => {
       const buffer = fs.readFileSync(imgPath);
       if (!isBufferSafeImage(buffer)) throw new Error('One or more extra images have an invalid format');
     }
+    if (videoFile) {
+      const buffer = fs.readFileSync(videoFile);
+      if (!isBufferSafeVideo(buffer)) throw new Error('Invalid video format detected');
+    }
   } catch (err) {
     if (mainImage) fs.unlinkSync(mainImage);
     extraImages.forEach(p => fs.unlinkSync(p));
     if (videoFile) fs.unlinkSync(videoFile);
-    return res.status(400).json({ message: err.message });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 
   if (!content && !mainImage && !video && !videoFile)
@@ -332,7 +344,7 @@ exports.createPost = async (req, res) => {
       })();
     }
     
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: 'Internal server error' }); 
   }
   finally { if (conn) conn.release(); }
 };
@@ -368,7 +380,7 @@ exports.deletePost = async (req, res) => {
     res.json({ message: 'Post and associated media deleted successfully' });
   } catch (err) { 
     console.error('DELETE POST ERROR:', err.message);
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: 'Internal server error' }); 
   } finally { 
     if (conn) conn.release(); 
   }
@@ -379,11 +391,16 @@ exports.approvePost = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [[expert]] = await conn.execute('SELECT is_expert FROM user_profile WHERE user_id=?', [userId]);
-    if (!expert?.is_expert) return res.status(403).json({ message: 'Expert access required' });
-    await conn.execute('UPDATE posts SET is_pending=FALSE WHERE post_id=?', [req.params.id]);
+    // CHECK 3: Require moderator/admin role — not just expert status
+    const [[user]] = await conn.execute('SELECT role FROM users WHERE user_id=?', [userId]);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ message: 'Moderator or admin access required' });
+    }
+    const postId = await resolvePostId(req.params.id);
+    if (!postId) return res.status(404).json({ message: 'Post not found' });
+    await conn.execute('UPDATE posts SET is_pending=FALSE WHERE post_id=?', [postId]);
     res.json({ message: 'Post approved' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Failed to approve post' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -392,11 +409,16 @@ exports.rejectPost = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const [[expert]] = await conn.execute('SELECT is_expert FROM user_profile WHERE user_id=?', [userId]);
-    if (!expert?.is_expert) return res.status(403).json({ message: 'Expert access required' });
-    await conn.execute('DELETE FROM posts WHERE post_id=?', [req.params.id]);
+    // CHECK 3: Require moderator/admin role
+    const [[user]] = await conn.execute('SELECT role FROM users WHERE user_id=?', [userId]);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ message: 'Moderator or admin access required' });
+    }
+    const postId = await resolvePostId(req.params.id);
+    if (!postId) return res.status(404).json({ message: 'Post not found' });
+    await conn.execute('DELETE FROM posts WHERE post_id=?', [postId]);
     res.json({ message: 'Post rejected' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Failed to reject post' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -436,7 +458,7 @@ exports.likePost = async (req, res) => {
     })();
 
     res.json({ liked: true });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -456,7 +478,7 @@ exports.watchlistToggle = async (req, res) => {
     await conn.execute('INSERT INTO user_watch (user_id,post_id) VALUES (?,?)',
       [req.user.user_id, postId]);
     res.json({ saved: true });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -497,7 +519,7 @@ exports.commentOnPost = async (req, res) => {
     })();
 
     res.status(201).json({ comment_id: r.insertId });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { res.status(500).json({ message: 'Internal server error' }); }
   finally { if (conn) conn.release(); }
 };
 
@@ -530,7 +552,7 @@ exports.getPostLikers = async (req, res) => {
     res.json(likers);
   } catch (err) {
     console.error('GET LIKERS ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -557,8 +579,9 @@ exports.getPublicFeed = async (req, res) => {
        FROM posts p
        INNER JOIN users u     ON p.user_id  = u.user_id
        LEFT  JOIN user_info ui ON p.user_id = ui.user_id
+       LEFT  JOIN user_profile up ON p.user_id = up.user_id
        LEFT  JOIN post_tags pt ON p.post_id = pt.post_id
-       WHERE p.is_deleted = FALSE AND p.is_pending = FALSE
+       WHERE p.is_deleted = FALSE AND p.is_pending = FALSE AND COALESCE(up.is_private, 0) = 0
        GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 10`
     );
 
@@ -576,7 +599,7 @@ exports.getPublicFeed = async (req, res) => {
     res.json(posts);
   } catch (err) {
     console.error('PUBLIC FEED ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
@@ -596,6 +619,6 @@ exports.getPublicStats = async (req, res) => {
     );
     res.json({ posts: postCount, users: userCount, quizzes: quizCount });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   }
 };

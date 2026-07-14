@@ -9,6 +9,17 @@ const resend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'you
 
 const ADMIN_EMAIL = 'trijalkhadekop13@gmail.com';
 
+// CHECK 18: HTML-escape helper to prevent XSS in email templates
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ─── Emoji map for feedback types ─────────────────────────────────────────── */
 const TYPE_META = {
     Complaint:   { emoji: '😤', color: '#ef4444', label: 'Complaint' },
@@ -65,7 +76,7 @@ function buildAdminEmail({ type, content, username, email, rating, timestamp }) 
       <div class="meta-row">
         <div class="field">
           <div class="field-label">From</div>
-          <div class="field-value plain">${username} &lt;${email}&gt;</div>
+          <div class="field-value plain">${escapeHtml(username)} &lt;${escapeHtml(email)}&gt;</div>
         </div>
         <div class="field">
           <div class="field-label">Rating</div>
@@ -84,7 +95,7 @@ function buildAdminEmail({ type, content, username, email, rating, timestamp }) 
       </div>
       <div class="field">
         <div class="field-label">Message</div>
-        <div class="field-value">${content}</div>
+        <div class="field-value">${escapeHtml(content)}</div>
       </div>
     </div>
     <div class="footer">
@@ -139,7 +150,7 @@ function buildUserEmail({ type, content, username, rating, timestamp }) {
     <div class="hdr">
       <span class="icon">✅</span>
       <h1>We received your feedback!</h1>
-      <p>Hi ${username}, thanks for taking the time to reach out.</p>
+      <p>Hi ${escapeHtml(username)}, thanks for taking the time to reach out.</p>
     </div>
     <div class="body">
       <p class="thanks">Your ${meta.label.toLowerCase()} has been submitted.</p>
@@ -155,7 +166,7 @@ function buildUserEmail({ type, content, username, rating, timestamp }) {
       </div>
       <div class="field">
         <div class="field-label">Your Message</div>
-        <div class="field-value">${content}</div>
+        <div class="field-value">${escapeHtml(content)}</div>
       </div>
       <div class="field">
         <div class="field-label">Submitted At</div>

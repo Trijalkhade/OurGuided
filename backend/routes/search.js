@@ -52,7 +52,7 @@ router.get('/', auth, async (req, res) => {
     res.json({ users, posts, quizzes });
   } catch (err) {
     console.error('SEARCH ERROR:', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error' });
   } finally {
     if (conn) conn.release();
   }
