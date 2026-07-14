@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { RiRocketLine } from 'react-icons/ri';
+import { RiRocketLine, RiCheckLine, RiCloseLine, RiCalendarEventLine } from 'react-icons/ri';
+import WheelDatePicker from '../components/WheelDatePicker';
+
 const isPrerender = typeof navigator !== "undefined" && navigator.userAgent === "ReactSnap";
 const CATEGORIES = [
   { id: 1, name: 'Real Talk', icon: '💬' },
@@ -21,8 +23,32 @@ const Register = () => {
   const [interests, setInterests] = useState([]);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  // Password validation checks
+  const hasMinLength = form.password.length >= 8;
+  const hasUpper = /[A-Z]/.test(form.password);
+  const hasLower = /[a-z]/.test(form.password);
+  const hasNumber = /[0-9]/.test(form.password);
+  const isPasswordValid = hasMinLength && hasUpper && hasLower && hasNumber;
+
+  // Age validation
+  const getAge = (dobString) => {
+    if (!dobString) return 0;
+    const today = new Date();
+    const birthDate = new Date(dobString);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = getAge(form.dob);
+  const isUnderage = form.dob && age < 13;
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -31,8 +57,12 @@ const Register = () => {
 
   const handleStep1 = async (e) => {
     e.preventDefault();
-    if (!form.username || !form.email || !form.password)
+    if (!form.username || !form.email || !form.password || !form.dob)
       return toast.error('Fill in all required fields');
+    if (!isPasswordValid)
+      return toast.error('Please meet all password requirements');
+    if (isUnderage)
+      return toast.error('You must be at least 13 years old to register');
     if (!privacyAccepted)
       return toast.error('Please accept the terms and conditions');
     setStep(2);
@@ -91,13 +121,58 @@ const Register = () => {
             </div>
             <div className="form-group">
               <label>Password *</label>
-              <input type="password" placeholder="Minimum 6 characters" required minLength={6}
+              <input type="password" placeholder="Create a strong password" required 
                 value={form.password} onChange={set('password')} />
+              
+              {/* Password Nuances UI */}
+              <div className="password-requirements" style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: hasMinLength ? 'var(--success, #10b981)' : 'var(--text3)' }}>
+                  {hasMinLength ? <RiCheckLine /> : <RiCloseLine />} <span>At least 8 characters</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: hasUpper ? 'var(--success, #10b981)' : 'var(--text3)' }}>
+                  {hasUpper ? <RiCheckLine /> : <RiCloseLine />} <span>One uppercase letter</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: hasLower ? 'var(--success, #10b981)' : 'var(--text3)' }}>
+                  {hasLower ? <RiCheckLine /> : <RiCloseLine />} <span>One lowercase letter</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: hasNumber ? 'var(--success, #10b981)' : 'var(--text3)' }}>
+                  {hasNumber ? <RiCheckLine /> : <RiCloseLine />} <span>One number</span>
+                </div>
+              </div>
             </div>
+
             <div className="form-group">
               <label>Date of Birth *</label>
-              <input type="date" required min="1945-01-01" max="2012-12-31"
-                value={form.dob} onChange={set('dob')} />
+              <div 
+                className={`dob-trigger ${isUnderage ? 'error-border' : ''}`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px', border: `1px solid ${isUnderage ? '#ef4444' : 'var(--border)'}`, 
+                  borderRadius: '8px', cursor: 'pointer', background: 'var(--bg2)', color: form.dob ? 'var(--text)' : 'var(--text3)'
+                }}
+                onClick={() => setShowDatePicker(true)}
+              >
+                <span>{form.dob ? new Date(form.dob).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Select your birth date'}</span>
+                <RiCalendarEventLine size={18} />
+              </div>
+              
+              {isUnderage && (
+                <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <RiCloseLine size={14} /> You must be 13 or older to join.
+                </div>
+              )}
+
+              {showDatePicker && (
+                <div className="wheel-modal-overlay" onClick={() => setShowDatePicker(false)}>
+                  <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px' }}>
+                    <WheelDatePicker 
+                      value={form.dob} 
+                      onChange={(val) => setForm(prev => ({ ...prev, dob: val }))} 
+                      onClose={() => setShowDatePicker(false)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {/* Honeypot field */}
             <div className="form-group" style={{ display: 'none' }}>
