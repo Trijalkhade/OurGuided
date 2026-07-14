@@ -393,11 +393,12 @@ router.get('/feed', auth, async (req, res) => {
         const placeholders = ids.map(() => '?').join(',');
         
         // Fetch full post details, preserving rank order
+        const { sql, params } = buildPostSelect(userId);
         const [candidates] = await conn.query(
-          `${buildPostSelect(userId)}
+          `${sql}
            WHERE p.post_id IN (${placeholders}) AND pr_hide.report_id IS NULL
            GROUP BY p.post_id`,
-          ids
+          [...params, ...ids]
         );
 
         // Sort posts back to the precomputed rank order
@@ -418,12 +419,14 @@ router.get('/feed', auth, async (req, res) => {
       // Fallback: feed not precomputed yet (e.g. fresh database or training not run)
       // Grab chronological latest posts
       const offset = (page - 1) * limit;
+      const { sql, params } = buildPostSelect(userId);
       const [candidates] = await conn.query(
-        `${buildPostSelect(userId)}
+        `${sql}
          WHERE p.is_pending = FALSE AND p.is_deleted = FALSE AND pr_hide.report_id IS NULL
          GROUP BY p.post_id
          ORDER BY p.post_date DESC
-         LIMIT ${limit + 1} OFFSET ${offset}`
+         LIMIT ${limit + 1} OFFSET ${offset}`,
+         params
       );
       hasMore = candidates.length > limit;
       posts = candidates.slice(0, limit);

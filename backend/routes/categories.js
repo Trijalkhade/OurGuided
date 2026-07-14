@@ -68,20 +68,21 @@ router.get('/recommended', auth, async (req, res) => {
       [userId]);
 
     let posts;
+    const { sql, params } = buildPostSelect(userId);
     if (interests.length) {
       const names = interests.map(i => i.name);
       const placeholders = names.map(() => '?').join(',');
       [posts] = await db.query(
-        `${buildPostSelect(userId)}
+        `${sql}
          WHERE p.category IN (${placeholders}) AND p.is_pending=FALSE AND p.is_deleted=FALSE
          GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`,
-        [...names]);
+        [...params, ...names]);
     } else {
       // Fall back to latest posts
       [posts] = await db.query(
-        `${buildPostSelect(userId)}
+        `${sql}
          WHERE p.is_pending=FALSE AND p.is_deleted=FALSE
-         GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`);
+         GROUP BY p.post_id ORDER BY p.post_date DESC LIMIT 20`, params);
     }
 
     // Convert images
